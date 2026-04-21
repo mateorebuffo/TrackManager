@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Descargando… — Music Collector{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h4 class="mb-0">Auto-descarga en progreso</h4>
+  <span class="text-muted small">{{ total }} track{{ 's' if total != 1 else '' }} en cola</span>
+</div>
+
+{# ── Progress bar ────────────────────────────────────────────────────────── #}
+<div class="mb-3">
+  <div class="d-flex justify-content-between small text-muted mb-1">
+    <span id="status-text">Iniciando…</span>
+    <span id="count-text">0 / {{ total }}</span>
+  </div>
+  <div class="progress" style="height:22px;">
+    <div id="progress-bar"
+         class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
+         style="width:0%; transition: width 0.4s ease;">
+    </div>
+  </div>
+</div>
+
+{# ── Log ─────────────────────────────────────────────────────────────────── #}
+<div id="log"
+     class="font-monospace small rounded p-3"
+     style="background:#1a1a2e; color:#e0e0e0; min-height:200px; max-height:500px; overflow-y:auto;">
+  <span class="text-secondary">Esperando…</span>
+</div>
+
+<div class="mt-3 text-muted small" id="done-msg" style="display:none;">
+  ✓ Completado. Redirigiendo al resumen…
+</div>
+
+<script>
+const total = {{ total }};
+const jobId = "{{ job_id }}";
+
+const bar     = document.getElementById('progress-bar');
+const logEl   = document.getElementById('log');
+const statusEl = document.getElementById('status-text');
+const countEl  = document.getElementById('count-text');
+const doneMsg  = document.getElementById('done-msg');
+
+const icons  = { downloaded: '✓', low_quality: '⚠', not_found: '✕', vinyl_only: '♪', bandcamp_only: 'BC', processing: '⟳' };
+const colors = { downloaded: '#4caf50', low_quality: '#ffc107', not_found: '#f44336', vinyl_only: '#ff9800', bandcamp_only: '#1da0c3', processing: '#90caf9' };
+
+let logCleared = false;
+
+const es = new EventSource('/auto-download/stream/' + jobId);
+
+let completed = 0;
+
+es.onmessage = function(e) {
+  const data = JSON.parse(e.data);
+
+  if (data.type === 'processing') {
+    if (!logCleared) { logEl.innerHTML = ''; logCleared = true; }
+    statusEl.textContent = 'Descargando…';
+
+    // Add a spinning line (may appear out of order — that's fine)
+    const line = document.createElement('div');
+    line.id = 'line-' + data.current;
+    line.style.color = colors.processing;
+    line.textContent = icons.processing + ' ' + data.label;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  else if (data.type === 'result') {
+    completed++;
+    countEl.textContent = completed + ' / ' + data.total;
+    const pct = Math.round(completed / data.total * 100);
+    bar.style.width = pct + '%';
+
+    // Update the matching spinning line
+    const line = document.getElementById('line-' + data.current);
+    if (line) {
+      line.style.color = colors[data.result] || '#ccc';
+      line.textContent = icons[data.result] + ' ' + data.label;
+    }
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  else if (data.type === 'done') {
+    es.close();
+    bar.style.width = '100%';
+    bar.classList.remove('progress-bar-animated', 'bg-primary');
+    bar.classList.add('bg-success');
+    statusEl.textContent = 'Completado';
+    doneMsg.style.display = 'block';
+    setTimeout(() => {
+      window.location.href = '/auto-download/result/' + data.job_id;
+    }, 1200);
+  }
+
+  else if (data.type === 'error') {
+    es.close();
+    bar.classList.add('bg-danger');
+    statusEl.textContent = 'Error: ' + data.message;
+  }
+};
+
+es.onerror = function() {
+  es.close();
+  statusEl.textContent = 'Error de conexión.';
+};
+</script>
+
+{% endblock %}

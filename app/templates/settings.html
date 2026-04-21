@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Configuraciones — Music Collector{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h4 class="mb-0">Configuraciones</h4>
+</div>
+
+{% if request.query_params.get('saved') %}
+<div class="alert alert-success alert-dismissible fade show" role="alert">
+  Configuración guardada correctamente.
+  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
+<form method="POST" action="/settings">
+<div class="d-flex flex-column gap-4">
+
+  {# ── SoundCloud ───────────────────────────────────────────────────────── #}
+  <div class="card shadow-sm">
+    <div class="card-header fw-semibold">SoundCloud</div>
+    <div class="card-body d-flex flex-column gap-3">
+      {% for key, label, field_type, required in fields if key.startswith('SOUNDCLOUD') %}
+        <div>
+          <label class="form-label fw-semibold small mb-1">{{ label }}</label>
+          <input type="{{ field_type }}" name="{{ key }}" class="form-control form-control-sm font-monospace"
+                 value="{{ current.get(key, '') }}" autocomplete="off"
+                 {% if required %}required{% endif %}>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ── Spotify ──────────────────────────────────────────────────────────── #}
+  <div class="card shadow-sm">
+    <div class="card-header fw-semibold">Spotify</div>
+    <div class="card-body d-flex flex-column gap-3">
+      {% for key, label, field_type, required in fields if key.startswith('SPOTIFY') %}
+        <div>
+          <label class="form-label fw-semibold small mb-1">{{ label }}</label>
+          <input type="{{ field_type }}" name="{{ key }}" class="form-control form-control-sm font-monospace"
+                 value="{{ current.get(key, '') }}" autocomplete="off"
+                 {% if required %}required{% endif %}>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ── YouTube ──────────────────────────────────────────────────────────── #}
+  <div class="card shadow-sm">
+    <div class="card-header fw-semibold">YouTube</div>
+    <div class="card-body d-flex flex-column gap-3">
+      {% for key, label, field_type, required in fields if key.startswith('YOUTUBE') %}
+        <div>
+          <label class="form-label fw-semibold small mb-1">{{ label }}</label>
+          <input type="{{ field_type }}" name="{{ key }}" class="form-control form-control-sm font-monospace"
+                 value="{{ current.get(key, '') }}" autocomplete="off"
+                 {% if required %}required{% endif %}>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ── Descarga automática ──────────────────────────────────────────────── #}
+  <div class="card shadow-sm">
+    <div class="card-header fw-semibold">Descarga automática</div>
+    <div class="card-body d-flex flex-column gap-3">
+
+      <div>
+        <label class="form-label fw-semibold small mb-1">Muzpa Session (SESS=...)</label>
+        <input type="password" name="MUZPA_SESS" class="form-control form-control-sm font-monospace"
+               value="{{ current.get('MUZPA_SESS', '') }}" autocomplete="off">
+      </div>
+
+      <div>
+        <label class="form-label fw-semibold small mb-1">Deezer ARL</label>
+        <input type="password" name="DEEZER_ARL" class="form-control form-control-sm font-monospace"
+               value="{{ current.get('DEEZER_ARL', '') }}" autocomplete="off">
+      </div>
+
+      <div>
+        <label class="form-label fw-semibold small mb-1">Carpeta de descarga</label>
+        <div class="input-group input-group-sm">
+          <input type="text" name="DOWNLOAD_DIR" id="download-dir"
+                 class="form-control font-monospace"
+                 value="{{ current.get('DOWNLOAD_DIR', '') }}"
+                 placeholder="C:\Users\...\Music">
+          <button type="button" class="btn btn-outline-secondary" onclick="pickFolder()">
+            Examinar…
+          </button>
+        </div>
+        <div class="form-text text-muted small">
+          Ruta completa a la carpeta donde se guardarán los MP3.
+        </div>
+      </div>
+
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="DOWNLOAD_FULL_EPS" id="download-eps"
+               {% if current.get('DOWNLOAD_FULL_EPS', 'false') == 'true' %}checked{% endif %}>
+        <label class="form-check-label" for="download-eps">
+          Descargar EPs completos
+          <span class="text-muted small d-block">Cuando el track pertenece a un EP/Album, descarga todos los temas en una subcarpeta.</span>
+        </label>
+      </div>
+
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="ORGANIZE_BY_LIKE_DATE" id="organize-date"
+               {% if current.get('ORGANIZE_BY_LIKE_DATE', 'false') == 'true' %}checked{% endif %}>
+        <label class="form-check-label" for="organize-date">
+          Organizar descargas por fecha de like
+          <span class="text-muted small d-block">Guarda cada track en <code>&lt;carpeta&gt;/YYYY/YYYY-MM/</code> según la fecha en que lo likeaste.</span>
+        </label>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<div class="mt-4 d-flex gap-2">
+  <button type="submit" class="btn btn-primary">Guardar configuración</button>
+  <a href="/tracks/pending" class="btn btn-outline-secondary">Cancelar</a>
+</div>
+</form>
+
+<script>
+async function pickFolder() {
+  if (!window.showDirectoryPicker) {
+    alert('Tu navegador no soporta el selector de carpetas.\nIngresá la ruta manualmente.');
+    return;
+  }
+  try {
+    const handle = await window.showDirectoryPicker({ mode: 'read' });
+    // showDirectoryPicker only gives the folder name, not the full path.
+    // We populate it so the user can verify and adjust manually if needed.
+    const input = document.getElementById('download-dir');
+    const current = input.value;
+    if (current) {
+      // Replace last segment with picked folder name
+      const parts = current.replace(/[/\\]+$/, '').split(/[/\\]/);
+      parts[parts.length - 1] = handle.name;
+      input.value = parts.join('\\');
+    } else {
+      input.value = handle.name;
+    }
+  } catch (e) {
+    // User cancelled picker — do nothing
+  }
+}
+</script>
+{% endblock %}
