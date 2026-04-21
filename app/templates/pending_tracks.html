@@ -1,0 +1,470 @@
+{% extends "base.html" %}
+
+{% block title %}Tracks — Music Collector{% endblock %}
+
+{% block content %}
+
+{# ── Header ─────────────────────────────────────────────────────────────── #}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h4 class="mb-0">
+    Tracks
+    <span class="badge bg-secondary ms-1">{{ count }}</span>
+  </h4>
+  <div class="d-flex gap-2 align-items-center">
+
+    {# SoundCloud #}
+    <form method="POST" action="/sync/soundcloud">
+      <button type="submit" class="btn btn-sm" style="background:#ff8800;color:#fff;">SoundCloud</button>
+    </form>
+
+    {# Spotify #}
+    {% if spotify_connected %}
+      <div class="btn-group btn-group-sm">
+        <form method="POST" action="/sync/spotify">
+          <button type="submit" class="btn btn-success btn-sm">Spotify</button>
+        </form>
+        <button type="button" class="btn btn-success btn-sm dropdown-toggle dropdown-toggle-split"
+                data-bs-toggle="dropdown"></button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li>
+            <form method="POST" action="/sync/spotify/disconnect"
+                  onsubmit="return confirm('¿Desconectar Spotify?')">
+              <button class="dropdown-item text-danger">Desconectar</button>
+            </form>
+          </li>
+        </ul>
+      </div>
+    {% else %}
+      <a href="/sync/spotify/connect" class="btn btn-outline-success btn-sm">+ Spotify</a>
+    {% endif %}
+
+    {# YouTube #}
+    {% if youtube_connected %}
+      <div class="btn-group btn-group-sm">
+        <form method="POST" action="/sync/youtube">
+          <button type="submit" class="btn btn-danger btn-sm">YouTube</button>
+        </form>
+        <button type="button" class="btn btn-danger btn-sm dropdown-toggle dropdown-toggle-split"
+                data-bs-toggle="dropdown"></button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li>
+            <form method="POST" action="/sync/youtube/disconnect"
+                  onsubmit="return confirm('¿Desconectar YouTube?')">
+              <button class="dropdown-item text-danger">Desconectar</button>
+            </form>
+          </li>
+        </ul>
+      </div>
+    {% else %}
+      <a href="/sync/youtube/connect" class="btn btn-outline-danger btn-sm">+ YouTube</a>
+    {% endif %}
+
+  </div>
+</div>
+
+{# ── Compare mode banner ─────────────────────────────────────────────────── #}
+{% if compare_mode %}
+<div class="alert alert-warning d-flex align-items-center justify-content-between py-2 mb-3">
+  <span><strong>Modo comparación</strong> — estos dos tracks pueden ser el mismo. Revisalos y descartá el que no necesites.</span>
+  <div class="d-flex gap-2 ms-3">
+    <button class="btn btn-sm btn-outline-secondary" onclick="history.back()">← Atrás</button>
+    <a href="/tracks/pending" class="btn btn-sm btn-secondary">Lista de pendientes</a>
+  </div>
+</div>
+{% endif %}
+
+{# ── Status tabs ─────────────────────────────────────────────────────────── #}
+{% if not compare_mode %}
+{% set tab_statuses = [
+  ("pending",       "Pendiente",      "bg-secondary"),
+  ("queued",        "En cola",        "bg-primary"),
+  ("downloaded",    "Descargado",     "bg-success"),
+  ("not_found",     "No encontrado",  "bg-danger"),
+  ("vinyl_only",    "Solo vinilo",    "bg-warning text-dark"),
+  ("bandcamp_only", "Solo Bandcamp",  "bg-primary"),
+  ("set_mix",        "Sets",           "bg-info text-dark"),
+  ("discarded",     "Descartado",     "bg-secondary"),
+  ("all",           "Todos",          "bg-dark"),
+] %}
+<div class="mb-2 d-flex flex-wrap gap-1">
+  {% for tab_val, tab_label, tab_color in tab_statuses %}
+    {% set tab_count = counts.get(tab_val) %}
+    <a href="/tracks/pending?status={{ tab_val }}&sort={{ sort }}&q={{ q }}&source={{ source }}"
+       class="btn btn-sm {% if active_status == tab_val %}btn-dark{% else %}btn-outline-secondary{% endif %}">
+      {{ tab_label }}
+      {% if tab_val != 'all' and tab_count %}
+        <span class="badge {{ tab_color }} ms-1">{{ tab_count }}</span>
+      {% endif %}
+    </a>
+  {% endfor %}
+</div>
+
+{% endif %}{# end if not compare_mode — tabs #}
+
+{# ── Search + Sort + Date bar ────────────────────────────────────────────── #}
+{% if not compare_mode %}
+<form method="GET" action="/tracks/pending" id="filter-form">
+  <input type="hidden" name="status" value="{{ active_status }}">
+
+  <div class="bg-white border rounded px-3 py-2 mb-3 shadow-sm">
+  <div class="d-flex flex-wrap gap-2 align-items-center">
+    <span class="text-muted small fw-semibold me-1" style="white-space:nowrap;">Filtros</span>
+    <div class="vr"></div>
+    <input type="hidden" name="source" value="{{ source }}">
+    <input
+      type="search"
+      name="q"
+      value="{{ q }}"
+      placeholder="Buscar artista o título…"
+      class="form-control form-control-sm"
+      style="max-width:260px;"
+      onsearch="this.form.submit()"
+    >
+    <select name="sort" class="form-select form-select-sm" style="max-width:180px;" onchange="this.form.submit()">
+      <option value="newest"      {% if sort == 'newest'      %}selected{% endif %}>Más recientes</option>
+      <option value="oldest"      {% if sort == 'oldest'      %}selected{% endif %}>Más antiguos</option>
+      <option value="artist_asc"  {% if sort == 'artist_asc'  %}selected{% endif %}>Artista A-Z</option>
+      <option value="artist_desc" {% if sort == 'artist_desc' %}selected{% endif %}>Artista Z-A</option>
+      <option value="title_asc"   {% if sort == 'title_asc'   %}selected{% endif %}>Título A-Z</option>
+      <option value="title_desc"  {% if sort == 'title_desc'  %}selected{% endif %}>Título Z-A</option>
+    </select>
+
+    {# Date filter toggle button #}
+    <button type="button"
+            class="btn btn-sm {% if date_filter_active %}btn-warning{% else %}btn-outline-secondary{% endif %}"
+            onclick="toggleDateFilter()">
+      📅 Fecha{% if date_filter_active %} ✓{% endif %}
+    </button>
+
+    <button type="submit" class="btn btn-outline-secondary btn-sm">Buscar</button>
+
+    {# Source filter buttons #}
+    <div class="btn-group btn-group-sm">
+      <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q }}"
+         class="btn {% if not source %}btn-secondary{% else %}btn-outline-secondary{% endif %}">Todos</a>
+      <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q }}&source=soundcloud"
+         class="btn {% if source == 'soundcloud' %}btn-secondary{% else %}btn-outline-secondary{% endif %}"
+         style="{% if source == 'soundcloud' %}background:#ff8800;border-color:#ff8800;color:#fff;{% endif %}">SC</a>
+      <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q }}&source=spotify"
+         class="btn {% if source == 'spotify' %}btn-success{% else %}btn-outline-success{% endif %}">SP</a>
+      <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q }}&source=youtube"
+         class="btn {% if source == 'youtube' %}btn-danger{% else %}btn-outline-danger{% endif %}">YT</a>
+    </div>
+
+    {% if q or date_filter_active or source %}
+      <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}"
+         class="btn btn-outline-danger btn-sm">✕ Limpiar</a>
+    {% endif %}
+  </div>
+
+  {# Date range panel — visible when active or toggled #}
+  <div id="date-filter-panel"
+       class="d-flex align-items-center gap-2 mt-2 pt-2 border-top"
+       style="display:{% if date_filter_active %}flex{% else %}none{% endif %} !important;">
+    <label class="form-label mb-0 small fw-semibold text-nowrap">Desde</label>
+    <input type="date" name="date_from"
+           value="{{ date_from if date_from else default_date_from }}"
+           class="form-control form-control-sm" style="max-width:150px;">
+    <label class="form-label mb-0 small fw-semibold text-nowrap">Hasta</label>
+    <input type="date" name="date_to"
+           value="{{ date_to if date_to else default_date_to }}"
+           class="form-control form-control-sm" style="max-width:150px;">
+    <button type="submit" class="btn btn-primary btn-sm">Aplicar</button>
+    {% if date_filter_active %}
+      <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q }}"
+         class="btn btn-outline-secondary btn-sm">Quitar fecha</a>
+    {% endif %}
+  </div>
+
+  </div>{# end bg-white card #}
+</form>
+
+{% endif %}{# end if not compare_mode — filters #}
+
+{# ── Track table ─────────────────────────────────────────────────────────── #}
+{% if rows %}
+<form method="POST" action="/tracks/download-queue" id="queue-form">
+
+<div class="d-flex justify-content-end gap-2 mb-2 flex-wrap">
+  {# Armar cola — visible cuando hay tracks seleccionables para descargar #}
+  {% if active_status in ['pending', 'not_found', 'vinyl_only', 'bandcamp_only', 'all'] %}
+    <button type="submit" class="btn btn-success btn-sm">Armar lista de descarga ↗</button>
+  {% endif %}
+
+  {# Reintentar — visible en tabs resueltos (vuelve a la cola de descarga) #}
+  {% if active_status in ['downloaded', 'not_found', 'vinyl_only', 'bandcamp_only'] %}
+    <button type="submit" form="queue-form" formaction="/tracks/bulk-to-queue"
+            class="btn btn-primary btn-sm">↺ Reintentar descarga</button>
+  {% endif %}
+
+  {# Volver a pendiente — visible en cualquier tab que no sea pending #}
+  {% if active_status != 'pending' and active_status != 'queued' %}
+    <button type="submit" form="queue-form" formaction="/tracks/bulk-to-pending"
+            class="btn btn-outline-secondary btn-sm">↩ Volver a pendiente</button>
+  {% endif %}
+</div>
+
+<div class="table-responsive">
+  <table class="table table-hover table-sm align-middle bg-white shadow-sm rounded">
+    <thead class="table-dark">
+      <tr>
+        <th><input type="checkbox" id="check-all" onclick="toggleAll()"></th>
+        <th>#</th>
+        <th>
+          <a href="/tracks/pending?status={{ active_status }}&q={{ q }}&sort={% if sort == 'artist_asc' %}artist_desc{% else %}artist_asc{% endif %}"
+             class="text-white text-decoration-none">
+            Artista {% if sort == 'artist_asc' %}↑{% elif sort == 'artist_desc' %}↓{% endif %}
+          </a>
+        </th>
+        <th>
+          <a href="/tracks/pending?status={{ active_status }}&q={{ q }}&sort={% if sort == 'title_asc' %}title_desc{% else %}title_asc{% endif %}"
+             class="text-white text-decoration-none">
+            Título {% if sort == 'title_asc' %}↑{% elif sort == 'title_desc' %}↓{% endif %}
+          </a>
+        </th>
+        <th>Versión</th>
+        <th>Estado</th>
+        <th>Fuente</th>
+        <th>Likeado</th>
+        <th>Dur.</th>
+        <th>Notas</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>
+          {% if row.status not in ["queued", "discarded", "set_mix"] %}
+            <input type="checkbox" name="review_ids" value="{{ row.review_id }}" class="row-check">
+          {% endif %}
+        </td>
+        <td class="text-muted small">{{ loop.index }}</td>
+
+        <td>
+          <strong>{{ row.artist or "—" }}</strong>
+          {% if row.channel and row.channel != row.artist and row.channel != "—" %}
+            <br/><span class="text-muted" style="font-size:0.72rem;">{{ row.channel }}</span>
+          {% endif %}
+        </td>
+
+        <td>
+          {% if row.source_url and row.source_url != "#" %}
+            <a href="{{ row.source_url }}" target="_blank" rel="noopener">{{ row.title or "—" }}</a>
+          {% else %}
+            {{ row.title or "—" }}
+          {% endif %}
+          <br/>
+          <span class="text-muted" style="font-size:0.72rem;" title="{{ row.raw_title }}">
+            {{ row.raw_title | truncate(50, True) }}
+          </span>
+        </td>
+
+        <td>
+          {% if row.version %}
+            <span class="badge bg-info text-dark version-badge">{{ row.version }}</span>
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+
+        <td>
+          {% if row.status == "pending" %}
+            <span class="badge bg-secondary">Pendiente</span>
+          {% elif row.status == "queued" %}
+            <span class="badge bg-primary">En cola</span>
+          {% elif row.status == "downloaded" %}
+            <span class="badge bg-success">Descargado</span>
+          {% elif row.status == "not_found" %}
+            <span class="badge bg-danger">No encontrado</span>
+          {% elif row.status == "vinyl_only" %}
+            <span class="badge bg-warning text-dark">Solo vinilo</span>
+          {% elif row.status == "bandcamp_only" %}
+            <span class="badge bg-primary">Solo Bandcamp</span>
+          {% elif row.status == "set_mix" %}
+            <span class="badge bg-info text-dark">Set</span>
+          {% elif row.status == "discarded" %}
+            <span class="badge bg-secondary">Descartado</span>
+          {% endif %}
+        </td>
+
+        <td>
+          {% if row.source == "soundcloud" %}
+            <span class="badge" style="background:#ff8800;">SoundCloud</span>
+          {% elif row.source == "spotify" %}
+            <span class="badge bg-success">Spotify</span>
+          {% elif row.source == "youtube" %}
+            <span class="badge bg-danger">YouTube</span>
+          {% else %}
+            <span class="badge bg-secondary">{{ row.source }}</span>
+          {% endif %}
+        </td>
+        <td class="text-muted small">{{ row.liked_at }}</td>
+        <td class="text-muted small">{{ row.duration }}</td>
+        <td class="notes">
+          {% if row.dup_compare_url %}
+            <a href="{{ row.dup_compare_url }}" class="text-warning fw-semibold" title="Ver ambos tracks juntos">
+              ⚠ {{ row.notes }}
+            </a>
+          {% else %}
+            {{ row.notes }}
+          {% endif %}
+        </td>
+
+        <td class="action-btns">
+          {% if row.nt_id %}
+            <button type="button" class="btn btn-outline-secondary btn-sm" title="Editar metadata"
+                    data-nt-id="{{ row.nt_id }}"
+                    data-artist="{{ row.artist }}"
+                    data-title="{{ row.title }}"
+                    data-version="{{ row.version or '' }}"
+                    data-channel="{{ row.channel }}"
+                    data-raw-title="{{ row.raw_title }}"
+                    onclick="openEditModal(this)">✎</button>
+          {% endif %}
+          {% if row.status == "pending" %}
+            <form method="POST" action="/review/{{ row.review_id }}/discard/form">
+              <button class="btn btn-outline-danger btn-sm" title="Descartar">✕</button>
+            </form>
+          {% elif row.status in ["downloaded", "not_found", "vinyl_only", "bandcamp_only"] %}
+            <form method="POST" action="/review/{{ row.review_id }}/retry-queue/form" class="d-inline">
+              <button class="btn btn-outline-primary btn-sm" title="Volver a la cola de descarga">↺</button>
+            </form>
+            <form method="POST" action="/review/{{ row.review_id }}/pending/form" class="d-inline">
+              <button class="btn btn-outline-secondary btn-sm" title="Volver a pendiente">↩</button>
+            </form>
+          {% elif row.status in ["queued", "discarded"] %}
+            <form method="POST" action="/review/{{ row.review_id }}/pending/form">
+              <button class="btn btn-outline-secondary btn-sm" title="Volver a pendiente">↩</button>
+            </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+</form>
+
+
+{% else %}
+<div class="alert alert-info">
+  {% if q %}
+    No se encontraron tracks para <strong>"{{ q }}"</strong>
+    {% if active_status != 'all' %} en el estado actual{% endif %}.
+    <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}">Limpiar búsqueda</a>
+  {% elif active_status == 'discarded' %}
+    No hay tracks descartados.
+  {% elif active_status == 'queued' %}
+    No hay tracks en cola.
+  {% elif active_status == 'downloaded' %}
+    No hay tracks descargados.
+  {% elif active_status == 'not_found' %}
+    No hay tracks marcados como no encontrados.
+  {% elif active_status == 'vinyl_only' %}
+    No hay tracks marcados como solo vinilo.
+  {% else %}
+    No hay tracks pendientes. Click en <strong>Sync SoundCloud</strong> para traer tus likes.
+  {% endif %}
+</div>
+{% endif %}
+
+{# ── Edit metadata modal ─────────────────────────────────────────────────── #}
+<div class="modal fade" id="editModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" id="edit-form">
+        <div class="modal-header">
+          <h5 class="modal-title">Editar metadata</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-2">
+            <label class="form-label small text-muted mb-1">Subido por</label>
+            <p id="edit-channel" class="form-control-plaintext py-0 fw-semibold"></p>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small text-muted mb-1">Título sin modificar</label>
+            <p id="edit-raw-title" class="form-control-plaintext py-0 font-monospace small text-break"></p>
+          </div>
+          <hr class="my-2">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Artista</label>
+            <input type="text" name="artist" id="edit-artist" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Título</label>
+            <input type="text" name="title" id="edit-title" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Versión</label>
+            <input type="text" name="version" id="edit-version" class="form-control" placeholder="ej: Original Mix, Remix…">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+// Preserve scroll position across form submissions
+document.addEventListener('DOMContentLoaded', () => {
+  const saved = sessionStorage.getItem('pending_scroll');
+  if (saved) {
+    window.scrollTo(0, parseInt(saved));
+    sessionStorage.removeItem('pending_scroll');
+  }
+  // Edit modal form
+  document.getElementById('edit-form').addEventListener('submit', () => {
+    sessionStorage.setItem('pending_scroll', window.scrollY);
+  });
+  // Action buttons (discard, return to pending)
+  document.querySelectorAll('.action-btns form').forEach(form => {
+    form.addEventListener('submit', () => {
+      sessionStorage.setItem('pending_scroll', window.scrollY);
+    });
+  });
+});
+
+function openEditModal(btn) {
+  document.getElementById('edit-form').action    = '/tracks/' + btn.dataset.ntId + '/edit-metadata';
+  document.getElementById('edit-channel').textContent   = btn.dataset.channel;
+  document.getElementById('edit-raw-title').textContent = btn.dataset.rawTitle;
+  document.getElementById('edit-artist').value  = btn.dataset.artist;
+  document.getElementById('edit-title').value   = btn.dataset.title;
+  document.getElementById('edit-version').value = btn.dataset.version;
+  new bootstrap.Modal(document.getElementById('editModal')).show();
+}
+
+function toggleAll() {
+  const all = document.getElementById('check-all');
+  document.querySelectorAll('.row-check').forEach(cb => cb.checked = all.checked);
+}
+
+function toggleDateFilter() {
+  const panel = document.getElementById('date-filter-panel');
+  const visible = panel.style.display !== 'none';
+  panel.style.display = visible ? 'none' : 'flex';
+  setDateInputsDisabled(visible);
+}
+
+function setDateInputsDisabled(disabled) {
+  document.querySelectorAll('#date-filter-panel input[type=date]').forEach(el => {
+    el.disabled = disabled;
+  });
+}
+
+// On load: disable date inputs if panel is hidden
+document.addEventListener('DOMContentLoaded', () => {
+  const panel = document.getElementById('date-filter-panel');
+  if (panel && panel.style.display === 'none') {
+    setDateInputsDisabled(true);
+  }
+});
+</script>
+
+{% endblock %}

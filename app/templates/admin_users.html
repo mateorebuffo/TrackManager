@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Usuarios — Music Collector{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h4 class="mb-0">Gestión de usuarios</h4>
+</div>
+
+{% if request.query_params.get('created') %}
+  <div class="alert alert-success alert-dismissible fade show py-2">Usuario creado. <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+{% elif request.query_params.get('deleted') %}
+  <div class="alert alert-success alert-dismissible fade show py-2">Usuario eliminado. <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+{% elif request.query_params.get('reset') %}
+  <div class="alert alert-success alert-dismissible fade show py-2">Contraseña actualizada. <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+{% elif request.query_params.get('error') == 'self' %}
+  <div class="alert alert-danger alert-dismissible fade show py-2">No podés eliminarte a vos mismo. <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+{% endif %}
+
+{% if error %}
+  <div class="alert alert-danger py-2 small">{{ error }}</div>
+{% endif %}
+
+{# ── Tabla de usuarios ────────────────────────────────────────────────────── #}
+<div class="card shadow-sm mb-4">
+  <div class="card-header fw-semibold">Usuarios registrados</div>
+  <table class="table table-sm table-hover align-middle mb-0">
+    <thead class="table-dark">
+      <tr>
+        <th>#</th>
+        <th>Usuario</th>
+        <th>Rol</th>
+        <th>Creado</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td class="text-muted small">{{ u.id }}</td>
+        <td><strong>{{ u.username }}</strong> {% if u.id == current_user.id %}<span class="badge bg-secondary">vos</span>{% endif %}</td>
+        <td>
+          {% if u.is_admin %}
+            <span class="badge bg-warning text-dark">Admin</span>
+          {% else %}
+            <span class="badge bg-secondary">DJ</span>
+          {% endif %}
+        </td>
+        <td class="text-muted small">{{ u.created_at.strftime('%d/%m/%Y') if u.created_at else '—' }}</td>
+        <td>
+          <div class="d-flex gap-1">
+            {# Reset password modal trigger #}
+            <button type="button" class="btn btn-outline-secondary btn-sm"
+                    data-bs-toggle="modal" data-bs-target="#resetModal"
+                    data-uid="{{ u.id }}" data-uname="{{ u.username }}"
+                    onclick="openReset(this)">
+              🔑 Reset
+            </button>
+            {% if u.id != current_user.id %}
+            <form method="POST" action="/admin/users/{{ u.id }}/delete"
+                  onsubmit="return confirm('¿Eliminar usuario {{ u.username }}?')">
+              <button class="btn btn-outline-danger btn-sm">✕</button>
+            </form>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{# ── Crear nuevo usuario ──────────────────────────────────────────────────── #}
+<div class="card shadow-sm">
+  <div class="card-header fw-semibold">Nuevo usuario</div>
+  <div class="card-body">
+    <form method="POST" action="/admin/users/create" class="row g-3 align-items-end">
+      <div class="col-sm-4">
+        <label class="form-label small fw-semibold">Usuario</label>
+        <input type="text" name="username" class="form-control form-control-sm" required>
+      </div>
+      <div class="col-sm-4">
+        <label class="form-label small fw-semibold">Contraseña</label>
+        <input type="password" name="password" class="form-control form-control-sm" required minlength="6">
+      </div>
+      <div class="col-sm-2 d-flex align-items-center gap-2 pt-3">
+        <input type="checkbox" name="is_admin" id="new-is-admin" class="form-check-input">
+        <label for="new-is-admin" class="form-check-label small">Admin</label>
+      </div>
+      <div class="col-sm-2">
+        <button type="submit" class="btn btn-primary btn-sm w-100">Crear</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# ── Reset password modal ─────────────────────────────────────────────────── #}
+<div class="modal fade" id="resetModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <form method="POST" id="reset-form">
+        <div class="modal-header">
+          <h6 class="modal-title">Cambiar contraseña — <span id="reset-username"></span></h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="password" name="new_password" class="form-control form-control-sm"
+                 placeholder="Nueva contraseña (mín. 6 chars)" required minlength="6">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary btn-sm">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function openReset(btn) {
+  document.getElementById('reset-username').textContent = btn.dataset.uname;
+  document.getElementById('reset-form').action = '/admin/users/' + btn.dataset.uid + '/reset-password';
+}
+</script>
+{% endblock %}

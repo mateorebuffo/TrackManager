@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest tests/test_all.py -x -q)",
+      "Bash(python -m pytest tests/test_all.py -q)",
+      "Bash(python -m pytest tests/test_all.py -k \"TestReviewEndpoints or TestPendingTracks or TestSyncSoundcloud\" -v)",
+      "Bash(python -c ':*)",
+      "Bash(python -m pytest tests/test_all.py -k \"TestReviewEndpoints or TestPendingTracks or TestSyncSoundcloud or TestRunSync or TestEdgeCases\" -q)",
+      "Bash(python -m pytest tests/test_all.py -k \"TestReviewEndpoints or TestPendingTracks or TestSyncSoundcloud\" -q)",
+      "Bash(python -m pytest tests/test_all.py -k \"TestReviewEndpoints or TestPendingTracks or TestSyncSoundcloud or TestEdgeCases\" -q)",
+      "Bash(python scripts/renormalize.py)",
+      "Bash(python -m pytest tests/test_all.py -k \"TestSplitArtistTitle or TestRunSync or TestReviewEndpoints or TestPendingTracks\" -q)",
+      "Bash(python scripts/backfill_publisher_artist.py)",
+      "Bash(python -m pytest tests/test_all.py -k \"TestReviewEndpoints or TestPendingTracks or TestRunSync or TestSyncSoundcloud\" -q)",
+      "Bash(python -c \"from app.api.tracks import _build_queue_rows; print\\('OK'\\)\")",
+      "Bash(python -c \"import jinja2; print\\(jinja2.__version__\\)\")",
+      "Bash(python -m py_compile /c/Users/Mateo/music_mvp/app/api/tracks.py)",
+      "Bash(python -m py_compile /c/Users/Mateo/music_mvp/app/templates/download_queue.html)",
+      "Bash(tasklist)",
+      "Bash(ls /c/Users/Mateo/music_mvp/*.bat /c/Users/Mateo/music_mvp/*.ps1)",
+      "Bash(python scripts/renormalize_sources.py --source spotify --dry-run)",
+      "Bash(python scripts/renormalize_sources.py --source youtube --dry-run)",
+      "Bash(python scripts/renormalize_sources.py --source spotify)",
+      "Bash(python scripts/backfill_youtube_durations.py)",
+      "Bash(python -c \"from app.api.auto_download import router; from app.services.auto_download import try_download; from app.services.muzpa import search, download; print\\('OK'\\)\")",
+      "Bash(python -c \"from app.api.tracks import router; print\\('OK'\\)\")",
+      "Bash(python -c \"from app.api.auto_download import router; print\\('OK'\\)\")",
+      "Bash(python -c \"from app.db import engine; from sqlalchemy import text; result = engine.execute\\(text\\(\\\\\"SELECT enum_range\\(NULL::trackstatus\\)\\\\\"\\)\\); print\\(result.fetchone\\(\\)\\)\")",
+      "Bash(python -c ' *)",
+      "Bash(pip show *)",
+      "Bash(pip install *)",
+      "Bash(python -c \"from app.main import app; print\\('OK'\\)\")",
+      "Bash(python -c \"from app.main import app; from app.utils.fs import resolve_download_folder; from pathlib import Path; from datetime import datetime; p = resolve_download_folder\\(Path\\('/tmp'\\), datetime\\(2026,4,18\\), True\\); print\\(p\\)\")",
+      "Bash(pip freeze *)"
+    ]
+  }
+}

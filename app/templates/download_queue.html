@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+
+{% block title %}Cola de Descarga — Music Collector{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h4 class="mb-0">Cola de Descarga
+    <span class="badge bg-secondary ms-1">{{ rows | length }}</span>
+  </h4>
+  <div class="d-flex gap-2">
+    <a href="/tracks/pending" class="btn btn-outline-secondary btn-sm">← Volver a Pending</a>
+    <form method="POST" action="/auto-download/all/form"
+          onsubmit="return confirm('¿Auto-descargar todos los tracks en cola? Puede tardar varios minutos.')">
+      <button class="btn btn-primary btn-sm">⬇ Auto-descargar todo</button>
+    </form>
+    <form method="POST" action="/tracks/download-queue/reset-all"
+          onsubmit="return confirm('¿Volver todos los tracks a pendiente?')">
+      <button class="btn btn-outline-danger btn-sm">↩ Vaciar cola</button>
+    </form>
+  </div>
+</div>
+
+{% if rows %}
+
+{# Plain text export — only queued tracks (not yet resolved) #}
+<div class="mb-4">
+  <label class="form-label fw-semibold">Copiá y pegá en tu software de descarga:</label>
+  <textarea id="plain-list" class="form-control font-monospace" rows="{{ [rows|length, 20]|min }}" readonly>{% for row in rows %}{% if row.status == "queued" %}{{ row.label }}
+{% endif %}{% endfor %}</textarea>
+  <button type="button" class="btn btn-outline-secondary btn-sm mt-1" onclick="copyList()">Copiar todo</button>
+</div>
+
+{# Per-track work table #}
+<table class="table table-sm table-hover align-middle bg-white shadow-sm rounded">
+  <thead class="table-dark">
+    <tr>
+      <th>#</th>
+      <th>Track</th>
+      <th>Estado</th>
+      <th>Acciones</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td class="text-muted small">{{ loop.index }}</td>
+      <td>
+        {% if row.source_url and row.source_url != "#" %}
+          <a href="{{ row.source_url }}" target="_blank" rel="noopener">{{ row.label }}</a>
+        {% else %}
+          {{ row.label }}
+        {% endif %}
+      </td>
+      <td>
+        {% if row.status == "queued" %}
+          <span class="badge bg-primary">En cola</span>
+        {% elif row.status == "downloaded" %}
+          <span class="badge bg-success">Descargado</span>
+        {% elif row.status == "not_found" %}
+          <span class="badge bg-danger">No se encontró</span>
+        {% elif row.status == "vinyl_only" %}
+          <span class="badge bg-warning text-dark">Solo vinilo</span>
+        {% elif row.status == "bandcamp_only" %}
+          <span class="badge bg-primary">Solo Bandcamp</span>
+        {% endif %}
+      </td>
+      <td>
+        {% if row.nt_id %}
+          <button type="button" class="btn btn-outline-secondary btn-sm" title="Editar metadata"
+                  data-nt-id="{{ row.nt_id }}"
+                  data-artist="{{ row.artist }}"
+                  data-title="{{ row.title_only }}"
+                  data-version="{{ row.version or '' }}"
+                  data-channel="{{ row.channel }}"
+                  data-raw-title="{{ row.raw_title }}"
+                  onclick="openEditModal(this)">✎</button>
+        {% endif %}
+      </td>
+      <td class="action-btns">
+        <div class="d-flex flex-wrap gap-1 mb-1">
+          <form method="POST" action="/auto-download/{{ row.review_id }}/form" class="d-inline">
+            <button class="btn btn-primary btn-sm" title="Buscar y descargar automáticamente">⬇ Auto</button>
+          </form>
+          <a href="{{ row.url_muzpa }}" target="_blank" rel="noopener"
+             class="btn btn-outline-primary btn-sm search-btn"
+             data-key="muzpa-{{ row.review_id }}"
+             onclick="markSearched(this)">Muzpa</a>
+          <a href="{{ row.url_deemix }}" target="_blank" rel="noopener"
+             class="btn btn-outline-primary btn-sm search-btn"
+             data-key="deemix-{{ row.review_id }}"
+             onclick="markSearched(this)">Deemix</a>
+          <a href="{{ row.url_bandcamp }}" target="_blank" rel="noopener"
+             class="btn btn-outline-primary btn-sm search-btn"
+             data-key="bandcamp-{{ row.review_id }}"
+             onclick="markSearched(this)">Bandcamp</a>
+          <a href="{{ row.url_discogs }}" target="_blank" rel="noopener"
+             class="btn btn-outline-primary btn-sm search-btn"
+             data-key="discogs-{{ row.review_id }}"
+             onclick="markSearched(this)">Discogs</a>
+          <button type="button" class="btn btn-outline-secondary btn-sm search-btn"
+                  data-query="{{ row.search_query }}"
+                  data-key="soulseek-{{ row.review_id }}"
+                  onclick="copySoulseek(this)"
+                  title="Copiar para Soulseek">Soulseek</button>
+        </div>
+        <div class="d-flex flex-wrap gap-1">
+          <form method="POST" action="/review/{{ row.review_id }}/downloaded/form">
+            <button class="btn btn-success btn-sm">Descargado</button>
+          </form>
+          <form method="POST" action="/review/{{ row.review_id }}/not-found/form">
+            <button class="btn btn-secondary btn-sm">No se encuentra</button>
+          </form>
+          <form method="POST" action="/review/{{ row.review_id }}/vinyl-only/form">
+            <button class="btn btn-warning btn-sm">Solo vinilo</button>
+          </form>
+          <form method="POST" action="/review/{{ row.review_id }}/bandcamp-only/form">
+            <button class="btn btn-primary btn-sm">Solo Bandcamp</button>
+          </form>
+          <form method="POST" action="/review/{{ row.review_id }}/requeue/form">
+            <button class="btn btn-outline-secondary btn-sm" title="Sacar de la cola">&#8617;</button>
+          </form>
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<script>
+document.addEventListener('DOMContentLoaded', restoreSearched);
+
+// Preserve scroll position across form submissions
+document.addEventListener('DOMContentLoaded', () => {
+  const saved = sessionStorage.getItem('queue_scroll');
+  if (saved) {
+    window.scrollTo(0, parseInt(saved));
+    sessionStorage.removeItem('queue_scroll');
+  }
+  document.querySelectorAll('.action-btns form').forEach(form => {
+    form.addEventListener('submit', () => {
+      sessionStorage.setItem('queue_scroll', window.scrollY);
+    });
+  });
+});
+
+function copyList() {
+  const ta = document.getElementById('plain-list');
+  ta.select();
+  ta.setSelectionRange(0, 99999);
+  navigator.clipboard.writeText(ta.value).then(() => {
+    const btn = event.target;
+    btn.textContent = '¡Copiado!';
+    setTimeout(() => btn.textContent = 'Copiar todo', 1500);
+  });
+}
+
+function markSearched(btn) {
+  localStorage.setItem('searched:' + btn.dataset.key, '1');
+  btn.classList.remove('btn-outline-primary', 'btn-outline-secondary');
+  btn.classList.add('btn-info');
+}
+
+function restoreSearched() {
+  document.querySelectorAll('.search-btn').forEach(btn => {
+    if (localStorage.getItem('searched:' + btn.dataset.key)) {
+      btn.classList.remove('btn-outline-primary', 'btn-outline-secondary');
+      btn.classList.add('btn-info');
+    }
+  });
+}
+
+function copySoulseek(btn) {
+  markSearched(btn);
+  const query = btn.dataset.query;
+  navigator.clipboard.writeText(query).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = '¡Copiado!';
+    btn.classList.add('btn-success');
+    btn.classList.remove('btn-outline-secondary');
+    setTimeout(() => {
+      btn.textContent = orig;
+      btn.classList.remove('btn-success');
+      btn.classList.add('btn-outline-secondary');
+    }, 1500);
+  });
+}
+
+function openEditModal(btn) {
+  document.getElementById('edit-form').action = '/tracks/' + btn.dataset.ntId + '/edit-metadata';
+  document.getElementById('edit-channel').textContent   = btn.dataset.channel;
+  document.getElementById('edit-raw-title').textContent = btn.dataset.rawTitle;
+  document.getElementById('edit-artist').value  = btn.dataset.artist;
+  document.getElementById('edit-title').value   = btn.dataset.title;
+  document.getElementById('edit-version').value = btn.dataset.version;
+  new bootstrap.Modal(document.getElementById('editModal')).show();
+}
+
+// Save scroll on edit submit too
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('edit-form')?.addEventListener('submit', () => {
+    sessionStorage.setItem('queue_scroll', window.scrollY);
+  });
+});
+</script>
+
+{# ── Edit metadata modal ────────────────────────────────────────────────── #}
+<div class="modal fade" id="editModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" id="edit-form">
+        <div class="modal-header">
+          <h5 class="modal-title">Editar metadata</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-2">
+            <label class="form-label small text-muted mb-1">Subido por</label>
+            <p id="edit-channel" class="form-control-plaintext py-0 fw-semibold"></p>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small text-muted mb-1">Título sin modificar</label>
+            <p id="edit-raw-title" class="form-control-plaintext py-0 font-monospace small text-break"></p>
+          </div>
+          <hr class="my-2">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Artista</label>
+            <input type="text" name="artist" id="edit-artist" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Título</label>
+            <input type="text" name="title" id="edit-title" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Versión</label>
+            <input type="text" name="version" id="edit-version" class="form-control" placeholder="ej: Original Mix, Remix…">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% else %}
+<div class="alert alert-info">
+  No hay tracks en la cola. Seleccioná tracks desde <a href="/tracks/pending">Pending</a> y tocá "Armar lista de descarga".
+</div>
+{% endif %}
+
+{% endblock %}

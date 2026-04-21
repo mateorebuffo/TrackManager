@@ -1,0 +1,320 @@
+{% extends "base.html" %}
+
+{% block title %}Resumen de descarga — Music Collector{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h4 class="mb-0">Resumen de auto-descarga</h4>
+  <a href="/tracks/download-queue" class="btn btn-outline-secondary btn-sm">← Volver a la cola</a>
+</div>
+
+{# ── Totales / Tabs ───────────────────────────────────────────────────────── #}
+<div class="d-flex gap-3 mb-4 flex-wrap">
+  <div class="card text-center px-4 py-2 border-success">
+    <div class="fs-3 fw-bold text-success">{{ summary.downloaded | length }}</div>
+    <div class="small text-muted">Descargados</div>
+  </div>
+  {% if summary.not_found %}
+  <div class="card text-center px-4 py-2 border-danger summary-tab"
+       style="cursor:pointer;" onclick="showTab('not_found')">
+    <div class="fs-3 fw-bold text-danger">{{ summary.not_found | length }}</div>
+    <div class="small text-muted">No encontrados</div>
+  </div>
+  {% endif %}
+  {% if summary.low_quality %}
+  <div class="card text-center px-4 py-2 border-warning summary-tab"
+       style="cursor:pointer;" onclick="showTab('low_quality')">
+    <div class="fs-3 fw-bold text-warning">{{ summary.low_quality | length }}</div>
+    <div class="small text-muted">Calidad baja</div>
+  </div>
+  {% endif %}
+  {% if summary.vinyl_only %}
+  <div class="card text-center px-4 py-2 summary-tab"
+       style="cursor:pointer; border-color:#ff9800!important;" onclick="showTab('vinyl_only')">
+    <div class="fs-3 fw-bold" style="color:#ff9800;">{{ summary.vinyl_only | length }}</div>
+    <div class="small text-muted">Solo vinilo</div>
+  </div>
+  {% endif %}
+  {% if summary.bandcamp_only %}
+  <div class="card text-center px-4 py-2 border-primary summary-tab"
+       style="cursor:pointer;" onclick="showTab('bandcamp_only')">
+    <div class="fs-3 fw-bold text-primary">{{ summary.bandcamp_only | length }}</div>
+    <div class="small text-muted">Solo Bandcamp</div>
+  </div>
+  {% endif %}
+  <div class="card text-center px-4 py-2 border-secondary">
+    <div class="fs-3 fw-bold text-secondary">{{ total }}</div>
+    <div class="small text-muted">Total</div>
+  </div>
+</div>
+
+{# ── Form con checkboxes para armar nueva cola ───────────────────────────── #}
+{% if summary.not_found or summary.low_quality or summary.vinyl_only or summary.bandcamp_only %}
+<form method="POST" action="/tracks/download-queue" id="requeue-form">
+
+{# Barra de acción fija cuando hay algo seleccionado #}
+<div id="selection-bar"
+     class="d-none position-sticky bg-white border rounded shadow-sm px-3 py-2 mb-3 d-flex align-items-center gap-3"
+     style="top: 10px; z-index: 100;">
+  <span id="selection-count" class="fw-semibold small">0 seleccionados</span>
+  <button type="submit" class="btn btn-success btn-sm">↗ Armar cola de descarga</button>
+  <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearAll()">Deseleccionar todo</button>
+</div>
+
+{# Macro: tabla con checkboxes #}
+{% macro track_table(rows, section_id) %}
+<table class="table table-sm table-hover align-middle bg-white shadow-sm rounded mb-0">
+  <thead class="table-dark">
+    <tr>
+      <th style="width:32px;">
+        <input type="checkbox" id="check-all-{{ section_id }}"
+               onclick="toggleSection('{{ section_id }}', this.checked)">
+      </th>
+      <th>Track</th>
+      <th>Buscar manualmente</th>
+      <th>Marcar</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td>
+        <input type="checkbox" name="review_ids" value="{{ row.review_id }}"
+               class="row-check section-{{ section_id }}" onchange="updateSelectionBar()">
+      </td>
+      <td>
+        {% if row.source_url and row.source_url != "#" %}
+          <a href="{{ row.source_url }}" target="_blank" rel="noopener">{{ row.label }}</a>
+        {% else %}
+          {{ row.label }}
+        {% endif %}
+      </td>
+      <td>
+        <div class="d-flex flex-wrap gap-1">
+          <form method="POST" action="/auto-download/{{ row.review_id }}/form" class="d-inline">
+            <button class="btn btn-primary btn-sm">⬇ Auto</button>
+          </form>
+          <a href="{{ row.url_muzpa }}" target="_blank" rel="noopener"
+             class="btn btn-outline-primary btn-sm search-btn"
+             data-key="muzpa-{{ row.review_id }}" onclick="markSearched(this)">Muzpa</a>
+          <a href="{{ row.url_deemix }}" target="_blank" rel="noopener"
+             class="btn btn-outline-primary btn-sm search-btn"
+             data-key="deemix-{{ row.review_id }}" onclick="markSearched(this)">Deemix</a>
+          <a href="{{ row.url_bandcamp }}" target="_blank" rel="noopener"
+             class="btn btn-outline-primary btn-sm search-btn"
+             data-key="bandcamp-{{ row.review_id }}" onclick="markSearched(this)">Bandcamp</a>
+          <a href="{{ row.url_discogs }}" target="_blank" rel="noopener"
+             class="btn btn-outline-primary btn-sm search-btn"
+             data-key="discogs-{{ row.review_id }}" onclick="markSearched(this)">Discogs</a>
+          <button type="button" class="btn btn-outline-secondary btn-sm search-btn"
+                  data-query="{{ row.search_query }}"
+                  data-key="soulseek-{{ row.review_id }}"
+                  onclick="copySoulseek(this)"
+                  title="Copiar para Soulseek">Soulseek</button>
+        </div>
+      </td>
+      <td>
+        <div class="d-flex gap-1">
+          <form method="POST" action="/review/{{ row.review_id }}/downloaded/form">
+            <input type="hidden" name="next" value="{{ request.url }}">
+            <button class="btn btn-success btn-sm" title="Marcar como descargado">✓</button>
+          </form>
+          <form method="POST" action="/review/{{ row.review_id }}/not-found/form">
+            <input type="hidden" name="next" value="{{ request.url }}">
+            <button class="btn btn-secondary btn-sm" title="No encontrado">✕</button>
+          </form>
+          <form method="POST" action="/review/{{ row.review_id }}/bandcamp-only/form">
+            <input type="hidden" name="next" value="{{ request.url }}">
+            <button class="btn btn-primary btn-sm" title="Solo Bandcamp">BC</button>
+          </form>
+          <form method="POST" action="/review/{{ row.review_id }}/vinyl-only/form">
+            <input type="hidden" name="next" value="{{ request.url }}">
+            <button class="btn btn-warning btn-sm" title="Solo vinilo">LP</button>
+          </form>
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endmacro %}
+
+{# ── No encontrados ──────────────────────────────────────────────────────── #}
+{% if summary.not_found %}
+<div id="section-not_found" class="mb-4 summary-section" style="display:none;">
+  <div class="d-flex align-items-center gap-2 mb-2">
+    <h5 class="mb-0 text-danger">
+      No encontrados <span class="badge bg-danger">{{ summary.not_found | length }}</span>
+    </h5>
+    <button type="button" class="btn btn-outline-secondary btn-sm"
+            onclick="toggleSection('not_found', true); document.getElementById('check-all-not_found').checked = true; updateSelectionBar()">
+      Seleccionar todos
+    </button>
+  </div>
+  {{ track_table(summary.not_found, 'not_found') }}
+</div>
+{% endif %}
+
+{# ── Solo vinilo ─────────────────────────────────────────────────────────── #}
+{% if summary.vinyl_only %}
+<div id="section-vinyl_only" class="mb-4 summary-section" style="display:none;">
+  <div class="d-flex align-items-center gap-2 mb-2">
+    <h5 class="mb-0" style="color:#ff9800;">
+      Solo vinilo <span class="badge" style="background:#ff9800;">{{ summary.vinyl_only | length }}</span>
+    </h5>
+    <p class="text-muted small mb-0">— encontrado en Muzpa pero solo disponible en formato vinilo.</p>
+    <button type="button" class="btn btn-outline-secondary btn-sm"
+            onclick="toggleSection('vinyl_only', true); document.getElementById('check-all-vinyl_only').checked = true; updateSelectionBar()">
+      Seleccionar todos
+    </button>
+  </div>
+  {{ track_table(summary.vinyl_only, 'vinyl_only') }}
+</div>
+{% endif %}
+
+{# ── Solo Bandcamp ───────────────────────────────────────────────────────── #}
+{% if summary.bandcamp_only %}
+<div id="section-bandcamp_only" class="mb-4 summary-section" style="display:none;">
+  <div class="d-flex align-items-center gap-2 mb-2">
+    <h5 class="mb-0 text-primary">
+      Solo Bandcamp <span class="badge bg-primary">{{ summary.bandcamp_only | length }}</span>
+    </h5>
+    <p class="text-muted small mb-0">— encontrado en Bandcamp pero no disponible para descarga automática.</p>
+    <button type="button" class="btn btn-outline-secondary btn-sm"
+            onclick="toggleSection('bandcamp_only', true); document.getElementById('check-all-bandcamp_only').checked = true; updateSelectionBar()">
+      Seleccionar todos
+    </button>
+  </div>
+  {{ track_table(summary.bandcamp_only, 'bandcamp_only') }}
+</div>
+{% endif %}
+
+{# ── Calidad baja ────────────────────────────────────────────────────────── #}
+{% if summary.low_quality %}
+<div id="section-low_quality" class="mb-4 summary-section" style="display:none;">
+  <div class="d-flex align-items-center gap-2 mb-2">
+    <h5 class="mb-0 text-warning">
+      Calidad insuficiente <span class="badge bg-warning text-dark">{{ summary.low_quality | length }}</span>
+    </h5>
+    <p class="text-muted small mb-0">— se encontró pero la calidad era menor a 320 kbps, el archivo fue descartado.</p>
+    <button type="button" class="btn btn-outline-secondary btn-sm"
+            onclick="toggleSection('low_quality', true); document.getElementById('check-all-low_quality').checked = true; updateSelectionBar()">
+      Seleccionar todos
+    </button>
+  </div>
+  {{ track_table(summary.low_quality, 'low_quality') }}
+</div>
+{% endif %}
+
+</form>
+{% endif %}{# end not_found or low_quality or vinyl_only #}
+
+{# ── Descargados ─────────────────────────────────────────────────────────── #}
+{% if summary.downloaded %}
+<div class="mb-4">
+  <h5 class="mb-2 text-success">
+    Descargados <span class="badge bg-success">{{ summary.downloaded | length }}</span>
+  </h5>
+  <ul class="list-group list-group-flush bg-white shadow-sm rounded">
+    {% for row in summary.downloaded %}
+    <li class="list-group-item py-1 small">✓ {{ row.label }}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+{% if total == 0 %}
+<div class="alert alert-info">No había tracks en cola para procesar.</div>
+{% endif %}
+
+<script>
+const _TAB_ACTIVE_STYLE = {
+  'not_found':     'border-danger',
+  'low_quality':   'border-warning',
+  'vinyl_only':    'border-warning',
+  'bandcamp_only': 'border-primary',
+};
+
+function showTab(tabId) {
+  // Hide all sections
+  document.querySelectorAll('.summary-section').forEach(el => el.style.display = 'none');
+  // Deactivate all tab cards
+  document.querySelectorAll('.summary-tab').forEach(el => el.classList.remove('shadow'));
+  // Show selected section
+  const section = document.getElementById('section-' + tabId);
+  if (section) section.style.display = '';
+  // Highlight active tab card
+  const cards = document.querySelectorAll('.summary-tab');
+  cards.forEach(card => {
+    if (card.getAttribute('onclick') === "showTab('" + tabId + "')") {
+      card.classList.add('shadow');
+    }
+  });
+  updateSelectionBar();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  restoreSearched();
+  // Auto-open first available tab
+  const firstTab = document.querySelector('.summary-tab');
+  if (firstTab) firstTab.click();
+});
+
+function toggleSection(sectionId, checked) {
+  document.querySelectorAll('.section-' + sectionId).forEach(cb => cb.checked = checked);
+  updateSelectionBar();
+}
+
+function clearAll() {
+  document.querySelectorAll('.row-check').forEach(cb => cb.checked = false);
+  document.querySelectorAll('[id^="check-all-"]').forEach(cb => cb.checked = false);
+  updateSelectionBar();
+}
+
+function updateSelectionBar() {
+  const checked = document.querySelectorAll('.row-check:checked').length;
+  const bar = document.getElementById('selection-bar');
+  const countEl = document.getElementById('selection-count');
+  if (checked > 0) {
+    bar.classList.remove('d-none');
+    bar.classList.add('d-flex');
+    countEl.textContent = checked + ' seleccionado' + (checked !== 1 ? 's' : '');
+  } else {
+    bar.classList.add('d-none');
+    bar.classList.remove('d-flex');
+  }
+}
+
+function markSearched(btn) {
+  localStorage.setItem('searched:' + btn.dataset.key, '1');
+  btn.classList.remove('btn-outline-primary', 'btn-outline-secondary');
+  btn.classList.add('btn-info');
+}
+
+function restoreSearched() {
+  document.querySelectorAll('.search-btn').forEach(btn => {
+    if (localStorage.getItem('searched:' + btn.dataset.key)) {
+      btn.classList.remove('btn-outline-primary', 'btn-outline-secondary');
+      btn.classList.add('btn-info');
+    }
+  });
+}
+
+function copySoulseek(btn) {
+  markSearched(btn);
+  navigator.clipboard.writeText(btn.dataset.query).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = '¡Copiado!';
+    btn.classList.add('btn-success');
+    btn.classList.remove('btn-outline-secondary');
+    setTimeout(() => {
+      btn.textContent = orig;
+      btn.classList.remove('btn-success');
+      btn.classList.add('btn-outline-secondary');
+    }, 1500);
+  });
+}
+</script>
+
+{% endblock %}

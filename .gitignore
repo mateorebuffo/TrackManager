@@ -1,0 +1,41 @@
+# Environment / secrets
+.env
+*.env
+
+# Databases
+*.db
+*.db-shm
+*.db-wal
+
+# OAuth tokens
+spotify_token.json
+youtube_token.json
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Testing
+.pytest_cache/
+htmlcov/
+.coverage
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp / debug HTML snapshots
+queue_post_response.html
+queue_response.html
+
+# deemix config (contains ARL)
+.config/deemix/
