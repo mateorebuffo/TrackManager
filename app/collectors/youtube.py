@@ -42,12 +42,15 @@ def _parse_duration(iso: str) -> float | None:
 
 class YouTubeCollector(BaseCollector):
     """
-    Collector that syncs videos from the 'Track Manager YT' YouTube playlist.
+    Collector that syncs videos from a YouTube playlist.
     Requires a valid access token (obtain via youtube_auth.get_valid_access_token()).
+    If playlist_id is provided it is used directly; otherwise falls back to searching
+    for a playlist named _PLAYLIST_NAME.
     """
 
-    def __init__(self, access_token: str) -> None:
+    def __init__(self, access_token: str, playlist_id: str | None = None) -> None:
         self._token = access_token
+        self._playlist_id = playlist_id
 
     @property
     def source_name(self) -> str:
@@ -57,20 +60,44 @@ class YouTubeCollector(BaseCollector):
     # Public
     # ------------------------------------------------------------------
 
-    def fetch_liked_tracks(self) -> Iterator[RawTrack]:
-        playlist = self._find_playlist()
-        if playlist is None:
-            raise ValueError(
-                f"No se encontró ninguna playlist llamada '{_PLAYLIST_NAME}' en tu cuenta de YouTube. "
-                f"Creala y agregá videos para empezar a sincronizar."
-            )
+    def list_playlists(self) -> list[dict]:
+        """Return all user playlists as [{"id": ..., "name": ..., "videos": ...}]."""
+        playlists: list[dict] = []
+        page_token: str | None = None
+        while True:
+            params: dict = {"part": "snippet,contentDetails", "mine": "true", "maxResults": 50}
+            if page_token:
+                params["pageToken"] = page_token
+            data = self._get(f"{_BASE}/playlists", **params)
+            for pl in data.get("items", []):
+                snippet = pl.get("snippet", {})
+                playlists.append({
+                    "id": pl["id"],
+                    "name": snippet.get("title", ""),
+                    "videos": pl.get("contentDetails", {}).get("itemCount", 0),
+                })
+            page_token = data.get("nextPageToken")
+            if not page_token:
+                break
+        return playlists
 
-        playlist_id = playlist["id"]
-        logger.info(
-            "Sincronizando desde YouTube playlist '%s' (%s)",
-            playlist["snippet"]["title"],
-            playlist_id,
-        )
+    def fetch_liked_tracks(self) -> Iterator[RawTrack]:
+        if self._playlist_id:
+            playlist_id = self._playlist_id
+            logger.info("Sincronizando desde YouTube playlist id=%s", playlist_id)
+        else:
+            playlist = self._find_playlist()
+            if playlist is None:
+                raise ValueError(
+                    f"No se encontró ninguna playlist llamada '{_PLAYLIST_NAME}' en tu cuenta de YouTube. "
+                    f"Elegí una playlist desde el menú de sincronización."
+                )
+            playlist_id = playlist["id"]
+            logger.info(
+                "Sincronizando desde YouTube playlist '%s' (%s)",
+                playlist["snippet"]["title"],
+                playlist_id,
+            )
 
         page_token: str | None = None
         while True:

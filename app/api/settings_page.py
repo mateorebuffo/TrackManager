@@ -23,7 +23,7 @@ _FIELDS = [
     ("deezer_arl",             "Deezer ARL",                        "password", False),
     ("download_dir",           "Carpeta de descarga",               "text",     False),
     ("download_full_eps",      "Descargar EPs completos",           "checkbox", False),
-    ("organize_by_like_date",  "Organizar por fecha de like",       "checkbox", False),
+    ("folder_organize_mode",   "Organización de carpetas",          "radio",    False),
 ]
 
 
@@ -51,7 +51,7 @@ def settings_page(
         "deezer_arl":             us.deezer_arl or "",
         "download_dir":           us.download_dir or "",
         "download_full_eps":      us.download_full_eps,
-        "organize_by_like_date":  us.organize_by_like_date,
+        "folder_organize_mode":   us.folder_organize_mode or "none",
     }
     return templates.TemplateResponse(
         "settings.html",
@@ -77,6 +77,9 @@ async def save_settings(
     for key, _label, field_type, _required in _FIELDS:
         if field_type == "checkbox":
             setattr(us, key, form.get(key) == "on")
+        elif field_type == "radio":
+            val = str(form.get(key, "none")).strip()
+            setattr(us, key, val)
         elif field_type == "password":
             val = str(form.get(key, "")).strip()
             if val:  # never blank-out a password field accidentally
@@ -85,4 +88,11 @@ async def save_settings(
             setattr(us, key, str(form.get(key, "")).strip())
 
     db.commit()
+
+    from app.services import log_service
+    log_service.log_event(
+        db, "settings_changed", "User settings updated",
+        user_id=current_user.id, commit=True,
+    )
+
     return RedirectResponse(url="/settings?saved=1", status_code=303)

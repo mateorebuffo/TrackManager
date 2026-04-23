@@ -5,6 +5,7 @@ from alembic import context
 # Load app models so Alembic can detect schema changes
 from app.db import Base  # noqa: F401
 from app.models import source_track, normalized_track, review_item  # noqa: F401
+from app.models import app_event, track_history, user_report  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:

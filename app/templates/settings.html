@@ -6,12 +6,6 @@
   <h4 class="tm-page-title mb-0">Configuración</h4>
 </div>
 
-{% if request.query_params.get('saved') %}
-<div class="alert alert-success alert-dismissible fade show mb-3" role="alert">
-  Configuración guardada correctamente.
-  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-</div>
-{% endif %}
 
 <style>
   .cfg-card { border-radius: var(--tm-radius-lg); border: 1px solid var(--tm-border); box-shadow: var(--tm-shadow); overflow: hidden; }
@@ -76,7 +70,11 @@
   }
 </style>
 
-<form method="POST" action="/settings">
+{# Disconnect forms must live OUTSIDE the main settings form to avoid invalid nesting #}
+<form id="spotify-disconnect-form" method="POST" action="/sync/spotify/disconnect" style="display:none"></form>
+<form id="youtube-disconnect-form" method="POST" action="/sync/youtube/disconnect" style="display:none"></form>
+
+<form id="settings-form" method="POST" action="/settings">
 <div class="row g-4 align-items-start">
 
   {# ── Columna izquierda: Autorizaciones ────────────────────────── #}
@@ -113,9 +111,7 @@
             {% endif %}
           </div>
           {% if spotify_connected %}
-            <form method="POST" action="/sync/spotify/disconnect" class="m-0">
-              <button class="btn btn-outline-danger btn-sm w-100">Desconectar</button>
-            </form>
+            <button type="submit" form="spotify-disconnect-form" class="btn btn-outline-danger btn-sm w-100">Desconectar</button>
           {% else %}
             <a href="/sync/spotify/connect" class="btn btn-outline-secondary btn-sm w-100">
               Conectar con Spotify →
@@ -136,9 +132,7 @@
             {% endif %}
           </div>
           {% if youtube_connected %}
-            <form method="POST" action="/sync/youtube/disconnect" class="m-0">
-              <button class="btn btn-outline-danger btn-sm w-100">Desconectar</button>
-            </form>
+            <button type="submit" form="youtube-disconnect-form" class="btn btn-outline-danger btn-sm w-100">Desconectar</button>
           {% else %}
             <a href="/sync/youtube/connect" class="btn btn-outline-secondary btn-sm w-100">
               Conectar con YouTube →
@@ -212,14 +206,46 @@
               </div>
             </div>
 
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" name="organize_by_like_date" id="organize-date"
-                     {% if current.get('organize_by_like_date') %}checked{% endif %}>
-              <label class="form-check-label" for="organize-date" style="font-size:0.875rem; font-weight:500;">
-                Organizar por fecha de like
-              </label>
-              <div class="form-text" style="font-size:0.72rem;">
-                Guarda cada track en <code>carpeta/YYYY/YYYY-MM/</code> según la fecha en que lo likeaste.
+            <div>
+              <div class="fw-semibold mb-2" style="font-size:0.875rem;">Organización de carpetas</div>
+              <div class="d-flex flex-column gap-2">
+
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="folder_organize_mode"
+                         id="org-none" value="none"
+                         {% if current.get('folder_organize_mode', 'none') == 'none' %}checked{% endif %}>
+                  <label class="form-check-label" for="org-none" style="font-size:0.875rem;">
+                    No organizar
+                  </label>
+                  <div class="form-text" style="font-size:0.72rem;">
+                    Guarda todos los temas directamente en la carpeta de descarga.
+                  </div>
+                </div>
+
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="folder_organize_mode"
+                         id="org-like" value="like_date"
+                         {% if current.get('folder_organize_mode') == 'like_date' %}checked{% endif %}>
+                  <label class="form-check-label" for="org-like" style="font-size:0.875rem;">
+                    Organizar por fecha de like
+                  </label>
+                  <div class="form-text" style="font-size:0.72rem;">
+                    Guarda en <code>carpeta/YYYY/YYYY-MM/</code> según la fecha en que lo likeaste.
+                  </div>
+                </div>
+
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="folder_organize_mode"
+                         id="org-import" value="import_date"
+                         {% if current.get('folder_organize_mode') == 'import_date' %}checked{% endif %}>
+                  <label class="form-check-label" for="org-import" style="font-size:0.875rem;">
+                    Organizar por fecha de importación
+                  </label>
+                  <div class="form-text" style="font-size:0.72rem;">
+                    Guarda en <code>carpeta/YYYY/YYYY-MM-DD/</code> según la fecha en que se importó al sistema.
+                  </div>
+                </div>
+
               </div>
             </div>
 
@@ -239,6 +265,10 @@
 </form>
 
 <script>
+document.getElementById('settings-form').addEventListener('submit', function() {
+  _setToast('Configuración guardada correctamente.', 'success');
+});
+
 async function pickFolder() {
   if (!window.showDirectoryPicker) {
     alert('Tu navegador no soporta el selector de carpetas.\nIngresá la ruta manualmente.');

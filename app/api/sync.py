@@ -1,7 +1,7 @@
 import logging
 
-from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import APIRouter, Depends, Form, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
@@ -89,6 +89,11 @@ def spotify_callback(
             "<p><a href='/tracks/pending'>Volver</a></p>",
             status_code=500,
         )
+    from app.services import log_service
+    log_service.log_event(
+        db, "spotify_connected", "Spotify OAuth connected",
+        user_id=current_user.id, source="spotify", commit=True,
+    )
     return RedirectResponse(url="/tracks/pending", status_code=303)
 
 
@@ -98,6 +103,50 @@ def spotify_disconnect(
     current_user: User = Depends(get_current_user),
 ):
     spotify_auth.disconnect(db, current_user.id)
+    return RedirectResponse(url="/tracks/pending", status_code=303)
+
+
+@router.get("/spotify/playlists")
+def spotify_playlists(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return the user's Spotify playlists as JSON."""
+    try:
+        access_token = spotify_auth.get_valid_access_token(db, current_user.id)
+    except RuntimeError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    try:
+        collector = SpotifyCollector(access_token)
+        return JSONResponse(collector.list_playlists())
+    except Exception as exc:
+        logger.exception("Error listing Spotify playlists")
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@router.post("/spotify/select-playlist")
+def spotify_select_playlist(
+    playlist_id: str = Form(...),
+    playlist_name: str = Form(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    from app.models.user_settings import UserSettings
+    us = db.query(UserSettings).filter_by(user_id=current_user.id).first()
+    if not us:
+        us = UserSettings(user_id=current_user.id)
+        db.add(us)
+    us.spotify_playlist_id = playlist_id
+    us.spotify_playlist_name = playlist_name
+    db.commit()
+
+    try:
+        access_token = spotify_auth.get_valid_access_token(db, current_user.id)
+        collector = SpotifyCollector(access_token, playlist_id=playlist_id)
+        run_sync(collector, db, user_id=current_user.id)
+    except Exception:
+        logger.exception("Spotify sync after playlist selection failed")
+
     return RedirectResponse(url="/tracks/pending", status_code=303)
 
 
@@ -119,8 +168,12 @@ def sync_spotify(
             )
         return {"status": "error", "detail": str(exc)}
 
+    from app.models.user_settings import UserSettings
+    us = db.query(UserSettings).filter_by(user_id=current_user.id).first()
+    playlist_id = us.spotify_playlist_id if us else None
+
     try:
-        collector = SpotifyCollector(access_token)
+        collector = SpotifyCollector(access_token, playlist_id=playlist_id)
         result: SyncResult = run_sync(collector, db, user_id=current_user.id)
     except ValueError as exc:
         accept = request.headers.get("accept", "")
@@ -185,6 +238,11 @@ def youtube_callback(
             "<p><a href='/tracks/pending'>Volver</a></p>",
             status_code=500,
         )
+    from app.services import log_service
+    log_service.log_event(
+        db, "youtube_connected", "YouTube OAuth connected",
+        user_id=current_user.id, source="youtube", commit=True,
+    )
     return RedirectResponse(url="/tracks/pending", status_code=303)
 
 
@@ -194,6 +252,50 @@ def youtube_disconnect(
     current_user: User = Depends(get_current_user),
 ):
     youtube_auth.disconnect(db, current_user.id)
+    return RedirectResponse(url="/tracks/pending", status_code=303)
+
+
+@router.get("/youtube/playlists")
+def youtube_playlists(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return the user's YouTube playlists as JSON."""
+    try:
+        access_token = youtube_auth.get_valid_access_token(db, current_user.id)
+    except RuntimeError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    try:
+        collector = YouTubeCollector(access_token)
+        return JSONResponse(collector.list_playlists())
+    except Exception as exc:
+        logger.exception("Error listing YouTube playlists")
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@router.post("/youtube/select-playlist")
+def youtube_select_playlist(
+    playlist_id: str = Form(...),
+    playlist_name: str = Form(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    from app.models.user_settings import UserSettings
+    us = db.query(UserSettings).filter_by(user_id=current_user.id).first()
+    if not us:
+        us = UserSettings(user_id=current_user.id)
+        db.add(us)
+    us.youtube_playlist_id = playlist_id
+    us.youtube_playlist_name = playlist_name
+    db.commit()
+
+    try:
+        access_token = youtube_auth.get_valid_access_token(db, current_user.id)
+        collector = YouTubeCollector(access_token, playlist_id=playlist_id)
+        run_sync(collector, db, user_id=current_user.id)
+    except Exception:
+        logger.exception("YouTube sync after playlist selection failed")
+
     return RedirectResponse(url="/tracks/pending", status_code=303)
 
 
@@ -215,8 +317,12 @@ def sync_youtube(
             )
         return {"status": "error", "detail": str(exc)}
 
+    from app.models.user_settings import UserSettings
+    us = db.query(UserSettings).filter_by(user_id=current_user.id).first()
+    playlist_id = us.youtube_playlist_id if us else None
+
     try:
-        collector = YouTubeCollector(access_token)
+        collector = YouTubeCollector(access_token, playlist_id=playlist_id)
         result: SyncResult = run_sync(collector, db, user_id=current_user.id)
     except ValueError as exc:
         accept = request.headers.get("accept", "")

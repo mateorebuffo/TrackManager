@@ -22,12 +22,15 @@ _BASE = "https://api.spotify.com/v1"
 
 class SpotifyCollector(BaseCollector):
     """
-    Collector that syncs tracks from the 'Track Manager' Spotify playlist.
+    Collector that syncs tracks from a Spotify playlist.
     Requires a valid access token (obtain via spotify_auth.get_valid_access_token()).
+    If playlist_id is provided it is used directly; otherwise falls back to searching
+    for a playlist named _PLAYLIST_NAME.
     """
 
-    def __init__(self, access_token: str) -> None:
+    def __init__(self, access_token: str, playlist_id: str | None = None) -> None:
         self._token = access_token
+        self._playlist_id = playlist_id
 
     @property
     def source_name(self) -> str:
@@ -37,21 +40,45 @@ class SpotifyCollector(BaseCollector):
     # Public
     # ------------------------------------------------------------------
 
+    def list_playlists(self) -> list[dict]:
+        """Return all user playlists as [{"id": ..., "name": ...}]."""
+        me = self._get(f"{_BASE}/me")
+        user_id = me["id"]
+        playlists: list[dict] = []
+        url = f"{_BASE}/me/playlists"
+        while url:
+            data = self._get(url, limit=50)
+            for pl in data.get("items", []):
+                if pl and pl.get("id") and pl.get("name"):
+                    owned = pl.get("owner", {}).get("id") == user_id
+                    playlists.append({
+                        "id": pl["id"],
+                        "name": pl["name"],
+                        "owned": owned,
+                        "tracks": pl.get("tracks", {}).get("total", 0),
+                    })
+            url = data.get("next")
+        return playlists
+
     def fetch_liked_tracks(self) -> Iterator[RawTrack]:
-        playlist = self._find_playlist()
-        if playlist is None:
-            raise ValueError(
-                f"No se encontró ninguna playlist llamada '{_PLAYLIST_NAME}' en tu cuenta de Spotify. "
-                f"Creala y agregá tracks para empezar a sincronizar."
+        if self._playlist_id:
+            playlist_id = self._playlist_id
+            logger.info("Sincronizando desde Spotify playlist id=%s", playlist_id)
+        else:
+            playlist = self._find_playlist()
+            if playlist is None:
+                raise ValueError(
+                    f"No se encontró ninguna playlist llamada '{_PLAYLIST_NAME}' en tu cuenta de Spotify. "
+                    f"Elegí una playlist desde el menú de sincronización."
+                )
+            playlist_id = playlist["id"]
+            logger.info(
+                "Sincronizando desde Spotify playlist '%s' (%s)",
+                playlist["name"],
+                playlist_id,
             )
 
-        logger.info(
-            "Sincronizando desde Spotify playlist '%s' (%s)",
-            playlist["name"],
-            playlist["id"],
-        )
-
-        url = f"{_BASE}/playlists/{playlist['id']}/tracks"
+        url = f"{_BASE}/playlists/{playlist_id}/tracks"
         params: dict = {
             "limit": 100,
             "fields": "items(added_at,track(id,name,artists,external_urls,duration_ms,album(id,name))),next",
@@ -59,7 +86,7 @@ class SpotifyCollector(BaseCollector):
 
         while url:
             data = self._get(url, **params)
-            params = {}  # only pass params on first request; next URL already has them
+            params = {}
 
             for item in data.get("items", []):
                 track = item.get("track")

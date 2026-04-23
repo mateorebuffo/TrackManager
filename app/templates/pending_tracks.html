@@ -93,33 +93,51 @@
   </div>
   <div class="d-flex gap-2 align-items-center flex-wrap">
     {# ── SoundCloud sync ── #}
-    <form method="POST" action="/sync/soundcloud">
-      <button type="submit" class="btn btn-sm src-btn d-inline-flex align-items-center gap-1"
-              style="background:#fff3e0;color:#c84b00;border:1px solid #fed7aa;"
+    <form id="soundcloud-sync-form" method="POST" action="/sync/soundcloud" style="display:none;"></form>
+    <div class="btn-group btn-group-sm">
+      <button type="submit" form="soundcloud-sync-form"
+              class="btn btn-sm d-inline-flex align-items-center gap-1"
+              style="background:#fff3e0;color:#c84b00;border:1px solid #fed7aa;font-weight:600;"
               title="Importar likes de SoundCloud">
         <span class="pi" style="font-size:14px;"><img src="/static/icons/soundcloud.svg" alt="" style="filter:invert(33%) sepia(77%) saturate(1200%) hue-rotate(1deg) brightness(90%);"></span>
         ↻
       </button>
-    </form>
+    </div>
 
     {# ── Spotify sync ── #}
     {% if spotify_connected %}
+      <form id="spotify-sync-form" method="POST" action="/sync/spotify" style="display:none;"></form>
+      <form id="spotify-disconnect-form" method="POST" action="/sync/spotify/disconnect" onsubmit="return confirm('¿Desconectar Spotify?')" style="display:none;"></form>
       <div class="btn-group btn-group-sm">
-        <form method="POST" action="/sync/spotify">
-          <button type="submit" class="btn btn-sm src-btn d-inline-flex align-items-center gap-1"
-                  style="background:#d1fae5;color:#065f46;border:1px solid #a7f3d0;" title="Importar likes de Spotify">
-            <span class="pi" style="font-size:14px;"><img src="/static/icons/spotify.svg" alt="" style="filter:invert(26%) sepia(60%) saturate(600%) hue-rotate(120deg) brightness(80%);"></span>
-            ↻
-          </button>
-        </form>
+        <button type="submit" form="spotify-sync-form"
+                class="btn btn-sm src-btn d-inline-flex align-items-center gap-1"
+                style="background:#d1fae5;color:#065f46;border:1px solid #a7f3d0;"
+                title="{% if spotify_playlist_name %}Sincronizar desde « {{ spotify_playlist_name }} »{% else %}Importar desde Spotify{% endif %}">
+          <span class="pi" style="font-size:14px;"><img src="/static/icons/spotify.svg" alt="" style="filter:invert(26%) sepia(60%) saturate(600%) hue-rotate(120deg) brightness(80%);"></span>
+          ↻
+        </button>
         <button type="button" class="btn btn-sm dropdown-toggle dropdown-toggle-split"
                 style="background:#d1fae5;color:#065f46;border:1px solid #a7f3d0;"
                 data-bs-toggle="dropdown"></button>
-        <ul class="dropdown-menu dropdown-menu-end" style="font-size:0.82rem;">
+        <ul class="dropdown-menu dropdown-menu-end" style="font-size:0.82rem;min-width:200px;">
+          {% if spotify_playlist_name %}
           <li>
-            <form method="POST" action="/sync/spotify/disconnect" onsubmit="return confirm('¿Desconectar Spotify?')">
-              <button class="dropdown-item text-danger">Desconectar Spotify</button>
-            </form>
+            <span class="dropdown-item-text text-muted" style="font-size:0.75rem;">
+              Playlist: <strong>{{ spotify_playlist_name }}</strong>
+            </span>
+          </li>
+          <li><hr class="dropdown-divider my-1"></li>
+          {% endif %}
+          <li>
+            <button type="button" class="dropdown-item" onclick="openPlaylistPicker('spotify')">
+              ☰ Elegir playlist…
+            </button>
+          </li>
+          <li><hr class="dropdown-divider my-1"></li>
+          <li>
+            <button type="submit" form="spotify-disconnect-form" class="dropdown-item text-danger">
+              Desconectar Spotify
+            </button>
           </li>
         </ul>
       </div>
@@ -133,22 +151,38 @@
 
     {# ── YouTube sync ── #}
     {% if youtube_connected %}
+      <form id="youtube-sync-form" method="POST" action="/sync/youtube" style="display:none;"></form>
+      <form id="youtube-disconnect-form" method="POST" action="/sync/youtube/disconnect" onsubmit="return confirm('¿Desconectar YouTube?')" style="display:none;"></form>
       <div class="btn-group btn-group-sm">
-        <form method="POST" action="/sync/youtube">
-          <button type="submit" class="btn btn-sm src-btn d-inline-flex align-items-center gap-1"
-                  style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;" title="Importar likes de YouTube">
-            <span class="pi" style="font-size:14px;"><img src="/static/icons/youtube.svg" alt="" style="filter:invert(14%) sepia(80%) saturate(800%) hue-rotate(340deg) brightness(85%);"></span>
-            ↻
-          </button>
-        </form>
+        <button type="submit" form="youtube-sync-form"
+                class="btn btn-sm src-btn d-inline-flex align-items-center gap-1"
+                style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;"
+                title="{% if youtube_playlist_name %}Sincronizar desde « {{ youtube_playlist_name }} »{% else %}Importar desde YouTube{% endif %}">
+          <span class="pi" style="font-size:14px;"><img src="/static/icons/youtube.svg" alt="" style="filter:invert(14%) sepia(80%) saturate(800%) hue-rotate(340deg) brightness(85%);"></span>
+          ↻
+        </button>
         <button type="button" class="btn btn-sm dropdown-toggle dropdown-toggle-split"
                 style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;"
                 data-bs-toggle="dropdown"></button>
-        <ul class="dropdown-menu dropdown-menu-end" style="font-size:0.82rem;">
+        <ul class="dropdown-menu dropdown-menu-end" style="font-size:0.82rem;min-width:200px;">
+          {% if youtube_playlist_name %}
           <li>
-            <form method="POST" action="/sync/youtube/disconnect" onsubmit="return confirm('¿Desconectar YouTube?')">
-              <button class="dropdown-item text-danger">Desconectar YouTube</button>
-            </form>
+            <span class="dropdown-item-text text-muted" style="font-size:0.75rem;">
+              Playlist: <strong>{{ youtube_playlist_name }}</strong>
+            </span>
+          </li>
+          <li><hr class="dropdown-divider my-1"></li>
+          {% endif %}
+          <li>
+            <button type="button" class="dropdown-item" onclick="openPlaylistPicker('youtube')">
+              ☰ Elegir playlist…
+            </button>
+          </li>
+          <li><hr class="dropdown-divider my-1"></li>
+          <li>
+            <button type="submit" form="youtube-disconnect-form" class="dropdown-item text-danger">
+              Desconectar YouTube
+            </button>
           </li>
         </ul>
       </div>
@@ -230,13 +264,23 @@
              style="max-width:240px;"
              onsearch="this.form.submit()">
 
-      <select name="sort" class="form-select form-select-sm" style="max-width:165px;" onchange="this.form.submit()">
-        <option value="newest"      {% if sort == 'newest'      %}selected{% endif %}>Más recientes</option>
-        <option value="oldest"      {% if sort == 'oldest'      %}selected{% endif %}>Más antiguos</option>
-        <option value="artist_asc"  {% if sort == 'artist_asc'  %}selected{% endif %}>Artista A→Z</option>
-        <option value="artist_desc" {% if sort == 'artist_desc' %}selected{% endif %}>Artista Z→A</option>
-        <option value="title_asc"   {% if sort == 'title_asc'   %}selected{% endif %}>Título A→Z</option>
-        <option value="title_desc"  {% if sort == 'title_desc'  %}selected{% endif %}>Título Z→A</option>
+      <select name="sort" class="form-select form-select-sm" style="max-width:185px;" onchange="this.form.submit()">
+        <optgroup label="Likeado">
+          <option value="newest"          {% if sort == 'newest'          %}selected{% endif %}>Likeado: más reciente</option>
+          <option value="oldest"          {% if sort == 'oldest'          %}selected{% endif %}>Likeado: más antiguo</option>
+        </optgroup>
+        <optgroup label="Importado">
+          <option value="imported_newest" {% if sort == 'imported_newest' %}selected{% endif %}>Importado: más reciente</option>
+          <option value="imported_oldest" {% if sort == 'imported_oldest' %}selected{% endif %}>Importado: más antiguo</option>
+        </optgroup>
+        <optgroup label="Artista">
+          <option value="artist_asc"      {% if sort == 'artist_asc'      %}selected{% endif %}>Artista A→Z</option>
+          <option value="artist_desc"     {% if sort == 'artist_desc'     %}selected{% endif %}>Artista Z→A</option>
+        </optgroup>
+        <optgroup label="Título">
+          <option value="title_asc"       {% if sort == 'title_asc'       %}selected{% endif %}>Título A→Z</option>
+          <option value="title_desc"      {% if sort == 'title_desc'      %}selected{% endif %}>Título Z→A</option>
+        </optgroup>
       </select>
 
       <div class="d-flex gap-1">
@@ -336,13 +380,14 @@
 
 {# ── Track table ───────────────────────────────────────────────── #}
 {% if rows %}
-<form method="POST" action="/tracks/download-queue" id="queue-form">
+{# queue-form wraps only the bulk bar; checkboxes reference it via form="queue-form" #}
+<form method="POST" action="/tracks/download-queue" id="queue-form"></form>
 
 <div class="tm-bulk-bar mb-2">
   <span class="text-muted small" id="sel-count">0 seleccionados</span>
   <div class="ms-auto d-flex gap-1 flex-wrap">
     {% if active_status in ['pending', 'not_found', 'vinyl_only', 'bandcamp_only', 'all'] %}
-      <button type="submit" class="btn btn-success btn-sm"
+      <button type="submit" form="queue-form" class="btn btn-success btn-sm"
               data-toast="Cola armada" data-toast-type="success">
         ↗ Armar cola de descarga
       </button>
@@ -376,6 +421,7 @@
     <thead class="table-dark">
       <tr>
         <th style="width:32px;"><input type="checkbox" id="check-all" onclick="toggleAll()"></th>
+        <th style="width:56px;" class="text-muted">ID</th>
         <th>
           <a href="/tracks/pending?status={{ active_status }}&q={{ q }}&sort={% if sort == 'artist_asc' %}artist_desc{% else %}artist_asc{% endif %}"
              class="text-white text-decoration-none" style="opacity:.8;">
@@ -388,12 +434,22 @@
             Título {% if sort == 'title_asc' %}↑{% elif sort == 'title_desc' %}↓{% endif %}
           </a>
         </th>
-        <th>Versión</th>
         <th>Estado</th>
         <th>Fuente</th>
-        <th>Likeado</th>
+        <th>
+          <a href="/tracks/pending?status={{ active_status }}&q={{ q }}&sort={% if sort == 'newest' %}oldest{% else %}newest{% endif %}&source={{ source }}"
+             class="text-white text-decoration-none" style="opacity:.8;">
+            Likeado {% if sort == 'newest' %}↓{% elif sort == 'oldest' %}↑{% endif %}
+          </a>
+        </th>
+        <th>
+          <a href="/tracks/pending?status={{ active_status }}&q={{ q }}&sort={% if sort == 'imported_newest' %}imported_oldest{% else %}imported_newest{% endif %}&source={{ source }}"
+             class="text-white text-decoration-none" style="opacity:.8;">
+            Importado {% if sort == 'imported_newest' %}↓{% elif sort == 'imported_oldest' %}↑{% endif %}
+          </a>
+        </th>
         <th>Dur.</th>
-        <th>Notas</th>
+        <th style="width:80px;">Notas</th>
         <th></th>
       </tr>
     </thead>
@@ -401,13 +457,15 @@
       {% for row in rows %}
       <tr>
         <td>
-          {% if row.status not in ["queued", "discarded", "set_mix"] %}
-            <input type="checkbox" name="review_ids" value="{{ row.review_id }}" class="row-check">
+          {% if row.status not in ["queued", "set_mix"] %}
+            <input type="checkbox" name="review_ids" value="{{ row.review_id }}" class="row-check" form="queue-form">
           {% endif %}
         </td>
 
-        <td style="max-width:180px;">
-          <span class="fw-semibold text-truncate d-block" style="max-width:170px;" title="{{ row.artist }}">
+        <td class="text-muted font-monospace" style="font-size:0.72rem;">{{ row.review_id }}</td>
+
+        <td style="max-width:150px;">
+          <span class="fw-semibold text-truncate d-block" style="max-width:140px;" title="{{ row.artist }}">
             {{ row.artist or "—" }}
           </span>
           {% if row.channel and row.channel != row.artist and row.channel != "—" %}
@@ -415,24 +473,16 @@
           {% endif %}
         </td>
 
-        <td style="max-width:220px;">
+        <td style="max-width:240px;">
           {% if row.source_url and row.source_url != "#" %}
             <a href="{{ row.source_url }}" target="_blank" rel="noopener"
-               class="text-truncate d-block" style="max-width:210px;" title="{{ row.raw_title }}">
+               class="text-truncate d-block" style="max-width:230px;" title="{{ row.raw_title }}">
               {{ row.title or "—" }}
             </a>
           {% else %}
-            <span class="text-truncate d-block" style="max-width:210px;" title="{{ row.raw_title }}">
+            <span class="text-truncate d-block" style="max-width:230px;" title="{{ row.raw_title }}">
               {{ row.title or "—" }}
             </span>
-          {% endif %}
-        </td>
-
-        <td>
-          {% if row.version %}
-            <span class="badge s-set version-badge">{{ row.version }}</span>
-          {% else %}
-            <span class="text-muted">—</span>
           {% endif %}
         </td>
 
@@ -469,6 +519,7 @@
         </td>
 
         <td class="text-muted small" style="white-space:nowrap;">{{ row.liked_at }}</td>
+        <td class="text-muted small" style="white-space:nowrap;">{{ row.collected_at }}</td>
         <td class="text-muted small" style="white-space:nowrap;">{{ row.duration }}</td>
 
         <td class="notes">
@@ -482,6 +533,8 @@
         </td>
 
         <td class="action-btns" style="white-space:nowrap;">
+          <a href="/debug/track/{{ row.review_id }}" class="btn btn-outline-secondary btn-sm"
+             title="Historial / Reportar problema" style="opacity:.55;">🔔</a>
           {% if row.nt_id %}
             <button type="button" class="btn btn-outline-secondary btn-sm" title="Editar metadata"
                     data-nt-id="{{ row.nt_id }}"
@@ -518,7 +571,6 @@
     </tbody>
   </table>
 </div>
-</form>
 
 {% else %}
 <div class="alert alert-info">
@@ -600,9 +652,23 @@ document.addEventListener('DOMContentLoaded', () => {
     form.addEventListener('submit', () => sessionStorage.setItem('pending_scroll', window.scrollY));
   });
 
-  /* data-toast buttons */
+  /* Bulk form: block submission when nothing is selected */
+  const queueForm = document.getElementById('queue-form');
+  if (queueForm) {
+    queueForm.addEventListener('submit', e => {
+      const checked = document.querySelectorAll('.row-check:checked').length;
+      if (checked === 0) {
+        e.preventDefault();
+        _showToastNow('Seleccioná al menos un track primero.', 'warning');
+      }
+    });
+  }
+
+  /* data-toast buttons — set sessionStorage toast for post-redirect display */
   document.querySelectorAll('[data-toast]').forEach(btn => {
-    btn.addEventListener('click', () => _setToast(btn.dataset.toast, btn.dataset.toastType || 'success'));
+    btn.addEventListener('click', () => {
+      _setToast(btn.dataset.toast, btn.dataset.toastType || 'success');
+    });
   });
 
   /* Selection counter */
@@ -610,6 +676,15 @@ document.addEventListener('DOMContentLoaded', () => {
     cb.addEventListener('change', updateSelCount);
   });
 });
+
+function _showToastNow(msg, type) {
+  const el = document.getElementById('global-toast');
+  if (!el) { _setToast(msg, type); return; }
+  el.className = 'toast align-items-center border-0 shadow-sm ' +
+    (type === 'warning' ? 'text-dark' : 'text-white') + ' bg-' + type;
+  document.getElementById('global-toast-body').textContent = msg;
+  bootstrap.Toast.getOrCreateInstance(el, { delay: 3000 }).show();
+}
 
 function updateSelCount() {
   const n = document.querySelectorAll('.row-check:checked').length;
@@ -653,6 +728,95 @@ document.addEventListener('DOMContentLoaded', () => {
   const panel = document.getElementById('date-filter-panel');
   if (panel && panel.style.display === 'none') setDateInputsDisabled(true);
 });
+</script>
+
+{# ── Playlist picker modal ─────────────────────────────────────── #}
+<div class="modal fade" id="playlistPickerModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h5 class="modal-title" id="playlistPickerTitle" style="font-size:0.95rem;">Elegir playlist</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+        <div class="text-center py-4 text-muted" id="playlistPickerLoading">
+          <div class="spinner-border spinner-border-sm me-2"></div>Cargando playlists…
+        </div>
+        <div id="playlistPickerError" class="alert alert-danger m-3" style="display:none;"></div>
+        <ul class="list-group list-group-flush" id="playlistPickerList"></ul>
+      </div>
+      <form method="POST" id="playlistPickerForm">
+        <input type="hidden" name="playlist_id" id="playlistPickerIdInput">
+        <input type="hidden" name="playlist_name" id="playlistPickerNameInput">
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+let _pickerPlatform = null;
+
+function openPlaylistPicker(platform) {
+  _pickerPlatform = platform;
+  const label = platform === 'spotify' ? 'Spotify' : 'YouTube';
+  document.getElementById('playlistPickerTitle').textContent = 'Elegir playlist de ' + label;
+  document.getElementById('playlistPickerLoading').style.display = 'block';
+  document.getElementById('playlistPickerError').style.display = 'none';
+  document.getElementById('playlistPickerList').innerHTML = '';
+
+  new bootstrap.Modal(document.getElementById('playlistPickerModal')).show();
+
+  fetch('/sync/' + platform + '/playlists', { headers: { 'Accept': 'application/json' } })
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('playlistPickerLoading').style.display = 'none';
+      if (data.error) {
+        const el = document.getElementById('playlistPickerError');
+        el.textContent = data.error;
+        el.style.display = 'block';
+        return;
+      }
+      const list = document.getElementById('playlistPickerList');
+      if (!data.length) {
+        list.innerHTML = '<li class="list-group-item text-muted text-center py-3">No se encontraron playlists.</li>';
+        return;
+      }
+      data.forEach(pl => {
+        const count = pl.tracks !== undefined ? pl.tracks : pl.videos;
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex align-items-center justify-content-between py-2 px-3';
+        li.style.fontSize = '0.85rem';
+        li.innerHTML = `
+          <div>
+            <span class="fw-semibold">${escHtml(pl.name)}</span>
+            <span class="text-muted ms-2" style="font-size:0.75rem;">${count} items</span>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-primary" style="font-size:0.75rem;padding:.2rem .6rem;"
+                  onclick='selectPlaylist(${JSON.stringify(pl.id)}, ${JSON.stringify(pl.name)})'>
+            Seleccionar
+          </button>`;
+        list.appendChild(li);
+      });
+    })
+    .catch(err => {
+      document.getElementById('playlistPickerLoading').style.display = 'none';
+      const el = document.getElementById('playlistPickerError');
+      el.textContent = 'Error al cargar playlists: ' + err;
+      el.style.display = 'block';
+    });
+}
+
+function selectPlaylist(id, name) {
+  document.getElementById('playlistPickerIdInput').value = id;
+  document.getElementById('playlistPickerNameInput').value = name;
+  const form = document.getElementById('playlistPickerForm');
+  form.action = '/sync/' + _pickerPlatform + '/select-playlist';
+  form.submit();
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 </script>
 
 {% endblock %}
