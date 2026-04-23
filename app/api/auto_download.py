@@ -27,7 +27,7 @@ from app.models.normalized_track import NormalizedTrack
 from app.models.review_item import ReviewItem, TrackStatus
 from app.models.source_track import SourceTrack
 from app.models.user import User
-from app.services import auto_download
+from app.services import auto_download, log_service
 from app.utils.fs import resolve_download_folder
 
 logger = logging.getLogger(__name__)
@@ -80,6 +80,11 @@ def auto_download_all_start(
             for item in items
             if item.normalized_track and item.normalized_track.source_track
         },
+        "collected_at": {
+            item.id: item.normalized_track.source_track.collected_at
+            for item in items
+            if item.normalized_track and item.normalized_track.source_track
+        },
         "summary": None,
         "total": len(items),
     }
@@ -123,7 +128,7 @@ async def _run_downloads(job_id: str):
     try:
         user_settings = _settings_db.query(UserSettings).filter_by(user_id=user_id).first()
         base_dest = Path(user_settings.download_dir) if (user_settings and user_settings.download_dir) else None
-        organize_by_date = user_settings.organize_by_like_date if user_settings else False
+        organize_mode = user_settings.folder_organize_mode if user_settings else "none"
     finally:
         _settings_db.close()
 
@@ -168,18 +173,32 @@ async def _run_downloads(job_id: str):
                     if base_dest:
                         dest_folder = resolve_download_folder(
                             base=base_dest,
-                            liked_at=liked_at_map.get(review_id),
-                            organize_by_date=organize_by_date,
+                            liked_at=job.get("liked_at", {}).get(review_id),
+                            collected_at=job.get("collected_at", {}).get(review_id),
+                            mode=organize_mode,
                         )
 
                     # Load user settings fresh per worker (thread-safe)
                     us = db.query(UserSettings).filter_by(user_id=user_id).first()
+
+                    log_service.log_event(
+                        db, "download_started", f"Download started: {label}",
+                        user_id=user_id, track_id=review_id,
+                        context={"query": query}, commit=True,
+                    )
+
                     result = await loop.run_in_executor(
                         None, auto_download.try_download, query, dest_folder, us
                     )
 
                     db_status = result if result in ("downloaded", "vinyl_only", "bandcamp_only") else "not_found"
                     item.status = TrackStatus(db_status)
+                    dl_action = "auto_download_succeeded" if result == "downloaded" else f"auto_download_{result}"
+                    log_service.add_track_history(
+                        db, track_id=review_id, action=dl_action,
+                        user_id=user_id,
+                        details={"result": result, "query": query},
+                    )
                     db.commit()
 
                     row = _build_summary_row(item, nt, st, query)
@@ -267,9 +286,15 @@ def auto_download_one(
             dest_folder = resolve_download_folder(
                 base=Path(user_settings.download_dir),
                 liked_at=st.liked_at if st else None,
-                organize_by_date=user_settings.organize_by_like_date,
+                collected_at=st.collected_at if st else None,
+                mode=user_settings.folder_organize_mode or "none",
             )
 
+        log_service.log_event(
+            db, "download_started", f"Download started: {query}",
+            user_id=current_user.id, track_id=review_id,
+            context={"query": query}, commit=True,
+        )
         try:
             result = auto_download.try_download(query, dest_folder, user_settings)
         except Exception:
@@ -278,6 +303,12 @@ def auto_download_one(
 
         db_status = result if result in ("downloaded", "vinyl_only", "bandcamp_only") else "not_found"
         item.status = TrackStatus(db_status)
+        dl_action = "auto_download_succeeded" if result == "downloaded" else f"auto_download_{result}"
+        log_service.add_track_history(
+            db, track_id=review_id, action=dl_action,
+            user_id=current_user.id,
+            details={"result": result, "query": query},
+        )
         db.commit()
 
     referer = request.headers.get("referer", "/tracks/download-queue")

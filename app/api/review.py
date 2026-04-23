@@ -9,6 +9,7 @@ from app.models.normalized_track import NormalizedTrack
 from app.models.review_item import ReviewItem, TrackStatus
 from app.models.source_track import SourceTrack
 from app.models.user import User
+from app.services import log_service
 
 router = APIRouter(prefix="/review", tags=["review"])
 
@@ -45,6 +46,10 @@ def downloaded_form(
     item = _get_item(item_id, current_user.id, db)
     item.mark_reviewed(TrackStatus.downloaded)
     db.commit()
+    log_service.add_track_history(
+        db, track_id=item.id, action="marked_downloaded",
+        user_id=current_user.id, commit=True,
+    )
     return _redirect(next, _QUEUE_URL)
 
 
@@ -58,6 +63,10 @@ def not_found_form(
     item = _get_item(item_id, current_user.id, db)
     item.mark_reviewed(TrackStatus.not_found)
     db.commit()
+    log_service.add_track_history(
+        db, track_id=item.id, action="marked_not_found",
+        user_id=current_user.id, commit=True,
+    )
     return _redirect(next, _QUEUE_URL)
 
 
@@ -71,6 +80,10 @@ def bandcamp_only_form(
     item = _get_item(item_id, current_user.id, db)
     item.mark_reviewed(TrackStatus.bandcamp_only)
     db.commit()
+    log_service.add_track_history(
+        db, track_id=item.id, action="marked_bandcamp_only",
+        user_id=current_user.id, commit=True,
+    )
     return _redirect(next, _QUEUE_URL)
 
 
@@ -84,6 +97,10 @@ def vinyl_only_form(
     item = _get_item(item_id, current_user.id, db)
     item.mark_reviewed(TrackStatus.vinyl_only)
     db.commit()
+    log_service.add_track_history(
+        db, track_id=item.id, action="marked_vinyl_only",
+        user_id=current_user.id, commit=True,
+    )
     return _redirect(next, _QUEUE_URL)
 
 
@@ -96,6 +113,10 @@ def discard_form(
     item = _get_item(item_id, current_user.id, db)
     item.mark_reviewed(TrackStatus.discarded)
     db.commit()
+    log_service.add_track_history(
+        db, track_id=item.id, action="discarded",
+        user_id=current_user.id, commit=True,
+    )
     return RedirectResponse(url="/tracks/pending", status_code=303)
 
 

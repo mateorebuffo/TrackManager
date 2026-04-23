@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Reportes de problemas — Track Manager{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-3 mb-4">
+  <h1 class="tm-page-title mb-0">Reportes de problemas</h1>
+</div>
+
+{% if submitted %}
+<div class="alert alert-success py-2 mb-3">Reporte enviado correctamente.</div>
+{% endif %}
+
+<!-- Submit new report -->
+<div class="card mb-4">
+  <div class="card-header">Nuevo reporte</div>
+  <div class="card-body">
+    <form method="POST" action="/debug/reports" class="row g-3">
+      <div class="col-md-2">
+        <label class="form-label">Track ID (opcional)</label>
+        <input type="number" name="track_id" class="form-control form-control-sm"
+               placeholder="Review ID">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Categoría</label>
+        <select name="category" class="form-select form-select-sm">
+          {% for val, label in categories %}
+            <option value="{{ val }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-5">
+        <label class="form-label">Descripción</label>
+        <textarea name="description" class="form-control form-control-sm" rows="2"
+                  placeholder="Describe el problema…" required></textarea>
+      </div>
+      <div class="col-md-2 d-flex align-items-end">
+        <button type="submit" class="btn btn-sm btn-danger w-100">Enviar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Filter by status -->
+<form method="GET" action="/debug/reports" class="d-flex gap-2 mb-3">
+  <select name="status" class="form-select form-select-sm" style="width:auto">
+    <option value="">Todos los estados</option>
+    {% for s in ["open", "reviewed", "resolved"] %}
+      <option value="{{ s }}" {% if active_status == s %}selected{% endif %}>{{ s }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="btn btn-sm btn-outline-secondary">Filtrar</button>
+  <a href="/debug/reports" class="btn btn-sm btn-outline-secondary">Ver todos</a>
+</form>
+
+{% if reports %}
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead class="table-dark">
+        <tr>
+          <th>#</th>
+          <th>Fecha</th>
+          {% if is_admin %}<th>Usuario</th>{% endif %}
+          <th>Track</th>
+          <th>Categoría</th>
+          <th>Descripción</th>
+          <th>Estado</th>
+          <th>Notas</th>
+          {% if is_admin %}<th>Acción</th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in reports %}
+        {% set st_badge = {"open": "badge bg-danger", "reviewed": "badge bg-warning text-dark", "resolved": "badge bg-success"}.get(r.status.value, "badge bg-secondary") %}
+        <tr>
+          <td style="font-size:0.78rem;color:var(--tm-muted)">{{ r.id }}</td>
+          <td style="white-space:nowrap;font-size:0.75rem;color:var(--tm-muted)">
+            {{ r.created_at.strftime("%d/%m/%Y") if r.created_at else "—" }}
+          </td>
+          {% if is_admin %}
+          <td style="font-size:0.78rem">{{ r.user_id }}</td>
+          {% endif %}
+          <td style="font-size:0.78rem">
+            {% if r.track_id %}
+              <a href="/debug/track/{{ r.track_id }}" class="text-decoration-none">#{{ r.track_id }}</a>
+            {% else %}—{% endif %}
+          </td>
+          <td style="font-size:0.78rem">{{ r.category }}</td>
+          <td style="font-size:0.82rem;max-width:260px">{{ r.description }}</td>
+          <td><span class="{{ st_badge }}" style="font-size:0.67rem">{{ r.status.value }}</span></td>
+          <td style="font-size:0.78rem;color:var(--tm-muted);max-width:160px">
+            {{ r.resolution_notes or "—" }}
+          </td>
+          {% if is_admin %}
+          <td>
+            <details>
+              <summary class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.72rem;list-style:none;cursor:pointer">
+                Actualizar
+              </summary>
+              <form method="POST" action="/debug/reports/{{ r.id }}/status" class="mt-2 p-2 border rounded"
+                    style="min-width:220px;background:#f8fafc">
+                <select name="status" class="form-select form-select-sm mb-2">
+                  {% for s in ["open", "reviewed", "resolved"] %}
+                    <option value="{{ s }}" {% if r.status.value == s %}selected{% endif %}>{{ s }}</option>
+                  {% endfor %}
+                </select>
+                <textarea name="resolution_notes" class="form-control form-control-sm mb-2" rows="2"
+                          placeholder="Notas de resolución…">{{ r.resolution_notes or "" }}</textarea>
+                <button type="submit" class="btn btn-sm btn-primary w-100">Guardar</button>
+              </form>
+            </details>
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<p class="text-muted mt-2" style="font-size:0.78rem">{{ reports | length }} reporte(s).</p>
+{% else %}
+<div class="card card-body text-muted text-center py-4">No hay reportes.</div>
+{% endif %}
+{% endblock %}

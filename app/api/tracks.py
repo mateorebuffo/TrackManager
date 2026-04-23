@@ -1,3 +1,4 @@
+import logging
 import re
 from datetime import date, datetime
 from urllib.parse import quote, quote_plus
@@ -14,7 +15,9 @@ from app.models.normalized_track import NormalizedTrack
 from app.models.review_item import ReviewItem, TrackStatus
 from app.models.source_track import SourceTrack
 from app.models.user import User
-from app.services import spotify_auth, youtube_auth
+from app.services import log_service, spotify_auth, youtube_auth
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/tracks", tags=["tracks"])
 templates = Jinja2Templates(directory="app/templates")
@@ -36,12 +39,14 @@ _STATUS_FILTER: dict[str, list[TrackStatus]] = {
 }
 
 _SORT_OPTIONS = {
-    "newest":      nulls_last(desc(SourceTrack.liked_at)),
-    "oldest":      nulls_last(asc(SourceTrack.liked_at)),
-    "artist_asc":  nulls_last(asc(NormalizedTrack.normalized_artist)),
-    "artist_desc": nulls_last(desc(NormalizedTrack.normalized_artist)),
-    "title_asc":   nulls_last(asc(NormalizedTrack.normalized_title)),
-    "title_desc":  nulls_last(desc(NormalizedTrack.normalized_title)),
+    "newest":           nulls_last(desc(SourceTrack.liked_at)),
+    "oldest":           nulls_last(asc(SourceTrack.liked_at)),
+    "imported_newest":  desc(SourceTrack.collected_at),
+    "imported_oldest":  asc(SourceTrack.collected_at),
+    "artist_asc":       nulls_last(asc(NormalizedTrack.normalized_artist)),
+    "artist_desc":      nulls_last(desc(NormalizedTrack.normalized_artist)),
+    "title_asc":        nulls_last(asc(NormalizedTrack.normalized_title)),
+    "title_desc":       nulls_last(desc(NormalizedTrack.normalized_title)),
 }
 
 
@@ -50,7 +55,7 @@ def pending_tracks_page(
     request: Request,
     status: str = Query(default="pending"),
     q: str | None = Query(default=None),
-    sort: str = Query(default="newest"),
+    sort: str = Query(default="imported_newest"),
     date_from: str | None = Query(default=None),
     date_to: str | None = Query(default=None),
     source: str | None = Query(default=None),
@@ -138,7 +143,7 @@ def pending_tracks_page(
         if raw_notes.startswith("dup:"):
             try:
                 matched_review_id = int(raw_notes[4:])
-                display_notes = "Posible duplicado"
+                display_notes = "Duplicado"
                 dup_compare_url = f"/tracks/pending?compare={item.id},{matched_review_id}"
             except ValueError:
                 pass
@@ -155,6 +160,7 @@ def pending_tracks_page(
                 "source": st.source if st else "—",
                 "source_url": st.source_url if st else "#",
                 "liked_at": st.liked_at.strftime("%d/%m/%Y") if st and st.liked_at else "—",
+                "collected_at": st.collected_at.strftime("%d/%m/%Y") if st and st.collected_at else "—",
                 "duration": _fmt_duration(st.duration_seconds if st else None),
                 "notes": display_notes,
                 "dup_compare_url": dup_compare_url,
@@ -183,6 +189,8 @@ def pending_tracks_page(
             "source": source or "",
             "spotify_connected": spotify_auth.is_connected(db, current_user.id),
             "youtube_connected": youtube_auth.is_connected(db, current_user.id),
+            "spotify_playlist_name": _user_playlist_name(db, current_user.id, "spotify"),
+            "youtube_playlist_name": _user_playlist_name(db, current_user.id, "youtube"),
             "compare_mode": bool(compare_ids),
         },
     )
@@ -250,10 +258,37 @@ def edit_metadata(
         .first()
     )
     if nt:
-        nt.normalized_artist = artist.strip() or None
-        nt.normalized_title = title.strip() or None
-        nt.version_info = version.strip() or None
+        before = {
+            "artist": nt.normalized_artist,
+            "title": nt.normalized_title,
+            "version": nt.version_info,
+        }
+        new_artist  = artist.strip() or None
+        new_title   = title.strip() or None
+        new_version = version.strip() or None
+
+        # Query ReviewItem directly — avoids ORM lazy-load issues after commit
+        review_id_val = (
+            db.query(ReviewItem.id)
+            .filter(ReviewItem.normalized_track_id_fk == nt.id)
+            .scalar()
+        )
+        nt.normalized_artist = new_artist
+        nt.normalized_title  = new_title
+        nt.version_info      = new_version
         db.commit()
+
+        if review_id_val:
+            log_service.add_track_history(
+                db, track_id=review_id_val, action="manually_edited",
+                user_id=current_user.id,
+                details={"before": before, "after": {
+                    "artist": new_artist,
+                    "title": new_title,
+                    "version": new_version,
+                }},
+                commit=True,
+            )
     referer = request.headers.get("referer", "/tracks/pending")
     return RedirectResponse(url=referer, status_code=303)
 
@@ -273,6 +308,11 @@ def download_queue_post(
             {"status": TrackStatus.queued}, synchronize_session=False
         )
         db.commit()
+        for rid in valid:
+            log_service.add_track_history(
+                db, track_id=rid, action="added_to_queue",
+                user_id=current_user.id, commit=True,
+            )
     return _render_queue(request, db, current_user.id)
 
 
@@ -305,6 +345,11 @@ def bulk_discard(
             {"status": TrackStatus.discarded}, synchronize_session=False
         )
         db.commit()
+        for rid in valid:
+            log_service.add_track_history(
+                db, track_id=rid, action="discarded",
+                user_id=current_user.id, commit=True,
+            )
     return RedirectResponse(url="/tracks/pending", status_code=303)
 
 
@@ -336,9 +381,9 @@ def download_queue_reset_all(
             ReviewItem.status.in_(_QUEUE_STATUSES),
             SourceTrack.user_id == current_user.id,
         )
-        .scalars()
         .all()
     )
+    valid = [row[0] for row in valid]
     if valid:
         db.query(ReviewItem).filter(ReviewItem.id.in_(valid)).update(
             {"status": TrackStatus.pending, "reviewed_at": None}, synchronize_session=False
@@ -416,7 +461,7 @@ def _user_review_ids(db: Session, user_id: int, candidate_ids: list[int]) -> lis
     """Return the subset of candidate_ids that belong to user_id."""
     if not candidate_ids:
         return []
-    return (
+    rows = (
         db.query(ReviewItem.id)
         .join(ReviewItem.normalized_track)
         .join(NormalizedTrack.source_track)
@@ -424,9 +469,9 @@ def _user_review_ids(db: Session, user_id: int, candidate_ids: list[int]) -> lis
             ReviewItem.id.in_(candidate_ids),
             SourceTrack.user_id == user_id,
         )
-        .scalars()
         .all()
     )
+    return [row[0] for row in rows]
 
 
 def _status_counts(db: Session, user_id: int) -> dict:
@@ -447,6 +492,18 @@ def _fmt_duration(seconds: float | None) -> str:
         return "—"
     m, s = divmod(int(seconds), 60)
     return f"{m}:{s:02d}"
+
+
+def _user_playlist_name(db: Session, user_id: int, platform: str) -> str | None:
+    from app.models.user_settings import UserSettings
+    us = db.query(UserSettings).filter_by(user_id=user_id).first()
+    if not us:
+        return None
+    if platform == "spotify":
+        return us.spotify_playlist_name or None
+    if platform == "youtube":
+        return us.youtube_playlist_name or None
+    return None
 
 
 def _parse_date(value: str | None) -> date | None:

@@ -7,6 +7,7 @@ Orchestrates the full pipeline for a single sync run:
 from __future__ import annotations
 
 import logging
+import uuid
 from dataclasses import dataclass
 
 from sqlalchemy.exc import IntegrityError
@@ -38,16 +39,49 @@ def run_sync(collector: BaseCollector, db: Session, user_id: int | None = None) 
     Run a full sync for the given collector.
     Each track goes through: fetch → persist → normalize → dedup → review_item.
     """
+    from app.services import log_service
+
+    source = collector.source_name
+    operation_id = str(uuid.uuid4())
     result = SyncResult()
 
-    for raw in collector.fetch_liked_tracks():
-        result.total_fetched += 1
-        try:
-            _process_track(raw, db, result, user_id=user_id)
-        except Exception:
-            logger.exception("Error processing track %s:%s", raw.source, raw.source_track_id)
-            result.errors += 1
-            db.rollback()
+    log_service.log_event(
+        db, "sync_started", f"Sync started: {source}",
+        user_id=user_id, source=source, operation_id=operation_id, commit=True,
+    )
+
+    try:
+        for raw in collector.fetch_liked_tracks():
+            result.total_fetched += 1
+            try:
+                _process_track(raw, db, result, user_id=user_id, operation_id=operation_id)
+            except Exception:
+                logger.exception("Error processing track %s:%s", raw.source, raw.source_track_id)
+                result.errors += 1
+                db.rollback()
+    except Exception:
+        logger.exception("Sync iteration failed for %s", source)
+        log_service.log_event(
+            db, "sync_failed", f"Sync failed: {source}",
+            level="error", user_id=user_id, source=source,
+            operation_id=operation_id, commit=True,
+        )
+        raise
+
+    log_service.log_event(
+        db, "sync_completed",
+        f"Sync completed: {source} — {result.new_tracks} new, {result.errors} errors",
+        user_id=user_id, source=source, operation_id=operation_id,
+        context={
+            "total_fetched": result.total_fetched,
+            "new_tracks": result.new_tracks,
+            "skipped_existing": result.skipped_existing,
+            "strong_dups": result.strong_duplicates_flagged,
+            "weak_dups": result.weak_duplicates_flagged,
+            "errors": result.errors,
+        },
+        commit=True,
+    )
 
     logger.info(
         "Sync complete: fetched=%d new=%d skipped=%d strong_dups=%d weak_dups=%d errors=%d",
@@ -61,7 +95,13 @@ def run_sync(collector: BaseCollector, db: Session, user_id: int | None = None) 
     return result
 
 
-def _process_track(raw: RawTrack, db: Session, result: SyncResult, user_id: int | None = None) -> None:
+def _process_track(
+    raw: RawTrack,
+    db: Session,
+    result: SyncResult,
+    user_id: int | None = None,
+    operation_id: str | None = None,
+) -> None:
     # --- 1. Check if already ingested (idempotent, scoped to user) ---
     existing = (
         db.query(SourceTrack)
@@ -146,6 +186,42 @@ def _process_track(raw: RawTrack, db: Session, result: SyncResult, user_id: int 
 
     result.new_tracks += 1
     logger.debug("Ingested: %r -> %r", raw.raw_title, norm_result.search_query)
+
+    # Log track history and normalization events (best-effort, separate commits)
+    from app.services import log_service
+    log_service.add_track_history(
+        db, track_id=review.id, action="imported", user_id=user_id,
+        details={
+            "source": raw.source,
+            "raw_title": (raw.raw_title or "")[:100],
+            "search_query": norm_result.search_query,
+            "confidence": round(norm_result.confidence_score, 3),
+        },
+        commit=True,
+    )
+    if norm_result.confidence_score < 0.7:
+        log_service.log_event(
+            db, "normalization_low_confidence",
+            f"Low confidence ({norm_result.confidence_score:.2f}): {norm_result.search_query!r}",
+            level="warning", user_id=user_id, track_id=review.id,
+            context={
+                "raw_title": (raw.raw_title or "")[:100],
+                "confidence": round(norm_result.confidence_score, 3),
+                "search_query": norm_result.search_query,
+                "artist": norm_result.normalized_artist,
+            },
+            operation_id=operation_id, source=raw.source, commit=True,
+        )
+    if dup.strength in (MatchStrength.STRONG, MatchStrength.WEAK):
+        log_service.add_track_history(
+            db, track_id=review.id, action="duplicate_flagged", user_id=user_id,
+            details={
+                "strength": dup.strength.value,
+                "score": round(dup.score, 3),
+                "matched_normalized_id": dup.matched_id,
+            },
+            commit=True,
+        )
 
 
 def _normalize_spotify(raw: RawTrack) -> NormalizationResult:

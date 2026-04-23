@@ -25,4 +25,5 @@ def get_db() -> Generator[Session, None, None]:
 def create_tables() -> None:
     """Create all tables. Called on startup."""
     from app.models import source_track, normalized_track, review_item  # noqa: F401
+    from app.models import app_event, track_history, user_report  # noqa: F401
     Base.metadata.create_all(bind=engine)

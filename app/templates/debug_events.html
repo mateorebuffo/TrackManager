@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}App Events — Track Manager{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-3 mb-4">
+  <h1 class="tm-page-title mb-0">App Events</h1>
+  <form method="POST" action="/debug/cleanup" class="mb-0 ms-auto">
+    <button type="submit" class="btn btn-sm btn-outline-danger"
+            onclick="return confirm('Eliminar eventos expirados según política de retención?')">
+      Limpiar expirados
+    </button>
+  </form>
+</div>
+
+{% if cleanup_deleted is not none %}
+<div class="alert alert-success py-2 mb-3">
+  Limpieza completada: <strong>{{ cleanup_deleted }}</strong> evento(s) eliminado(s).
+</div>
+{% endif %}
+
+<!-- Filters -->
+<form method="GET" action="/debug/events" class="d-flex flex-wrap gap-2 mb-3">
+  <select name="level" class="form-select form-select-sm" style="width:auto">
+    <option value="">Todos los niveles</option>
+    {% for lv in ["info","warning","error"] %}
+      <option value="{{ lv }}" {% if active_level == lv %}selected{% endif %}>{{ lv }}</option>
+    {% endfor %}
+  </select>
+  <select name="event_type" class="form-select form-select-sm" style="width:auto">
+    <option value="">Todos los tipos</option>
+    {% for et in event_types %}
+      <option value="{{ et }}" {% if active_type == et %}selected{% endif %}>{{ et }}</option>
+    {% endfor %}
+  </select>
+  <select name="limit" class="form-select form-select-sm" style="width:auto">
+    {% for n in [50, 100, 200, 500] %}
+      <option value="{{ n }}" {% if limit == n %}selected{% endif %}>{{ n }} filas</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="btn btn-sm btn-outline-secondary">Filtrar</button>
+  <a href="/debug/events" class="btn btn-sm btn-outline-secondary">Limpiar filtros</a>
+</form>
+
+{% if events %}
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead class="table-dark">
+        <tr>
+          <th>Hora</th>
+          <th>Nivel</th>
+          <th>Tipo</th>
+          <th>Fuente</th>
+          <th>User</th>
+          <th>Track</th>
+          <th>Mensaje</th>
+          <th>Contexto</th>
+          <th>Op ID</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in events %}
+        {% set lvl_class = {"info": "text-info", "warning": "text-warning", "error": "text-danger"}.get(e.level.value, "") %}
+        <tr>
+          <td style="white-space:nowrap;font-size:0.75rem;color:var(--tm-muted)">
+            {{ e.created_at.strftime("%d/%m %H:%M:%S") if e.created_at else "—" }}
+          </td>
+          <td>
+            <span class="badge {{ lvl_class }}" style="background:transparent;border:1px solid currentColor;font-size:0.65rem">
+              {{ e.level.value }}
+            </span>
+          </td>
+          <td style="font-size:0.78rem;font-family:monospace">{{ e.event_type }}</td>
+          <td style="font-size:0.75rem;color:var(--tm-muted)">{{ e.source or "—" }}</td>
+          <td style="font-size:0.75rem;color:var(--tm-muted)">{{ e.user_id or "—" }}</td>
+          <td style="font-size:0.75rem">
+            {% if e.track_id %}
+              <a href="/debug/track/{{ e.track_id }}" class="text-decoration-none">{{ e.track_id }}</a>
+            {% else %}—{% endif %}
+          </td>
+          <td style="max-width:280px;font-size:0.82rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+              title="{{ e.message }}">{{ e.message }}</td>
+          <td style="max-width:180px">
+            {% if e.context_json %}
+              <details>
+                <summary style="font-size:0.72rem;cursor:pointer;color:var(--tm-muted)">ver</summary>
+                <pre style="font-size:0.68rem;margin:4px 0 0;max-height:120px;overflow:auto;background:#f8fafc;padding:4px;border-radius:4px">{{ e.context_json | tojson(indent=2) }}</pre>
+              </details>
+            {% else %}—{% endif %}
+          </td>
+          <td style="font-size:0.68rem;font-family:monospace;color:var(--tm-muted);max-width:80px;overflow:hidden;text-overflow:ellipsis"
+              title="{{ e.operation_id or '' }}">
+            {{ e.operation_id[:8] if e.operation_id else "—" }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<p class="text-muted mt-2" style="font-size:0.78rem">
+  Mostrando {{ events | length }} evento(s).
+  Política de retención: info 30d · warning 60d · error 180d
+</p>
+{% else %}
+<div class="card card-body text-muted text-center py-4">No hay eventos registrados.</div>
+{% endif %}
+{% endblock %}

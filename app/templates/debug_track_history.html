@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Historial de track — Track Manager{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-start gap-3 mb-4 flex-wrap">
+  <div>
+    <h1 class="tm-page-title mb-0">Historial del track</h1>
+    <p class="text-muted mb-0 mt-1" style="font-size:0.85rem">
+      Review #{{ review_id }} &mdash; <strong>{{ track_label }}</strong>
+    </p>
+  </div>
+  <div class="ms-auto d-flex gap-2">
+    <a href="/tracks/pending?status=all" class="btn btn-sm btn-outline-secondary">← Tracks</a>
+    <a href="/debug/reports?track_id={{ review_id }}" class="btn btn-sm btn-outline-danger">
+      Reportar problema
+    </a>
+  </div>
+</div>
+
+<div class="row g-4">
+
+  <!-- Track History Timeline -->
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">Historial de acciones</div>
+      <div class="card-body p-0">
+        {% if history %}
+        <table class="table table-hover mb-0">
+          <thead class="table-dark">
+            <tr>
+              <th>Hora</th>
+              <th>Acción</th>
+              <th>Detalles</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for h in history %}
+            <tr>
+              <td style="white-space:nowrap;font-size:0.75rem;color:var(--tm-muted)">
+                {{ h.created_at.strftime("%d/%m %H:%M") if h.created_at else "—" }}
+              </td>
+              <td style="font-size:0.8rem;font-family:monospace">{{ h.action }}</td>
+              <td style="max-width:200px">
+                {% if h.details_json %}
+                  <details>
+                    <summary style="font-size:0.72rem;cursor:pointer;color:var(--tm-muted)">ver</summary>
+                    <pre style="font-size:0.68rem;margin:4px 0 0;max-height:100px;overflow:auto;background:#f8fafc;padding:4px;border-radius:4px">{{ h.details_json | tojson(indent=2) }}</pre>
+                  </details>
+                {% else %}—{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="p-4 text-muted text-center" style="font-size:0.875rem">Sin historial registrado.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Related App Events -->
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">Eventos del sistema relacionados</div>
+      <div class="card-body p-0">
+        {% if events %}
+        <table class="table table-hover mb-0">
+          <thead class="table-dark">
+            <tr>
+              <th>Hora</th>
+              <th>Nivel</th>
+              <th>Tipo</th>
+              <th>Mensaje</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for e in events %}
+            {% set lvl_class = {"info": "text-info", "warning": "text-warning", "error": "text-danger"}.get(e.level.value, "") %}
+            <tr>
+              <td style="white-space:nowrap;font-size:0.75rem;color:var(--tm-muted)">
+                {{ e.created_at.strftime("%d/%m %H:%M") if e.created_at else "—" }}
+              </td>
+              <td>
+                <span class="{{ lvl_class }}" style="font-size:0.72rem;font-weight:600">{{ e.level.value }}</span>
+              </td>
+              <td style="font-size:0.75rem;font-family:monospace">{{ e.event_type }}</td>
+              <td style="font-size:0.8rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+                  title="{{ e.message }}">{{ e.message }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="p-4 text-muted text-center" style="font-size:0.875rem">Sin eventos de sistema para este track.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Report problem form -->
+<div class="card mt-4">
+  <div class="card-header">Reportar un problema con este track</div>
+  <div class="card-body">
+    <form method="POST" action="/debug/reports" class="row g-3">
+      <input type="hidden" name="track_id" value="{{ review_id }}">
+      <div class="col-md-4">
+        <label class="form-label">Categoría</label>
+        <select name="category" class="form-select form-select-sm">
+          {% for val, label in categories %}
+            <option value="{{ val }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-8">
+        <label class="form-label">Descripción</label>
+        <textarea name="description" class="form-control form-control-sm" rows="2"
+                  placeholder="Describe el problema…" required></textarea>
+      </div>
+      <div class="col-12">
+        <button type="submit" class="btn btn-sm btn-danger">Enviar reporte</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

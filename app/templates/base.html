@@ -294,10 +294,12 @@
       {% endif %}
     </a>
     <a href="/settings" class="tm-nav-link" data-path="/settings">Config</a>
+    <a href="/debug/reports" class="tm-nav-link" data-path="/debug/reports">Reportar</a>
     {% if request.state.user is defined and request.state.user %}
       {% set nav_user = request.state.user %}
       {% if nav_user.is_admin %}
         <a href="/admin/users" class="tm-nav-link" data-path="/admin">Usuarios</a>
+        <a href="/debug/events" class="tm-nav-link" data-path="/debug">Logs</a>
       {% endif %}
       <div class="tm-nav-sep"></div>
       <span class="tm-nav-user">{{ nav_user.username }}</span>
