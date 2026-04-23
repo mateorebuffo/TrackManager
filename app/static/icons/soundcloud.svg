@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+  <!-- Waveform bars: 3 thick capsules, increasing height left to right -->
+  <rect x="0" y="14" width="2" height="3" rx="1"/>
+  <rect x="3" y="11" width="2" height="6" rx="1"/>
+  <rect x="6" y="8"  width="2" height="9" rx="1"/>
+  <!-- Cloud: left shoulder arc + right bump bezier + right shoulder arc -->
+  <path d="M9 17V13A3 3 0 0 1 12.5 10.2Q15 8 19.5 9A3.5 3.5 0 0 1 23 12.5V17Z"/>
+</svg>

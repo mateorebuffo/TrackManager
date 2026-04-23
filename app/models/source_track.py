@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Float, DateTime, JSON, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Float, DateTime, JSON, UniqueConstraint, ForeignKey
 from sqlalchemy.orm import relationship
 from app.db import Base
 
@@ -8,6 +8,7 @@ class SourceTrack(Base):
     __tablename__ = "source_tracks"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     source = Column(String(50), nullable=False)           # soundcloud | spotify | youtube
     source_track_id = Column(String(255), nullable=False)
     source_url = Column(String(2048))
@@ -23,7 +24,7 @@ class SourceTrack(Base):
     )
 
     __table_args__ = (
-        UniqueConstraint("source", "source_track_id", name="uq_source_source_track_id"),
+        UniqueConstraint("source", "source_track_id", "user_id", name="uq_source_track_user"),
     )
 
     def __repr__(self) -> str:

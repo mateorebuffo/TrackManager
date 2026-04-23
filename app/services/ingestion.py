@@ -33,7 +33,7 @@ class SyncResult:
     errors: int = 0
 
 
-def run_sync(collector: BaseCollector, db: Session) -> SyncResult:
+def run_sync(collector: BaseCollector, db: Session, user_id: int | None = None) -> SyncResult:
     """
     Run a full sync for the given collector.
     Each track goes through: fetch → persist → normalize → dedup → review_item.
@@ -43,7 +43,7 @@ def run_sync(collector: BaseCollector, db: Session) -> SyncResult:
     for raw in collector.fetch_liked_tracks():
         result.total_fetched += 1
         try:
-            _process_track(raw, db, result)
+            _process_track(raw, db, result, user_id=user_id)
         except Exception:
             logger.exception("Error processing track %s:%s", raw.source, raw.source_track_id)
             result.errors += 1
@@ -61,11 +61,11 @@ def run_sync(collector: BaseCollector, db: Session) -> SyncResult:
     return result
 
 
-def _process_track(raw: RawTrack, db: Session, result: SyncResult) -> None:
-    # --- 1. Check if already ingested (idempotent) ---
+def _process_track(raw: RawTrack, db: Session, result: SyncResult, user_id: int | None = None) -> None:
+    # --- 1. Check if already ingested (idempotent, scoped to user) ---
     existing = (
         db.query(SourceTrack)
-        .filter_by(source=raw.source, source_track_id=raw.source_track_id)
+        .filter_by(source=raw.source, source_track_id=raw.source_track_id, user_id=user_id)
         .first()
     )
     if existing:
@@ -75,6 +75,7 @@ def _process_track(raw: RawTrack, db: Session, result: SyncResult) -> None:
 
     # --- 2. Persist source track ---
     source_track = SourceTrack(
+        user_id=user_id,
         source=raw.source,
         source_track_id=raw.source_track_id,
         source_url=raw.source_url,
@@ -95,20 +96,16 @@ def _process_track(raw: RawTrack, db: Session, result: SyncResult) -> None:
 
     # --- 3. Normalize ---
     if raw.source == "spotify":
-        # Spotify provides structured artist metadata — bypass the noisy title parser
         norm_result = _normalize_spotify(raw)
     else:
-        # SoundCloud: publisher_artist from publisher_metadata is the most reliable
-        # artist signal when the uploader is a label/promoter channel.
-        # Use it only when it differs from the channel name (otherwise it's redundant).
         publisher_artist = (raw.raw_metadata or {}).get("publisher_artist")
         effective_artist = raw.raw_artist
         if publisher_artist and publisher_artist.strip().lower() != (raw.raw_artist or "").strip().lower():
             effective_artist = publisher_artist.strip()
         norm_result = normalize_track(raw.raw_title, effective_artist)
 
-    # --- 4. Deduplication ---
-    dup = check_duplicate(norm_result.fingerprint_text, db)
+    # --- 4. Deduplication (scoped to user) ---
+    dup = check_duplicate(norm_result.fingerprint_text, db, user_id=user_id)
 
     # --- 5. Persist normalized track ---
     normalized = NormalizedTrack(
@@ -126,8 +123,6 @@ def _process_track(raw: RawTrack, db: Session, result: SyncResult) -> None:
     # --- 6. Create review item ---
     review_notes = None
     if dup.strength in (MatchStrength.STRONG, MatchStrength.WEAK):
-        # Look up the ReviewItem of the matched NormalizedTrack so we can store
-        # its review ID — used to build a comparison link in the UI.
         matched_review = (
             db.query(ReviewItem)
             .filter(ReviewItem.normalized_track_id_fk == dup.matched_id)
@@ -154,11 +149,6 @@ def _process_track(raw: RawTrack, db: Session, result: SyncResult) -> None:
 
 
 def _normalize_spotify(raw: RawTrack) -> NormalizationResult:
-    """
-    Normalize a Spotify track using its structured artist metadata.
-    Bypasses split_artist_title — artist comes directly from raw_metadata["artists"].
-    Only strips noise and extracts version from the title.
-    """
     artists = (raw.raw_metadata or {}).get("artists") or []
     if artists:
         normalized_artist = ", ".join(a["name"] for a in artists if a.get("name"))

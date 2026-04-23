@@ -21,11 +21,12 @@ from sqlalchemy.orm import Session, contains_eager, joinedload
 
 from pathlib import Path
 
-from app.config import settings
+from app.auth_middleware import get_current_user
 from app.db import SessionLocal, get_db
 from app.models.normalized_track import NormalizedTrack
 from app.models.review_item import ReviewItem, TrackStatus
 from app.models.source_track import SourceTrack
+from app.models.user import User
 from app.services import auto_download
 from app.utils.fs import resolve_download_folder
 
@@ -33,7 +34,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auto-download", tags=["auto-download"])
 templates = Jinja2Templates(directory="app/templates")
 
-# In-memory job store: job_id -> {"review_ids": [...], "summary": {...}, "total": N}
+# In-memory job store: job_id -> {"review_ids": [...], "user_id": N, "summary": {...}, "total": N}
 _jobs: dict[str, dict] = {}
 
 
@@ -43,13 +44,17 @@ _jobs: dict[str, dict] = {}
 def auto_download_all_start(
     request: Request,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> HTMLResponse:
     """Create a job and show the progress page."""
     items = (
         db.query(ReviewItem)
         .join(ReviewItem.normalized_track)
         .join(NormalizedTrack.source_track)
-        .filter(ReviewItem.status == TrackStatus.queued)
+        .filter(
+            ReviewItem.status == TrackStatus.queued,
+            SourceTrack.user_id == current_user.id,
+        )
         .options(
             contains_eager(ReviewItem.normalized_track)
             .contains_eager(NormalizedTrack.source_track)
@@ -58,8 +63,12 @@ def auto_download_all_start(
         .all()
     )
 
+    if not items:
+        return RedirectResponse(url="/tracks/download-queue?empty=1", status_code=303)
+
     job_id = str(uuid.uuid4())
     _jobs[job_id] = {
+        "user_id": current_user.id,
         "review_ids": [item.id for item in items],
         "labels": {
             item.id: _make_label(item.normalized_track)
@@ -96,7 +105,6 @@ async def auto_download_stream(job_id: str) -> StreamingResponse:
     )
 
 
-# Max tracks processed simultaneously. Higher = faster but more load on sources.
 _CONCURRENCY = 4
 
 
@@ -107,7 +115,17 @@ async def _run_downloads(job_id: str):
     labels: dict[int, str] = job["labels"]
     liked_at_map: dict[int, object] = job.get("liked_at", {})
     total = job["total"]
-    base_dest = Path(settings.download_dir) if settings.download_dir else None
+    user_id: int = job["user_id"]
+
+    # Load user settings once for this job
+    from app.models.user_settings import UserSettings
+    _settings_db = SessionLocal()
+    try:
+        user_settings = _settings_db.query(UserSettings).filter_by(user_id=user_id).first()
+        base_dest = Path(user_settings.download_dir) if (user_settings and user_settings.download_dir) else None
+        organize_by_date = user_settings.organize_by_like_date if user_settings else False
+    finally:
+        _settings_db.close()
 
     summary: dict[str, list[dict]] = {
         "downloaded": [],
@@ -151,10 +169,13 @@ async def _run_downloads(job_id: str):
                         dest_folder = resolve_download_folder(
                             base=base_dest,
                             liked_at=liked_at_map.get(review_id),
-                            organize_by_date=settings.organize_by_like_date,
+                            organize_by_date=organize_by_date,
                         )
+
+                    # Load user settings fresh per worker (thread-safe)
+                    us = db.query(UserSettings).filter_by(user_id=user_id).first()
                     result = await loop.run_in_executor(
-                        None, auto_download.try_download, query, dest_folder
+                        None, auto_download.try_download, query, dest_folder, us
                     )
 
                     db_status = result if result in ("downloaded", "vinyl_only", "bandcamp_only") else "not_found"
@@ -173,13 +194,11 @@ async def _run_downloads(job_id: str):
                 {"type": "result", "current": i, "total": total, "label": label, "result": result}
             )
 
-    # Dispatch all tasks concurrently (semaphore limits active workers)
     tasks = [
         asyncio.create_task(_process_one(i, rid))
         for i, rid in enumerate(review_ids, 1)
     ]
 
-    # Stream events as they arrive from workers
     completed = 0
     while completed < total:
         event = await asyncio.wait_for(event_queue.get(), timeout=600)
@@ -195,7 +214,6 @@ async def _run_downloads(job_id: str):
 
 @router.get("/result/{job_id}", response_class=HTMLResponse)
 def auto_download_result(job_id: str, request: Request) -> HTMLResponse:
-    """Summary page after bulk download completes."""
     job = _jobs.get(job_id)
     if not job or job["summary"] is None:
         return RedirectResponse(url="/tracks/download-queue", status_code=303)
@@ -212,33 +230,53 @@ def auto_download_result(job_id: str, request: Request) -> HTMLResponse:
     )
 
 
-# ── Single track (must be last — catches any /{review_id}/form pattern) ──────
+# ── Single track ─────────────────────────────────────────────────────────────
 
 @router.post("/{review_id}/form")
 def auto_download_one(
     review_id: int,
     request: Request,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> RedirectResponse:
     item = (
         db.query(ReviewItem)
-        .options(joinedload(ReviewItem.normalized_track))
-        .filter(ReviewItem.id == review_id)
+        .options(
+            joinedload(ReviewItem.normalized_track)
+            .joinedload(NormalizedTrack.source_track)
+        )
+        .join(ReviewItem.normalized_track)
+        .join(NormalizedTrack.source_track)
+        .filter(
+            ReviewItem.id == review_id,
+            SourceTrack.user_id == current_user.id,
+        )
         .first()
     )
     if item and item.normalized_track:
+        from app.models.user_settings import UserSettings
+        user_settings = db.query(UserSettings).filter_by(user_id=current_user.id).first()
+
         nt: NormalizedTrack = item.normalized_track
         query = nt.search_query or f"{nt.normalized_artist or ''} {nt.normalized_title or ''}".strip()
+
+        dest_folder = None
+        if user_settings and user_settings.download_dir:
+            st = nt.source_track
+            from app.utils.fs import resolve_download_folder
+            dest_folder = resolve_download_folder(
+                base=Path(user_settings.download_dir),
+                liked_at=st.liked_at if st else None,
+                organize_by_date=user_settings.organize_by_like_date,
+            )
+
         try:
-            result = auto_download.try_download(query)
+            result = auto_download.try_download(query, dest_folder, user_settings)
         except Exception:
             logger.exception("Auto-download failed for review #%d", review_id)
             result = "not_found"
 
-        if result in ("downloaded", "vinyl_only", "bandcamp_only"):
-            db_status = result
-        else:
-            db_status = "not_found"
+        db_status = result if result in ("downloaded", "vinyl_only", "bandcamp_only") else "not_found"
         item.status = TrackStatus(db_status)
         db.commit()
 

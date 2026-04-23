@@ -4,6 +4,7 @@ from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api import auth, auto_download, review, settings_page, sync, tracks
 from app.auth_middleware import AuthMiddleware
@@ -18,20 +19,22 @@ logging.basicConfig(
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     create_tables()
-    from app.models import user  # noqa: F401 — ensure User table is created
+    # Import all models to ensure tables are created
+    from app.models import user, user_settings, source_track, normalized_track, review_item  # noqa: F401
     from app.db import Base, engine
     Base.metadata.create_all(bind=engine)
     yield
 
 
 app = FastAPI(
-    title="Music Track Collector",
+    title="Track Manager",
     description="Collect, normalize, deduplicate, and review liked tracks.",
     version="0.1.0",
     lifespan=lifespan,
 )
 
 app.add_middleware(AuthMiddleware)
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 # Routers
 app.include_router(auth.router)

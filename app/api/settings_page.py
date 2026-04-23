@@ -1,102 +1,88 @@
 """
-Settings page — read and write .env configuration via the UI.
+Settings page — per-user configuration stored in UserSettings table.
 """
 from __future__ import annotations
 
-import re
-from pathlib import Path
-from typing import Annotated
-
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session
+from typing import Annotated
+
+from app.auth_middleware import get_current_user
+from app.db import get_db
+from app.models.user import User
+from app.models.user_settings import UserSettings
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 templates = Jinja2Templates(directory="app/templates")
 
-_ENV_PATH = Path(".env")
-
 _FIELDS = [
-    ("SOUNDCLOUD_CLIENT_ID",    "SoundCloud Client ID",     "text",     False),
-    ("SOUNDCLOUD_OAUTH_TOKEN",  "SoundCloud OAuth Token",   "password", False),
-    ("SPOTIFY_CLIENT_ID",       "Spotify Client ID",        "text",     False),
-    ("SPOTIFY_CLIENT_SECRET",   "Spotify Client Secret",    "password", False),
-    ("SPOTIFY_REDIRECT_URI",    "Spotify Redirect URI",     "text",     False),
-    ("YOUTUBE_CLIENT_ID",       "YouTube Client ID",        "text",     False),
-    ("YOUTUBE_CLIENT_SECRET",   "YouTube Client Secret",    "password", False),
-    ("YOUTUBE_REDIRECT_URI",    "YouTube Redirect URI",     "text",     False),
-    ("MUZPA_SESS",              "Muzpa Session (SESS=...)", "password", False),
-    ("DEEZER_ARL",              "Deezer ARL",               "password", False),
-    ("DOWNLOAD_DIR",            "Carpeta de descarga",      "text",     False),
-    ("DOWNLOAD_FULL_EPS",         "Descargar EPs completos",              "checkbox", False),
-    ("ORGANIZE_BY_LIKE_DATE",     "Organizar por fecha de like",          "checkbox", False),
+    ("soundcloud_oauth_token", "SoundCloud OAuth Token",           "password", False),
+    ("muzpa_sess",             "Muzpa Session (SESS=...)",          "password", False),
+    ("deezer_arl",             "Deezer ARL",                        "password", False),
+    ("download_dir",           "Carpeta de descarga",               "text",     False),
+    ("download_full_eps",      "Descargar EPs completos",           "checkbox", False),
+    ("organize_by_like_date",  "Organizar por fecha de like",       "checkbox", False),
 ]
 
 
-def _read_env() -> dict[str, str]:
-    if not _ENV_PATH.exists():
-        return {}
-    values: dict[str, str] = {}
-    for line in _ENV_PATH.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        if "=" in line:
-            key, _, val = line.partition("=")
-            values[key.strip()] = val.strip()
-    return values
-
-
-def _write_env(updates: dict[str, str]) -> None:
-    lines: list[str] = []
-    if _ENV_PATH.exists():
-        lines = _ENV_PATH.read_text(encoding="utf-8").splitlines()
-
-    written: set[str] = set()
-    new_lines: list[str] = []
-
-    for line in lines:
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            new_lines.append(line)
-            continue
-        if "=" in stripped:
-            key = stripped.partition("=")[0].strip()
-            if key in updates:
-                new_lines.append(f"{key}={updates[key]}")
-                written.add(key)
-                continue
-        new_lines.append(line)
-
-    # Append keys that weren't already in the file
-    for key, val in updates.items():
-        if key not in written:
-            new_lines.append(f"{key}={val}")
-
-    _ENV_PATH.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+def _get_or_create_settings(db: Session, user_id: int) -> UserSettings:
+    us = db.query(UserSettings).filter_by(user_id=user_id).first()
+    if not us:
+        us = UserSettings(user_id=user_id)
+        db.add(us)
+        db.commit()
+        db.refresh(us)
+    return us
 
 
 @router.get("", response_class=HTMLResponse)
-def settings_page(request: Request) -> HTMLResponse:
-    current = _read_env()
+def settings_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> HTMLResponse:
+    from app.services import spotify_auth, youtube_auth
+    us = _get_or_create_settings(db, current_user.id)
+    current = {
+        "soundcloud_oauth_token": us.soundcloud_oauth_token or "",
+        "muzpa_sess":             us.muzpa_sess or "",
+        "deezer_arl":             us.deezer_arl or "",
+        "download_dir":           us.download_dir or "",
+        "download_full_eps":      us.download_full_eps,
+        "organize_by_like_date":  us.organize_by_like_date,
+    }
     return templates.TemplateResponse(
         "settings.html",
-        {"request": request, "fields": _FIELDS, "current": current},
+        {
+            "request": request,
+            "fields": _FIELDS,
+            "current": current,
+            "spotify_connected": spotify_auth.is_connected(db, current_user.id),
+            "youtube_connected": youtube_auth.is_connected(db, current_user.id),
+        },
     )
 
 
 @router.post("", response_class=HTMLResponse)
-async def save_settings(request: Request) -> RedirectResponse:
+async def save_settings(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> RedirectResponse:
     form = await request.form()
-    updates: dict[str, str] = {}
+    us = _get_or_create_settings(db, current_user.id)
 
     for key, _label, field_type, _required in _FIELDS:
         if field_type == "checkbox":
-            updates[key] = "true" if form.get(key) == "on" else "false"
+            setattr(us, key, form.get(key) == "on")
+        elif field_type == "password":
+            val = str(form.get(key, "")).strip()
+            if val:  # never blank-out a password field accidentally
+                setattr(us, key, val)
         else:
-            val = form.get(key, "")
-            if val:  # only write non-empty values to avoid blanking secrets
-                updates[key] = str(val).strip()
+            setattr(us, key, str(form.get(key, "")).strip())
 
-    _write_env(updates)
+    db.commit()
     return RedirectResponse(url="/settings?saved=1", status_code=303)

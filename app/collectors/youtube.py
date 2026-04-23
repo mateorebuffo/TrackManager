@@ -1,7 +1,7 @@
 """
 YouTube collector.
 
-Reads only the playlist named 'Music Collector YT' from the authenticated user's account.
+Reads only the playlist named 'Track Manager YT' from the authenticated user's account.
 Uses YouTube Data API v3.
 """
 from __future__ import annotations
@@ -17,7 +17,7 @@ from app.collectors.base import BaseCollector, RawTrack
 
 logger = logging.getLogger(__name__)
 
-_PLAYLIST_NAME = "Music Collector YT"
+_PLAYLIST_NAME = "Track Manager YT"
 _BASE = "https://www.googleapis.com/youtube/v3"
 
 # Titles that YouTube uses for unavailable/deleted/private videos
@@ -42,7 +42,7 @@ def _parse_duration(iso: str) -> float | None:
 
 class YouTubeCollector(BaseCollector):
     """
-    Collector that syncs videos from the 'Music Collector YT' YouTube playlist.
+    Collector that syncs videos from the 'Track Manager YT' YouTube playlist.
     Requires a valid access token (obtain via youtube_auth.get_valid_access_token()).
     """
 

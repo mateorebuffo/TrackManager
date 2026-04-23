@@ -1,54 +1,66 @@
 {% extends "base.html" %}
-{% block title %}Usuarios — Music Collector{% endblock %}
+{% block title %}Usuarios — Track Manager{% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center justify-content-between mb-3">
-  <h4 class="mb-0">Gestión de usuarios</h4>
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <h4 class="tm-page-title mb-0">Gestión de usuarios</h4>
 </div>
 
 {% if request.query_params.get('created') %}
-  <div class="alert alert-success alert-dismissible fade show py-2">Usuario creado. <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+  <div class="alert alert-success alert-dismissible fade show py-2 mb-3">
+    Usuario creado. <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
 {% elif request.query_params.get('deleted') %}
-  <div class="alert alert-success alert-dismissible fade show py-2">Usuario eliminado. <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+  <div class="alert alert-success alert-dismissible fade show py-2 mb-3">
+    Usuario eliminado. <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
 {% elif request.query_params.get('reset') %}
-  <div class="alert alert-success alert-dismissible fade show py-2">Contraseña actualizada. <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+  <div class="alert alert-success alert-dismissible fade show py-2 mb-3">
+    Contraseña actualizada. <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
 {% elif request.query_params.get('error') == 'self' %}
-  <div class="alert alert-danger alert-dismissible fade show py-2">No podés eliminarte a vos mismo. <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+  <div class="alert alert-danger alert-dismissible fade show py-2 mb-3">
+    No podés eliminarte a vos mismo. <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
 {% endif %}
 
 {% if error %}
-  <div class="alert alert-danger py-2 small">{{ error }}</div>
+  <div class="alert alert-danger py-2 mb-3" style="font-size:0.855rem;">{{ error }}</div>
 {% endif %}
 
-{# ── Tabla de usuarios ────────────────────────────────────────────────────── #}
-<div class="card shadow-sm mb-4">
-  <div class="card-header fw-semibold">Usuarios registrados</div>
-  <table class="table table-sm table-hover align-middle mb-0">
+{# ── User list ────────────────────────────────────────────────── #}
+<div class="card mb-4">
+  <div class="card-header">Usuarios registrados</div>
+  <table class="table table-hover table-sm align-middle mb-0" style="border-radius:0 0 var(--tm-radius-lg) var(--tm-radius-lg);overflow:hidden;">
     <thead class="table-dark">
       <tr>
-        <th>#</th>
         <th>Usuario</th>
         <th>Rol</th>
         <th>Creado</th>
-        <th>Acciones</th>
+        <th></th>
       </tr>
     </thead>
     <tbody>
       {% for u in users %}
       <tr>
-        <td class="text-muted small">{{ u.id }}</td>
-        <td><strong>{{ u.username }}</strong> {% if u.id == current_user.id %}<span class="badge bg-secondary">vos</span>{% endif %}</td>
         <td>
-          {% if u.is_admin %}
-            <span class="badge bg-warning text-dark">Admin</span>
-          {% else %}
-            <span class="badge bg-secondary">DJ</span>
+          <span class="fw-semibold" style="font-size:0.875rem;">{{ u.username }}</span>
+          {% if u.id == current_user.id %}
+            <span class="badge s-queued ms-1" style="font-size:0.65rem;">tú</span>
           {% endif %}
         </td>
-        <td class="text-muted small">{{ u.created_at.strftime('%d/%m/%Y') if u.created_at else '—' }}</td>
         <td>
-          <div class="d-flex gap-1">
-            {# Reset password modal trigger #}
+          {% if u.is_admin %}
+            <span class="badge" style="background:#fef3c7;color:#92400e;">Admin</span>
+          {% else %}
+            <span class="badge s-pending">DJ</span>
+          {% endif %}
+        </td>
+        <td class="text-muted small">
+          {{ u.created_at.strftime('%d/%m/%Y') if u.created_at else '—' }}
+        </td>
+        <td>
+          <div class="d-flex gap-1 justify-content-end">
             <button type="button" class="btn btn-outline-secondary btn-sm"
                     data-bs-toggle="modal" data-bs-target="#resetModal"
                     data-uid="{{ u.id }}" data-uname="{{ u.username }}"
@@ -69,37 +81,43 @@
   </table>
 </div>
 
-{# ── Crear nuevo usuario ──────────────────────────────────────────────────── #}
-<div class="card shadow-sm">
-  <div class="card-header fw-semibold">Nuevo usuario</div>
+{# ── Create user ──────────────────────────────────────────────── #}
+<div class="card" style="max-width:560px;">
+  <div class="card-header">Nuevo usuario</div>
   <div class="card-body">
-    <form method="POST" action="/admin/users/create" class="row g-3 align-items-end">
-      <div class="col-sm-4">
-        <label class="form-label small fw-semibold">Usuario</label>
-        <input type="text" name="username" class="form-control form-control-sm" required>
+    <form method="POST" action="/admin/users/create" class="d-flex flex-column gap-3">
+      <div class="row g-3">
+        <div class="col-sm-5">
+          <label class="form-label">Usuario</label>
+          <input type="text" name="username" class="form-control form-control-sm" required>
+        </div>
+        <div class="col-sm-5">
+          <label class="form-label">Contraseña</label>
+          <input type="password" name="password" class="form-control form-control-sm" required minlength="6">
+        </div>
+        <div class="col-sm-2 d-flex flex-column justify-content-end">
+          <div class="form-check mb-2">
+            <input type="checkbox" name="is_admin" id="new-is-admin" class="form-check-input">
+            <label for="new-is-admin" class="form-check-label" style="font-size:0.82rem;">Admin</label>
+          </div>
+        </div>
       </div>
-      <div class="col-sm-4">
-        <label class="form-label small fw-semibold">Contraseña</label>
-        <input type="password" name="password" class="form-control form-control-sm" required minlength="6">
-      </div>
-      <div class="col-sm-2 d-flex align-items-center gap-2 pt-3">
-        <input type="checkbox" name="is_admin" id="new-is-admin" class="form-check-input">
-        <label for="new-is-admin" class="form-check-label small">Admin</label>
-      </div>
-      <div class="col-sm-2">
-        <button type="submit" class="btn btn-primary btn-sm w-100">Crear</button>
+      <div>
+        <button type="submit" class="btn btn-primary btn-sm">Crear usuario</button>
       </div>
     </form>
   </div>
 </div>
 
-{# ── Reset password modal ─────────────────────────────────────────────────── #}
+{# ── Reset password modal ─────────────────────────────────────── #}
 <div class="modal fade" id="resetModal" tabindex="-1">
   <div class="modal-dialog modal-sm">
     <div class="modal-content">
       <form method="POST" id="reset-form">
         <div class="modal-header">
-          <h6 class="modal-title">Cambiar contraseña — <span id="reset-username"></span></h6>
+          <h6 class="modal-title" style="font-size:0.9rem;">
+            Cambiar contraseña — <span id="reset-username"></span>
+          </h6>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
