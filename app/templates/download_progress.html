@@ -1,56 +1,92 @@
 {% extends "base.html" %}
 
-{% block title %}Descargando… — Music Collector{% endblock %}
+{% block title %}Descargando… — Track Manager{% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center justify-content-between mb-3">
-  <h4 class="mb-0">Auto-descarga en progreso</h4>
-  <span class="text-muted small">{{ total }} track{{ 's' if total != 1 else '' }} en cola</span>
+<style>
+  .tm-log {
+    background: #0f172a;
+    color: #cbd5e1;
+    border-radius: var(--tm-radius-lg);
+    padding: 1.25rem;
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, monospace;
+    font-size: 0.78rem;
+    line-height: 1.7;
+    min-height: 220px;
+    max-height: 480px;
+    overflow-y: auto;
+    border: 1px solid rgba(255,255,255,.05);
+  }
+  .tm-log-line { display: flex; align-items: baseline; gap: 0.5rem; }
+  .tm-log-icon { flex-shrink: 0; width: 1.2em; text-align: center; }
+</style>
+
+<div class="d-flex align-items-center justify-content-between mb-4 gap-3">
+  <div>
+    <h4 class="tm-page-title mb-1">Auto-descarga en progreso</h4>
+    <p class="text-muted mb-0" style="font-size:0.82rem;">{{ total }} track{{ 's' if total != 1 else '' }} en cola</p>
+  </div>
+  <span id="count-text" class="badge s-queued" style="font-size:0.85rem;padding:.4em .8em;">0 / {{ total }}</span>
 </div>
 
-{# ── Progress bar ────────────────────────────────────────────────────────── #}
-<div class="mb-3">
-  <div class="d-flex justify-content-between small text-muted mb-1">
-    <span id="status-text">Iniciando…</span>
-    <span id="count-text">0 / {{ total }}</span>
-  </div>
-  <div class="progress" style="height:22px;">
-    <div id="progress-bar"
-         class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
-         style="width:0%; transition: width 0.4s ease;">
+{# ── Progress ──────────────────────────────────────────────────── #}
+<div class="card mb-4">
+  <div class="card-body" style="padding:1.25rem;">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <span id="status-text" class="text-muted" style="font-size:0.82rem;">Iniciando…</span>
+      <span id="pct-text" class="fw-semibold" style="font-size:0.82rem;color:var(--tm-primary);">0%</span>
+    </div>
+    <div class="progress" style="height:8px;">
+      <div id="progress-bar"
+           class="progress-bar bg-primary"
+           style="width:0%;transition:width 0.4s ease;">
+      </div>
     </div>
   </div>
 </div>
 
-{# ── Log ─────────────────────────────────────────────────────────────────── #}
-<div id="log"
-     class="font-monospace small rounded p-3"
-     style="background:#1a1a2e; color:#e0e0e0; min-height:200px; max-height:500px; overflow-y:auto;">
-  <span class="text-secondary">Esperando…</span>
+{# ── Log ───────────────────────────────────────────────────────── #}
+<div class="tm-log" id="log">
+  <span style="color:#475569;">Esperando…</span>
 </div>
 
-<div class="mt-3 text-muted small" id="done-msg" style="display:none;">
-  ✓ Completado. Redirigiendo al resumen…
+<div class="mt-3 d-flex align-items-center gap-2 text-muted" id="done-msg" style="display:none!important;">
+  <span style="color:var(--tm-success);">✓</span>
+  <span style="font-size:0.82rem;">Completado — redirigiendo al resumen…</span>
 </div>
 
 <script>
-const total = {{ total }};
-const jobId = "{{ job_id }}";
+const total  = {{ total }};
+const jobId  = "{{ job_id }}";
 
-const bar     = document.getElementById('progress-bar');
-const logEl   = document.getElementById('log');
+const bar      = document.getElementById('progress-bar');
+const logEl    = document.getElementById('log');
 const statusEl = document.getElementById('status-text');
 const countEl  = document.getElementById('count-text');
+const pctEl    = document.getElementById('pct-text');
 const doneMsg  = document.getElementById('done-msg');
 
-const icons  = { downloaded: '✓', low_quality: '⚠', not_found: '✕', vinyl_only: '♪', bandcamp_only: 'BC', processing: '⟳' };
-const colors = { downloaded: '#4caf50', low_quality: '#ffc107', not_found: '#f44336', vinyl_only: '#ff9800', bandcamp_only: '#1da0c3', processing: '#90caf9' };
+const icons  = {
+  downloaded:   '✓',
+  low_quality:  '⚠',
+  not_found:    '✕',
+  vinyl_only:   'LP',
+  bandcamp_only:'BC',
+  processing:   '⟳',
+};
+const colors = {
+  downloaded:   '#34d399',
+  low_quality:  '#fbbf24',
+  not_found:    '#f87171',
+  vinyl_only:   '#fb923c',
+  bandcamp_only:'#60a5fa',
+  processing:   '#818cf8',
+};
 
 let logCleared = false;
+let completed  = 0;
 
 const es = new EventSource('/auto-download/stream/' + jobId);
-
-let completed = 0;
 
 es.onmessage = function(e) {
   const data = JSON.parse(e.data);
@@ -58,27 +94,26 @@ es.onmessage = function(e) {
   if (data.type === 'processing') {
     if (!logCleared) { logEl.innerHTML = ''; logCleared = true; }
     statusEl.textContent = 'Descargando…';
-
-    // Add a spinning line (may appear out of order — that's fine)
     const line = document.createElement('div');
     line.id = 'line-' + data.current;
-    line.style.color = colors.processing;
-    line.textContent = icons.processing + ' ' + data.label;
+    line.className = 'tm-log-line';
+    line.innerHTML = `<span class="tm-log-icon" style="color:${colors.processing};">${icons.processing}</span><span>${escHtml(data.label)}</span>`;
     logEl.appendChild(line);
     logEl.scrollTop = logEl.scrollHeight;
   }
 
   else if (data.type === 'result') {
     completed++;
-    countEl.textContent = completed + ' / ' + data.total;
     const pct = Math.round(completed / data.total * 100);
     bar.style.width = pct + '%';
+    countEl.textContent = completed + ' / ' + data.total;
+    pctEl.textContent   = pct + '%';
 
-    // Update the matching spinning line
     const line = document.getElementById('line-' + data.current);
     if (line) {
-      line.style.color = colors[data.result] || '#ccc';
-      line.textContent = icons[data.result] + ' ' + data.label;
+      const color = colors[data.result] || '#94a3b8';
+      const icon  = icons[data.result]  || '?';
+      line.innerHTML = `<span class="tm-log-icon" style="color:${color};">${icon}</span><span style="color:${color};">${escHtml(data.label)}</span>`;
     }
     logEl.scrollTop = logEl.scrollHeight;
   }
@@ -86,17 +121,17 @@ es.onmessage = function(e) {
   else if (data.type === 'done') {
     es.close();
     bar.style.width = '100%';
-    bar.classList.remove('progress-bar-animated', 'bg-primary');
+    bar.classList.remove('bg-primary');
     bar.classList.add('bg-success');
     statusEl.textContent = 'Completado';
-    doneMsg.style.display = 'block';
-    setTimeout(() => {
-      window.location.href = '/auto-download/result/' + data.job_id;
-    }, 1200);
+    pctEl.textContent    = '100%';
+    doneMsg.style.setProperty('display', 'flex', 'important');
+    setTimeout(() => { window.location.href = '/auto-download/result/' + data.job_id; }, 1200);
   }
 
   else if (data.type === 'error') {
     es.close();
+    bar.classList.remove('bg-primary');
     bar.classList.add('bg-danger');
     statusEl.textContent = 'Error: ' + data.message;
   }
@@ -106,6 +141,10 @@ es.onerror = function() {
   es.close();
   statusEl.textContent = 'Error de conexión.';
 };
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 </script>
 
 {% endblock %}

@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.models.user import User
 
-_SECRET_KEY = "music-collector-secret-key-change-in-prod"
+_SECRET_KEY = "track-manager-secret-key-change-in-prod"
 _COOKIE_NAME = "mc_session"
 _signer = URLSafeSerializer(_SECRET_KEY, salt="session")
 _ITERATIONS = 260_000

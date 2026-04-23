@@ -1,7 +1,7 @@
 """
 Spotify collector.
 
-Reads only the playlist named 'Music Collector' from the authenticated user's account.
+Reads only the playlist named 'Track Manager' from the authenticated user's account.
 Uses Spotify's structured metadata directly — no noisy title parsing needed.
 """
 from __future__ import annotations
@@ -16,13 +16,13 @@ from app.collectors.base import BaseCollector, RawTrack
 
 logger = logging.getLogger(__name__)
 
-_PLAYLIST_NAME = "Music Collector"
+_PLAYLIST_NAME = "Track Manager"
 _BASE = "https://api.spotify.com/v1"
 
 
 class SpotifyCollector(BaseCollector):
     """
-    Collector that syncs tracks from the 'Music Collector' Spotify playlist.
+    Collector that syncs tracks from the 'Track Manager' Spotify playlist.
     Requires a valid access token (obtain via spotify_auth.get_valid_access_token()).
     """
 

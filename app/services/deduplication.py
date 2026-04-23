@@ -42,19 +42,26 @@ def check_duplicate(
     fingerprint: str,
     db: Session,
     exclude_source_track_id: int | None = None,
+    user_id: int | None = None,
 ) -> DuplicateMatch:
     """
     Check if `fingerprint` already exists in normalized_tracks.
-
-    Uses token_sort_ratio to be robust against word-order differences
-    (e.g. "artist|track" vs "track|artist" due to parsing variance).
+    When user_id is provided, only checks within that user's tracks.
     """
     strong_threshold = settings.dedup_strong_match_score
     weak_threshold = settings.dedup_weak_match_score
 
-    query = db.query(NormalizedTrack).filter(
-        NormalizedTrack.fingerprint_text.isnot(None)
+    from app.models.source_track import SourceTrack
+
+    query = (
+        db.query(NormalizedTrack)
+        .join(NormalizedTrack.source_track)
+        .filter(NormalizedTrack.fingerprint_text.isnot(None))
     )
+
+    if user_id is not None:
+        query = query.filter(SourceTrack.user_id == user_id)
+
     if exclude_source_track_id is not None:
         query = query.filter(
             NormalizedTrack.source_track_id_fk != exclude_source_track_id
@@ -103,24 +110,16 @@ def check_duplicate(
 
 
 def _compare_fingerprints(a: str, b: str) -> float:
-    """
-    Combine multiple rapidfuzz scorers for a robust comparison.
-    Returns a score in [0, 100].
-
-    Also compares the base fingerprint (artist|title, ignoring version)
-    so that "bicep|glue" matches "bicep|glue|extended mix".
-    """
     if not a or not b:
         return 0.0
 
     score = _score_pair(a, b)
 
-    # Compare base fingerprints (drop version component if present)
     a_base = _base_fingerprint(a)
     b_base = _base_fingerprint(b)
     if a_base != a or b_base != b:
         base_score = _score_pair(a_base, b_base)
-        score = max(score, base_score * 0.95)  # slight penalty for ignoring version
+        score = max(score, base_score * 0.95)
 
     return score
 
@@ -133,6 +132,5 @@ def _score_pair(a: str, b: str) -> float:
 
 
 def _base_fingerprint(fp: str) -> str:
-    """Return fingerprint with version component removed (first two parts only)."""
     parts = fp.split("|")
     return "|".join(parts[:2]) if len(parts) > 2 else fp

@@ -18,7 +18,13 @@ import httpx
 
 from app.services.audio_verify import verify_mp3
 
-_MIN_SIMILARITY = 0.5  # minimum ratio to accept a Deezer result
+_MIN_SIMILARITY = 0.72  # minimum ratio to accept a Deezer result
+
+# Words that indicate a different version; penalised if the query didn't ask for them
+_VERSION_WORDS = re.compile(
+    r"\b(remix|rmx|edit|bootleg|rework|mix|version|vip|instrumental|acapella|extended|radio)\b",
+    re.IGNORECASE,
+)
 
 
 def _normalize(text: str) -> str:
@@ -29,7 +35,15 @@ def _similarity(query: str, track: dict) -> float:
     artist = track.get("artist", {}).get("name", "") if isinstance(track.get("artist"), dict) else ""
     title = track.get("title", "")
     candidate = _normalize(f"{artist} {title}")
-    return SequenceMatcher(None, _normalize(query), candidate).ratio()
+    score = SequenceMatcher(None, _normalize(query), candidate).ratio()
+
+    # Penalise results that introduce a remix/edit when the query didn't ask for one
+    query_has_version    = bool(_VERSION_WORDS.search(query))
+    result_has_version   = bool(_VERSION_WORDS.search(title))
+    if result_has_version and not query_has_version:
+        score *= 0.80  # 20% penalty — forces a higher base score to survive the threshold
+
+    return score
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +136,14 @@ def _album_similarity(query: str, album: dict) -> float:
     artist = album.get("artist", {}).get("name", "") if isinstance(album.get("artist"), dict) else ""
     title = album.get("title", "")
     candidate = _normalize(f"{artist} {title}")
-    return SequenceMatcher(None, _normalize(query), candidate).ratio()
+    score = SequenceMatcher(None, _normalize(query), candidate).ratio()
+
+    query_has_version  = bool(_VERSION_WORDS.search(query))
+    result_has_version = bool(_VERSION_WORDS.search(title))
+    if result_has_version and not query_has_version:
+        score *= 0.80
+
+    return score
 
 
 def download_album(query: str, base_dest: Path, arl: str) -> tuple[str, Path | None]:

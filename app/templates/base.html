@@ -1,63 +1,356 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{% block title %}Music Collector{% endblock %}</title>
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-    integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
-    crossorigin="anonymous"
-  />
+  <title>{% block title %}Track Manager{% endblock %}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous"/>
   <style>
-    body { background: #f8f9fa; }
-    .navbar-brand { font-weight: 700; letter-spacing: -0.5px; }
-    .badge-pending    { background: #6c757d; }
-    .badge-approved   { background: #198754; }
-    .badge-rejected   { background: #dc3545; }
-    .badge-dl         { background: #0d6efd; }
-    td.notes { font-size: 0.78rem; color: #888; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* ── Design tokens ───────────────────────────────────────── */
+    :root {
+      --tm-bg:          #f0f2f5;
+      --tm-card:        #ffffff;
+      --tm-nav:         #0f172a;
+      --tm-primary:     #6366f1;
+      --tm-primary-h:   #4f46e5;
+      --tm-success:     #10b981;
+      --tm-success-h:   #059669;
+      --tm-danger:      #ef4444;
+      --tm-danger-h:    #dc2626;
+      --tm-warning:     #f59e0b;
+      --tm-info:        #0ea5e9;
+      --tm-muted:       #64748b;
+      --tm-text:        #1e293b;
+      --tm-border:      #e2e8f0;
+      --tm-radius:      10px;
+      --tm-radius-lg:   12px;
+      --tm-shadow:      0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.04);
+      --tm-shadow-md:   0 4px 16px rgba(0,0,0,.08);
+    }
+
+    /* ── Base ────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      background: var(--tm-bg);
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      color: var(--tm-text);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    /* ── Navbar ──────────────────────────────────────────────── */
+    .tm-nav {
+      background: var(--tm-nav);
+      height: 52px;
+      display: flex;
+      align-items: center;
+      padding: 0 1.5rem;
+      gap: 0.5rem;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      border-bottom: 1px solid rgba(255,255,255,.04);
+    }
+    .tm-brand {
+      font-weight: 700;
+      font-size: 0.95rem;
+      letter-spacing: -0.2px;
+      color: #fff;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      flex-shrink: 0;
+      margin-right: 0.75rem;
+    }
+    .tm-brand-icon {
+      width: 28px; height: 28px;
+      background: var(--tm-primary);
+      border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.85rem; line-height: 1;
+    }
+    .tm-nav-spacer { flex: 1; }
+    .tm-nav-links { display: flex; align-items: center; gap: 0.15rem; }
+    .tm-nav-link {
+      color: rgba(255,255,255,.55);
+      text-decoration: none;
+      font-size: 0.84rem;
+      font-weight: 500;
+      padding: 0.35rem 0.7rem;
+      border-radius: 6px;
+      transition: background .15s, color .15s;
+      position: relative;
+      white-space: nowrap;
+    }
+    .tm-nav-link:hover { background: rgba(255,255,255,.07); color: #fff; }
+    .tm-nav-link.tm-active { background: rgba(255,255,255,.1); color: #fff; }
+    .tm-nav-sep { width: 1px; height: 18px; background: rgba(255,255,255,.1); margin: 0 0.35rem; flex-shrink: 0; }
+    .tm-nav-user {
+      color: rgba(255,255,255,.38);
+      font-size: 0.79rem;
+      padding: 0 0.4rem;
+      white-space: nowrap;
+    }
+    .tm-btn-logout {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,.14);
+      color: rgba(255,255,255,.55);
+      font-size: 0.79rem;
+      font-weight: 500;
+      padding: 0.28rem 0.6rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all .15s;
+      line-height: 1;
+    }
+    .tm-btn-logout:hover { background: rgba(239,68,68,.15); border-color: rgba(239,68,68,.35); color: #f87171; }
+    .tm-queue-chip {
+      display: inline-flex; align-items: center; gap: 0.35rem;
+    }
+    .tm-queue-count {
+      background: var(--tm-warning);
+      color: #000;
+      font-size: 0.6rem;
+      font-weight: 700;
+      line-height: 1;
+      padding: 2px 5px;
+      border-radius: 999px;
+      margin-left: 2px;
+    }
+
+    /* ── Content wrapper ─────────────────────────────────────── */
+    .tm-content {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 3rem;
+    }
+
+    /* ── Page header ─────────────────────────────────────────── */
+    .tm-page-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+      color: var(--tm-text);
+      margin: 0;
+    }
+
+    /* ── Cards ───────────────────────────────────────────────── */
+    .card {
+      border: 1px solid var(--tm-border);
+      border-radius: var(--tm-radius-lg);
+      box-shadow: var(--tm-shadow);
+      background: var(--tm-card);
+    }
+    .card-header {
+      background: transparent;
+      border-bottom: 1px solid var(--tm-border);
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--tm-muted);
+      padding: 0.75rem 1.25rem;
+    }
+    .card-body { padding: 1.25rem; }
+
+    /* ── Tables ──────────────────────────────────────────────── */
+    .table {
+      font-size: 0.855rem;
+      margin-bottom: 0;
+    }
+    .table thead th {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      padding: 0.6rem 0.8rem;
+      border-bottom-width: 1px;
+      white-space: nowrap;
+    }
+    .table > :not(caption) > * > * { padding: 0.5rem 0.8rem; vertical-align: middle; }
+    .table-dark { background: #1e293b; }
+    .table-dark th { color: rgba(255,255,255,.7); background: #1e293b; border-color: rgba(255,255,255,.06); }
+    .table-hover > tbody > tr:hover > * { background: #f8fafc; }
+    .table.bg-white { border-radius: var(--tm-radius-lg); overflow: hidden; box-shadow: var(--tm-shadow); }
+
+    /* ── Buttons ─────────────────────────────────────────────── */
+    .btn {
+      font-size: 0.84rem;
+      font-weight: 500;
+      border-radius: 7px;
+      transition: all .15s;
+      line-height: 1.4;
+    }
+    .btn-sm {
+      padding: 0.3rem 0.65rem;
+      font-size: 0.78rem;
+      border-radius: 6px;
+    }
+    .btn-primary   { background: var(--tm-primary);  border-color: var(--tm-primary); }
+    .btn-primary:hover   { background: var(--tm-primary-h); border-color: var(--tm-primary-h); }
+    .btn-success   { background: var(--tm-success);  border-color: var(--tm-success); }
+    .btn-success:hover   { background: var(--tm-success-h); border-color: var(--tm-success-h); }
+    .btn-danger    { background: var(--tm-danger);   border-color: var(--tm-danger); }
+    .btn-danger:hover    { background: var(--tm-danger-h);  border-color: var(--tm-danger-h); }
+    .btn-outline-primary { border-color: #c7d2fe; color: var(--tm-primary); }
+    .btn-outline-primary:hover { background: #eef2ff; border-color: var(--tm-primary); color: var(--tm-primary-h); }
+    .btn-outline-secondary { border-color: var(--tm-border); color: var(--tm-muted); }
+    .btn-outline-secondary:hover { background: #f1f5f9; border-color: #cbd5e1; color: var(--tm-text); }
+    .btn-outline-danger { border-color: #fecaca; color: var(--tm-danger); }
+    .btn-outline-danger:hover { background: #fef2f2; border-color: var(--tm-danger); color: var(--tm-danger-h); }
+
+    /* ── Badges ──────────────────────────────────────────────── */
+    .badge {
+      font-size: 0.67rem;
+      font-weight: 600;
+      border-radius: 999px;
+      padding: 0.25em 0.6em;
+      letter-spacing: 0.02em;
+    }
+
+    /* Status badges */
+    .s-pending    { background: #f1f5f9; color: #475569; }
+    .s-queued     { background: #ede9fe; color: #6d28d9; }
+    .s-downloaded { background: #d1fae5; color: #065f46; }
+    .s-not_found  { background: #fee2e2; color: #991b1b; }
+    .s-vinyl      { background: #fef3c7; color: #92400e; }
+    .s-bandcamp   { background: #dbeafe; color: #1e40af; }
+    .s-set        { background: #e0f2fe; color: #075985; }
+    .s-discarded  { background: #f8fafc; color: #94a3b8; border: 1px solid var(--tm-border); }
+
+    /* Source badges */
+    .src-sc  { background: #fff3e0; color: #c84b00; }
+    .src-sp  { background: #d1fae5; color: #065f46; }
+    .src-yt  { background: #fee2e2; color: #991b1b; }
+
+    /* ── Form controls ───────────────────────────────────────── */
+    .form-control, .form-select {
+      border-radius: 7px;
+      border-color: var(--tm-border);
+      font-size: 0.875rem;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .form-control:focus, .form-select:focus {
+      border-color: var(--tm-primary);
+      box-shadow: 0 0 0 3px rgba(99,102,241,.12);
+    }
+    .form-control-sm, .form-select-sm { border-radius: 6px; }
+    .form-label { font-size: 0.82rem; font-weight: 600; color: var(--tm-text); margin-bottom: 0.3rem; }
+
+    /* ── Modals ──────────────────────────────────────────────── */
+    .modal-content { border-radius: 14px; border: 1px solid var(--tm-border); box-shadow: var(--tm-shadow-md); }
+    .modal-header  { border-bottom: 1px solid var(--tm-border); padding: 1rem 1.25rem 0.85rem; }
+    .modal-footer  { border-top:    1px solid var(--tm-border); padding: 0.85rem 1.25rem; }
+    .modal-title   { font-size: 0.95rem; font-weight: 600; }
+
+    /* ── Alerts ──────────────────────────────────────────────── */
+    .alert { border-radius: var(--tm-radius); font-size: 0.875rem; }
+    .alert-success { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+    .alert-danger  { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
+    .alert-info    { background: #f0f9ff; border-color: #bae6fd; color: #075985; }
+
+    /* ── Misc ────────────────────────────────────────────────── */
     .action-btns form { display: inline; }
-    .version-badge { font-size: 0.72rem; }
+    td.notes {
+      font-size: 0.74rem;
+      color: var(--tm-muted);
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .version-badge { font-size: 0.67rem; }
+    a { color: var(--tm-primary); }
+    a:hover { color: var(--tm-primary-h); }
+    hr { border-color: var(--tm-border); opacity: 1; }
+    .text-muted { color: var(--tm-muted) !important; }
+
+    /* ── Progress ────────────────────────────────────────────── */
+    .progress { border-radius: 999px; background: #e2e8f0; }
+    .progress-bar { border-radius: 999px; }
+
+    /* ── Platform icons ─────────────────────────────────────── */
+    .pi { display:inline-block; width:1em; height:1em; vertical-align:-.15em; flex-shrink:0; }
+    .pi img { width:100%; height:100%; object-fit:contain; display:block; }
   </style>
 </head>
 <body>
 
-<nav class="navbar navbar-dark bg-dark mb-4">
-  <div class="container">
-    <a class="navbar-brand" href="/">Music Collector</a>
-    <div class="d-flex gap-2 align-items-center">
-      <a href="/tracks/pending" class="btn btn-sm btn-outline-light">Tracks</a>
-      <a href="/tracks/download-queue" class="btn btn-sm btn-outline-light position-relative">
-        Cola de descarga
-        {% set n = queued_count | default(0) %}
-        {% if n > 0 %}
-          <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark"
-                style="font-size:0.65rem;">
-            {{ "99+" if n > 99 else n }}
-          </span>
-        {% endif %}
-      </a>
-      <a href="/settings" class="btn btn-sm btn-outline-secondary">⚙ Config</a>
-      {% if request.state.user is defined and request.state.user %}
-        {% set nav_user = request.state.user %}
-        {% if nav_user.is_admin %}
-          <a href="/admin/users" class="btn btn-sm btn-outline-warning">Usuarios</a>
-        {% endif %}
-        <span class="text-light small opacity-75">{{ nav_user.username }}</span>
-        <form method="POST" action="/logout" class="mb-0">
-          <button type="submit" class="btn btn-sm btn-outline-danger">Salir</button>
-        </form>
+<nav class="tm-nav">
+  <a href="/" class="tm-brand">
+    <div class="tm-brand-icon">♪</div>
+    Track Manager
+  </a>
+  <div class="tm-nav-spacer"></div>
+  <div class="tm-nav-links">
+    <a href="/tracks/pending" class="tm-nav-link" data-path="/tracks">Tracks</a>
+    <a href="/tracks/download-queue" class="tm-nav-link tm-queue-chip" data-path="/tracks/download-queue">
+      Cola
+      {% set n = queued_count | default(0) %}
+      {% if n > 0 %}
+        <span class="tm-queue-count">{{ "99+" if n > 99 else n }}</span>
       {% endif %}
-    </div>
+    </a>
+    <a href="/settings" class="tm-nav-link" data-path="/settings">Config</a>
+    {% if request.state.user is defined and request.state.user %}
+      {% set nav_user = request.state.user %}
+      {% if nav_user.is_admin %}
+        <a href="/admin/users" class="tm-nav-link" data-path="/admin">Usuarios</a>
+      {% endif %}
+      <div class="tm-nav-sep"></div>
+      <span class="tm-nav-user">{{ nav_user.username }}</span>
+      <form method="POST" action="/logout" class="mb-0">
+        <button type="submit" class="tm-btn-logout">Salir</button>
+      </form>
+    {% endif %}
   </div>
 </nav>
 
-<div class="container">
+<div class="tm-content">
   {% block content %}{% endblock %}
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100;">
+  <div id="global-toast" class="toast align-items-center border-0 shadow-sm" role="alert" aria-live="assertive">
+    <div class="d-flex">
+      <div class="toast-body" id="global-toast-body" style="font-size:0.855rem;font-weight:500;"></div>
+      <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Cerrar"></button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* Active nav link */
+document.addEventListener('DOMContentLoaded', () => {
+  const path = window.location.pathname;
+  document.querySelectorAll('.tm-nav-link[data-path]').forEach(a => {
+    const ap = a.dataset.path;
+    if (ap === '/tracks/download-queue' ? path === ap : path.startsWith(ap)) {
+      a.classList.add('tm-active');
+    }
+  });
+
+  /* Toast */
+  const msg = sessionStorage.getItem('_toast');
+  if (!msg) return;
+  const type = sessionStorage.getItem('_toast_type') || 'success';
+  sessionStorage.removeItem('_toast');
+  sessionStorage.removeItem('_toast_type');
+  const el = document.getElementById('global-toast');
+  const isLight = type === 'warning';
+  el.classList.add(isLight ? 'text-dark' : 'text-white', 'bg-' + type);
+  document.getElementById('global-toast-body').textContent = msg;
+  bootstrap.Toast.getOrCreateInstance(el, { delay: 3000 }).show();
+});
+
+function _setToast(msg, type) {
+  sessionStorage.setItem('_toast', msg);
+  sessionStorage.setItem('_toast_type', type || 'success');
+}
+</script>
 </body>
 </html>

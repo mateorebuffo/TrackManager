@@ -1,4 +1,4 @@
-# Music Collector
+# Track Manager
 
 A self-hosted web app for DJs to collect, organize, and automatically download liked tracks from SoundCloud, Spotify, and YouTube.
 
@@ -38,8 +38,8 @@ A self-hosted web app for DJs to collect, organize, and automatically download l
 ### 2. Install
 
 ```bash
-git clone https://github.com/your-username/music-collector.git
-cd music-collector
+git clone https://github.com/your-username/track-manager.git
+cd track-manager
 python -m venv .venv
 
 # macOS / Linux

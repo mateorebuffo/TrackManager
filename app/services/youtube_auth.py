@@ -1,29 +1,21 @@
 """
-YouTube (Google) OAuth token management.
-
-Tokens are stored in youtube_token.json in the project root.
-Same pattern as spotify_auth.py.
+YouTube (Google) OAuth token management — per-user, stored in UserSettings.youtube_token_json.
 """
 from __future__ import annotations
 
 import json
 import time
-from pathlib import Path
 from urllib.parse import urlencode
 
 import httpx
+from sqlalchemy.orm import Session
 
 from app.config import settings
 
-_TOKEN_FILE = Path("youtube_token.json")
 _AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 _TOKEN_URL = "https://oauth2.googleapis.com/token"
 _SCOPE = "https://www.googleapis.com/auth/youtube.readonly"
 
-
-# ---------------------------------------------------------------------------
-# Public helpers
-# ---------------------------------------------------------------------------
 
 def get_auth_url() -> str:
     params = {
@@ -31,13 +23,13 @@ def get_auth_url() -> str:
         "response_type": "code",
         "redirect_uri": settings.youtube_redirect_uri,
         "scope": _SCOPE,
-        "access_type": "offline",   # needed to receive a refresh_token
-        "prompt": "consent",        # forces refresh_token even on re-auth
+        "access_type": "offline",
+        "prompt": "consent",
     }
     return _AUTHORIZE_URL + "?" + urlencode(params)
 
 
-def exchange_code(code: str) -> None:
+def exchange_code(code: str, db: Session, user_id: int) -> None:
     resp = httpx.post(
         _TOKEN_URL,
         data={
@@ -50,54 +42,69 @@ def exchange_code(code: str) -> None:
         timeout=15,
     )
     resp.raise_for_status()
-    _save_token(resp.json())
+    _save_token(resp.json(), db, user_id)
 
 
-def get_valid_access_token() -> str:
-    token_data = _load_token()
+def get_valid_access_token(db: Session, user_id: int) -> str:
+    token_data = _load_token(db, user_id)
     if not token_data:
         raise RuntimeError("YouTube no está conectado. Autorizá primero.")
     if _is_expired(token_data):
         try:
-            token_data = _refresh(token_data)
+            token_data = _refresh(token_data, db, user_id)
         except Exception:
-            disconnect()
+            disconnect(db, user_id)
             raise RuntimeError("Token de YouTube expirado o inválido. Reconectá YouTube.")
     return token_data["access_token"]
 
 
-def is_connected() -> bool:
-    return _TOKEN_FILE.exists() and bool(_load_token())
+def is_connected(db: Session, user_id: int) -> bool:
+    return bool(_load_token(db, user_id))
 
 
-def disconnect() -> None:
-    if _TOKEN_FILE.exists():
-        _TOKEN_FILE.unlink()
+def disconnect(db: Session, user_id: int) -> None:
+    us = _get_user_settings(db, user_id)
+    us.youtube_token_json = None
+    db.commit()
 
 
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
 
-def _load_token() -> dict | None:
-    if not _TOKEN_FILE.exists():
+def _get_user_settings(db: Session, user_id: int):
+    from app.models.user_settings import UserSettings
+    us = db.query(UserSettings).filter_by(user_id=user_id).first()
+    if not us:
+        us = UserSettings(user_id=user_id)
+        db.add(us)
+        db.flush()
+    return us
+
+
+def _load_token(db: Session, user_id: int) -> dict | None:
+    from app.models.user_settings import UserSettings
+    us = db.query(UserSettings).filter_by(user_id=user_id).first()
+    if not us or not us.youtube_token_json:
         return None
     try:
-        return json.loads(_TOKEN_FILE.read_text())
-    except (json.JSONDecodeError, OSError):
+        return json.loads(us.youtube_token_json)
+    except (json.JSONDecodeError, TypeError):
         return None
 
 
-def _save_token(data: dict) -> None:
+def _save_token(data: dict, db: Session, user_id: int) -> None:
     data["expires_at"] = int(time.time()) + data.get("expires_in", 3600) - 60
-    _TOKEN_FILE.write_text(json.dumps(data, indent=2))
+    us = _get_user_settings(db, user_id)
+    us.youtube_token_json = json.dumps(data)
+    db.commit()
 
 
 def _is_expired(token_data: dict) -> bool:
     return time.time() >= token_data.get("expires_at", 0)
 
 
-def _refresh(token_data: dict) -> dict:
+def _refresh(token_data: dict, db: Session, user_id: int) -> dict:
     refresh_token = token_data.get("refresh_token")
     if not refresh_token:
         raise RuntimeError("No hay refresh token. Reconectá YouTube.")
@@ -113,7 +120,6 @@ def _refresh(token_data: dict) -> dict:
     )
     resp.raise_for_status()
     new_data = resp.json()
-    # Google doesn't re-issue refresh_token on refresh — keep the old one
     new_data["refresh_token"] = refresh_token
-    _save_token(new_data)
+    _save_token(new_data, db, user_id)
     return new_data

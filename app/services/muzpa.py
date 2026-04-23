@@ -8,11 +8,23 @@ Auth: session cookie SESS=...
 from __future__ import annotations
 
 import logging
+import re
+from difflib import SequenceMatcher
 from pathlib import Path
 
 import httpx
 
 from app.services.audio_verify import verify_mp3
+
+
+def _normalize(text: str) -> str:
+    return re.sub(r"[^\w\s]", "", text.lower())
+
+
+def _track_similarity(query: str, track: dict) -> float:
+    """Compare query against the track filename (which Muzpa uses as display title)."""
+    filename = track.get("filename") or track.get("title") or ""
+    return SequenceMatcher(None, _normalize(query), _normalize(filename)).ratio()
 
 logger = logging.getLogger(__name__)
 
@@ -90,14 +102,24 @@ def search(query: str, sess: str) -> tuple[dict | None, str]:
             logger.info("  Muzpa result: %r | satisfies=%s | vinyl=%s",
                         t.get("filename"), t.get("satisfies"), _is_vinyl_only(t))
 
-    # Return first satisfying non-vinyl track
-    for track in satisfying:
-        if not _is_vinyl_only(track):
-            logger.info("Muzpa found downloadable: %r (id=%s)", track.get("filename"), track.get("id"))
-            return track, "found"
+    # Pick the satisfying non-vinyl track most similar to the query.
+    # Muzpa often marks entire EPs as satisfying — without ranking we'd
+    # grab whichever track happens to be first, not the one that was searched.
+    non_vinyl = [t for t in satisfying if not _is_vinyl_only(t)]
+    if non_vinyl:
+        if len(non_vinyl) > 1:
+            non_vinyl.sort(key=lambda t: _track_similarity(query, t), reverse=True)
+            scores = [(t.get("filename"), round(_track_similarity(query, t), 2)) for t in non_vinyl]
+            logger.info("Muzpa: %d satisfying tracks, ranked by similarity: %s", len(non_vinyl), scores)
 
-    # All satisfying results are vinyl-only — still return the track so caller can try downloading
+        best = non_vinyl[0]
+        logger.info("Muzpa found downloadable: %r (id=%s, score=%.2f)",
+                    best.get("filename"), best.get("id"), _track_similarity(query, best))
+        return best, "found"
+
+    # All satisfying results are vinyl-only — still return the best-matching one
     if satisfying:
+        satisfying.sort(key=lambda t: _track_similarity(query, t), reverse=True)
         logger.info("Muzpa: only vinyl-only results for %r — will attempt download anyway", query)
         return satisfying[0], "vinyl_only"
 

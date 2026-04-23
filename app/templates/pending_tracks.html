@@ -1,224 +1,390 @@
 {% extends "base.html" %}
 
-{% block title %}Tracks — Music Collector{% endblock %}
+{% block title %}Tracks — Track Manager{% endblock %}
 
 {% block content %}
+<style>
+  /* ── Tabs ───────────────────────────────────────────────────── */
+  .tm-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem;
+    background: #fff;
+    padding: 0.35rem;
+    border-radius: 10px;
+    border: 1px solid var(--tm-border);
+    box-shadow: var(--tm-shadow);
+  }
+  .tm-tab {
+    padding: 0.3rem 0.75rem;
+    border-radius: 7px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--tm-muted);
+    text-decoration: none;
+    transition: all .15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border: none;
+    background: transparent;
+    white-space: nowrap;
+  }
+  .tm-tab:hover { background: var(--tm-bg); color: var(--tm-text); }
+  .tm-tab.tm-tab-active { background: var(--tm-primary); color: #fff; }
+  .tm-tab.tm-tab-active:hover { background: var(--tm-primary-h); color: #fff; }
+  .tm-tab-n {
+    font-size: 0.68rem;
+    font-weight: 700;
+    background: rgba(0,0,0,.12);
+    color: inherit;
+    border-radius: 999px;
+    padding: 0.1em 0.45em;
+    line-height: 1.4;
+  }
+  .tm-tab.tm-tab-active .tm-tab-n { background: rgba(255,255,255,.25); }
 
-{# ── Header ─────────────────────────────────────────────────────────────── #}
-<div class="d-flex align-items-center justify-content-between mb-3">
-  <h4 class="mb-0">
-    Tracks
-    <span class="badge bg-secondary ms-1">{{ count }}</span>
-  </h4>
-  <div class="d-flex gap-2 align-items-center">
+  /* ── Filter bar ─────────────────────────────────────────────── */
+  .tm-filter-bar {
+    background: #fff;
+    border: 1px solid var(--tm-border);
+    border-radius: var(--tm-radius);
+    padding: 0.65rem 1rem;
+    box-shadow: var(--tm-shadow);
+  }
 
-    {# SoundCloud #}
+  /* ── Source filter ──────────────────────────────────────────── */
+  .src-btn { font-size: 0.75rem; font-weight: 600; padding: 0.25rem 0.6rem; border-radius: 6px; }
+
+  /* ── Compare banner ─────────────────────────────────────────── */
+  .tm-compare-bar {
+    background: #fefce8;
+    border: 1px solid #fde68a;
+    border-radius: var(--tm-radius);
+    padding: 0.65rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    font-size: 0.855rem;
+    color: #92400e;
+  }
+
+  /* ── Bulk action bar ────────────────────────────────────────── */
+  .tm-bulk-bar {
+    background: #fff;
+    border: 1px solid var(--tm-border);
+    border-radius: var(--tm-radius);
+    padding: 0.5rem 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    box-shadow: var(--tm-shadow);
+  }
+</style>
+
+{# ── Header ────────────────────────────────────────────────────── #}
+<div class="d-flex align-items-center justify-content-between mb-3 gap-3 flex-wrap">
+  <div class="d-flex align-items-center gap-2">
+    <h4 class="tm-page-title mb-0">Tracks</h4>
+    <span class="badge s-pending" style="font-size:0.75rem;padding:.3em .65em;">{{ count }}</span>
+  </div>
+  <div class="d-flex gap-2 align-items-center flex-wrap">
+    {# ── SoundCloud sync ── #}
     <form method="POST" action="/sync/soundcloud">
-      <button type="submit" class="btn btn-sm" style="background:#ff8800;color:#fff;">SoundCloud</button>
+      <button type="submit" class="btn btn-sm src-btn d-inline-flex align-items-center gap-1"
+              style="background:#fff3e0;color:#c84b00;border:1px solid #fed7aa;"
+              title="Importar likes de SoundCloud">
+        <span class="pi" style="font-size:14px;"><img src="/static/icons/soundcloud.svg" alt="" style="filter:invert(33%) sepia(77%) saturate(1200%) hue-rotate(1deg) brightness(90%);"></span>
+        ↻
+      </button>
     </form>
 
-    {# Spotify #}
+    {# ── Spotify sync ── #}
     {% if spotify_connected %}
       <div class="btn-group btn-group-sm">
         <form method="POST" action="/sync/spotify">
-          <button type="submit" class="btn btn-success btn-sm">Spotify</button>
+          <button type="submit" class="btn btn-sm src-btn d-inline-flex align-items-center gap-1"
+                  style="background:#d1fae5;color:#065f46;border:1px solid #a7f3d0;" title="Importar likes de Spotify">
+            <span class="pi" style="font-size:14px;"><img src="/static/icons/spotify.svg" alt="" style="filter:invert(26%) sepia(60%) saturate(600%) hue-rotate(120deg) brightness(80%);"></span>
+            ↻
+          </button>
         </form>
-        <button type="button" class="btn btn-success btn-sm dropdown-toggle dropdown-toggle-split"
+        <button type="button" class="btn btn-sm dropdown-toggle dropdown-toggle-split"
+                style="background:#d1fae5;color:#065f46;border:1px solid #a7f3d0;"
                 data-bs-toggle="dropdown"></button>
-        <ul class="dropdown-menu dropdown-menu-end">
+        <ul class="dropdown-menu dropdown-menu-end" style="font-size:0.82rem;">
           <li>
-            <form method="POST" action="/sync/spotify/disconnect"
-                  onsubmit="return confirm('¿Desconectar Spotify?')">
-              <button class="dropdown-item text-danger">Desconectar</button>
+            <form method="POST" action="/sync/spotify/disconnect" onsubmit="return confirm('¿Desconectar Spotify?')">
+              <button class="dropdown-item text-danger">Desconectar Spotify</button>
             </form>
           </li>
         </ul>
       </div>
     {% else %}
-      <a href="/sync/spotify/connect" class="btn btn-outline-success btn-sm">+ Spotify</a>
+      <a href="/sync/spotify/connect" class="btn btn-sm src-btn d-inline-flex align-items-center gap-1"
+         style="background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;" title="Conectar Spotify">
+        <span class="pi" style="font-size:14px;"><img src="/static/icons/spotify.svg" alt="" style="filter:invert(26%) sepia(60%) saturate(600%) hue-rotate(120deg) brightness(80%);"></span>
+        +
+      </a>
     {% endif %}
 
-    {# YouTube #}
+    {# ── YouTube sync ── #}
     {% if youtube_connected %}
       <div class="btn-group btn-group-sm">
         <form method="POST" action="/sync/youtube">
-          <button type="submit" class="btn btn-danger btn-sm">YouTube</button>
+          <button type="submit" class="btn btn-sm src-btn d-inline-flex align-items-center gap-1"
+                  style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;" title="Importar likes de YouTube">
+            <span class="pi" style="font-size:14px;"><img src="/static/icons/youtube.svg" alt="" style="filter:invert(14%) sepia(80%) saturate(800%) hue-rotate(340deg) brightness(85%);"></span>
+            ↻
+          </button>
         </form>
-        <button type="button" class="btn btn-danger btn-sm dropdown-toggle dropdown-toggle-split"
+        <button type="button" class="btn btn-sm dropdown-toggle dropdown-toggle-split"
+                style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;"
                 data-bs-toggle="dropdown"></button>
-        <ul class="dropdown-menu dropdown-menu-end">
+        <ul class="dropdown-menu dropdown-menu-end" style="font-size:0.82rem;">
           <li>
-            <form method="POST" action="/sync/youtube/disconnect"
-                  onsubmit="return confirm('¿Desconectar YouTube?')">
-              <button class="dropdown-item text-danger">Desconectar</button>
+            <form method="POST" action="/sync/youtube/disconnect" onsubmit="return confirm('¿Desconectar YouTube?')">
+              <button class="dropdown-item text-danger">Desconectar YouTube</button>
             </form>
           </li>
         </ul>
       </div>
     {% else %}
-      <a href="/sync/youtube/connect" class="btn btn-outline-danger btn-sm">+ YouTube</a>
+      <a href="/sync/youtube/connect" class="btn btn-sm src-btn d-inline-flex align-items-center gap-1"
+         style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;" title="Conectar YouTube">
+        <span class="pi" style="font-size:14px;"><img src="/static/icons/youtube.svg" alt="" style="filter:invert(14%) sepia(80%) saturate(800%) hue-rotate(340deg) brightness(85%);"></span>
+        +
+      </a>
     {% endif %}
-
   </div>
 </div>
 
-{# ── Compare mode banner ─────────────────────────────────────────────────── #}
+{# ── Compare mode banner ───────────────────────────────────────── #}
 {% if compare_mode %}
-<div class="alert alert-warning d-flex align-items-center justify-content-between py-2 mb-3">
+<div class="tm-compare-bar">
   <span><strong>Modo comparación</strong> — estos dos tracks pueden ser el mismo. Revisalos y descartá el que no necesites.</span>
-  <div class="d-flex gap-2 ms-3">
+  <div class="d-flex gap-2">
     <button class="btn btn-sm btn-outline-secondary" onclick="history.back()">← Atrás</button>
-    <a href="/tracks/pending" class="btn btn-sm btn-secondary">Lista de pendientes</a>
+    <a href="/tracks/pending" class="btn btn-sm btn-outline-secondary">Ver todos</a>
   </div>
 </div>
 {% endif %}
 
-{# ── Status tabs ─────────────────────────────────────────────────────────── #}
+{# ── Status tabs ───────────────────────────────────────────────── #}
 {% if not compare_mode %}
 {% set tab_statuses = [
-  ("pending",       "Pendiente",      "bg-secondary"),
-  ("queued",        "En cola",        "bg-primary"),
-  ("downloaded",    "Descargado",     "bg-success"),
-  ("not_found",     "No encontrado",  "bg-danger"),
-  ("vinyl_only",    "Solo vinilo",    "bg-warning text-dark"),
-  ("bandcamp_only", "Solo Bandcamp",  "bg-primary"),
-  ("set_mix",        "Sets",           "bg-info text-dark"),
-  ("discarded",     "Descartado",     "bg-secondary"),
-  ("all",           "Todos",          "bg-dark"),
+  ("pending",       "Pendiente"),
+  ("queued",        "En cola"),
+  ("downloaded",    "Descargado"),
+  ("not_found",     "No encontrado"),
+  ("vinyl_only",    "Solo vinilo"),
+  ("bandcamp_only", "Solo Bandcamp"),
+  ("set_mix",       "Sets"),
+  ("discarded",     "Descartado"),
+  ("all",           "Todos"),
 ] %}
-<div class="mb-2 d-flex flex-wrap gap-1">
-  {% for tab_val, tab_label, tab_color in tab_statuses %}
+<div class="tm-tabs mb-3">
+  {% for tab_val, tab_label in tab_statuses %}
     {% set tab_count = counts.get(tab_val) %}
+    {% if tab_val == 'downloaded' %}
+      {% set tab_badge_style = 'background:#d1fae5;color:#065f46;' %}
+    {% elif tab_val == 'not_found' %}
+      {% set tab_badge_style = 'background:#fee2e2;color:#991b1b;' %}
+    {% elif tab_val == 'vinyl_only' %}
+      {% set tab_badge_style = 'background:#ffedd5;color:#9a3412;' %}
+    {% elif tab_val == 'bandcamp_only' %}
+      {% set tab_badge_style = 'background:#e0f2fe;color:#0369a1;' %}
+    {% elif tab_val == 'set_mix' %}
+      {% set tab_badge_style = 'background:#ede9fe;color:#6d28d9;' %}
+    {% else %}
+      {% set tab_badge_style = '' %}
+    {% endif %}
     <a href="/tracks/pending?status={{ tab_val }}&sort={{ sort }}&q={{ q }}&source={{ source }}"
-       class="btn btn-sm {% if active_status == tab_val %}btn-dark{% else %}btn-outline-secondary{% endif %}">
+       class="tm-tab {% if active_status == tab_val %}tm-tab-active{% endif %}">
       {{ tab_label }}
       {% if tab_val != 'all' and tab_count %}
-        <span class="badge {{ tab_color }} ms-1">{{ tab_count }}</span>
+        <span class="tm-tab-n" {% if tab_badge_style and active_status != tab_val %}style="{{ tab_badge_style }}"{% endif %}>{{ tab_count }}</span>
       {% endif %}
     </a>
   {% endfor %}
 </div>
+{% endif %}
 
-{% endif %}{# end if not compare_mode — tabs #}
-
-{# ── Search + Sort + Date bar ────────────────────────────────────────────── #}
+{# ── Filter bar ────────────────────────────────────────────────── #}
 {% if not compare_mode %}
 <form method="GET" action="/tracks/pending" id="filter-form">
   <input type="hidden" name="status" value="{{ active_status }}">
+  <input type="hidden" name="source" value="{{ source }}">
 
-  <div class="bg-white border rounded px-3 py-2 mb-3 shadow-sm">
-  <div class="d-flex flex-wrap gap-2 align-items-center">
-    <span class="text-muted small fw-semibold me-1" style="white-space:nowrap;">Filtros</span>
-    <div class="vr"></div>
-    <input type="hidden" name="source" value="{{ source }}">
-    <input
-      type="search"
-      name="q"
-      value="{{ q }}"
-      placeholder="Buscar artista o título…"
-      class="form-control form-control-sm"
-      style="max-width:260px;"
-      onsearch="this.form.submit()"
-    >
-    <select name="sort" class="form-select form-select-sm" style="max-width:180px;" onchange="this.form.submit()">
-      <option value="newest"      {% if sort == 'newest'      %}selected{% endif %}>Más recientes</option>
-      <option value="oldest"      {% if sort == 'oldest'      %}selected{% endif %}>Más antiguos</option>
-      <option value="artist_asc"  {% if sort == 'artist_asc'  %}selected{% endif %}>Artista A-Z</option>
-      <option value="artist_desc" {% if sort == 'artist_desc' %}selected{% endif %}>Artista Z-A</option>
-      <option value="title_asc"   {% if sort == 'title_asc'   %}selected{% endif %}>Título A-Z</option>
-      <option value="title_desc"  {% if sort == 'title_desc'  %}selected{% endif %}>Título Z-A</option>
-    </select>
+  <div class="tm-filter-bar mb-3">
 
-    {# Date filter toggle button #}
-    <button type="button"
-            class="btn btn-sm {% if date_filter_active %}btn-warning{% else %}btn-outline-secondary{% endif %}"
-            onclick="toggleDateFilter()">
-      📅 Fecha{% if date_filter_active %} ✓{% endif %}
-    </button>
+    {# Fila principal #}
+    <div class="d-flex flex-wrap gap-2 align-items-center">
 
-    <button type="submit" class="btn btn-outline-secondary btn-sm">Buscar</button>
+      <input type="search" name="q" value="{{ q }}"
+             placeholder="Buscar artista o título…"
+             class="form-control form-control-sm"
+             style="max-width:240px;"
+             onsearch="this.form.submit()">
 
-    {# Source filter buttons #}
-    <div class="btn-group btn-group-sm">
-      <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q }}"
-         class="btn {% if not source %}btn-secondary{% else %}btn-outline-secondary{% endif %}">Todos</a>
-      <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q }}&source=soundcloud"
-         class="btn {% if source == 'soundcloud' %}btn-secondary{% else %}btn-outline-secondary{% endif %}"
-         style="{% if source == 'soundcloud' %}background:#ff8800;border-color:#ff8800;color:#fff;{% endif %}">SC</a>
-      <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q }}&source=spotify"
-         class="btn {% if source == 'spotify' %}btn-success{% else %}btn-outline-success{% endif %}">SP</a>
-      <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q }}&source=youtube"
-         class="btn {% if source == 'youtube' %}btn-danger{% else %}btn-outline-danger{% endif %}">YT</a>
+      <select name="sort" class="form-select form-select-sm" style="max-width:165px;" onchange="this.form.submit()">
+        <option value="newest"      {% if sort == 'newest'      %}selected{% endif %}>Más recientes</option>
+        <option value="oldest"      {% if sort == 'oldest'      %}selected{% endif %}>Más antiguos</option>
+        <option value="artist_asc"  {% if sort == 'artist_asc'  %}selected{% endif %}>Artista A→Z</option>
+        <option value="artist_desc" {% if sort == 'artist_desc' %}selected{% endif %}>Artista Z→A</option>
+        <option value="title_asc"   {% if sort == 'title_asc'   %}selected{% endif %}>Título A→Z</option>
+        <option value="title_desc"  {% if sort == 'title_desc'  %}selected{% endif %}>Título Z→A</option>
+      </select>
+
+      <div class="d-flex gap-1">
+        <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q }}"
+           class="btn btn-sm src-btn"
+           style="{% if not source %}background:var(--tm-text);border-color:var(--tm-text);color:#fff;{% else %}background:#f1f5f9;border-color:var(--tm-border);color:var(--tm-muted);{% endif %}">Todos</a>
+        <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q }}&source=soundcloud"
+           class="btn btn-sm src-btn d-inline-flex align-items-center gap-1" title="SoundCloud"
+           style="background:{% if source == 'soundcloud' %}#c84b00{% else %}#fff3e0{% endif %};border:1px solid #fed7aa;padding:.28rem .55rem;">
+          <span class="pi" style="font-size:14px;"><img src="/static/icons/soundcloud.svg" alt="SoundCloud"
+            style="filter:{% if source == 'soundcloud' %}brightness(0) invert(1){% else %}invert(33%) sepia(77%) saturate(1200%) hue-rotate(1deg) brightness(90%){% endif %};"></span>
+        </a>
+        <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q }}&source=spotify"
+           class="btn btn-sm src-btn d-inline-flex align-items-center gap-1" title="Spotify"
+           style="background:{% if source == 'spotify' %}#065f46{% else %}#d1fae5{% endif %};border:1px solid #a7f3d0;padding:.28rem .55rem;">
+          <span class="pi" style="font-size:14px;"><img src="/static/icons/spotify.svg" alt="Spotify"
+            style="filter:{% if source == 'spotify' %}brightness(0) invert(1){% else %}invert(26%) sepia(60%) saturate(600%) hue-rotate(120deg) brightness(80%){% endif %};"></span>
+        </a>
+        <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q }}&source=youtube"
+           class="btn btn-sm src-btn d-inline-flex align-items-center gap-1" title="YouTube"
+           style="background:{% if source == 'youtube' %}#991b1b{% else %}#fee2e2{% endif %};border:1px solid #fecaca;padding:.28rem .55rem;">
+          <span class="pi" style="font-size:14px;"><img src="/static/icons/youtube.svg" alt="YouTube"
+            style="filter:{% if source == 'youtube' %}brightness(0) invert(1){% else %}invert(14%) sepia(80%) saturate(800%) hue-rotate(340deg) brightness(85%){% endif %};"></span>
+        </a>
+      </div>
+
+      <button type="button" id="date-toggle-btn"
+              class="btn btn-sm {% if date_filter_active %}btn-warning{% else %}btn-outline-secondary{% endif %}"
+              onclick="toggleDateFilter()">
+        📅{% if date_filter_active %} ✓{% endif %}
+      </button>
+
     </div>
 
+    {# Pills de filtros activos #}
     {% if q or date_filter_active or source %}
+    <div class="d-flex flex-wrap gap-2 align-items-center mt-2 pt-2 border-top">
+      <span class="text-muted" style="font-size:0.75rem;font-weight:600;">Filtros activos:</span>
+      {% if q %}
+        <span class="d-inline-flex align-items-center gap-1 badge"
+              style="background:#ede9fe;color:#6d28d9;font-size:0.75rem;padding:.3em .6em;border-radius:999px;font-weight:500;">
+          "{{ q }}"
+          <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&source={{ source }}"
+             class="text-inherit text-decoration-none" style="color:#6d28d9;opacity:.7;margin-left:2px;"
+             title="Quitar búsqueda">✕</a>
+        </span>
+      {% endif %}
+      {% if source %}
+        {% if source == 'soundcloud' %}{% set src_label = 'SoundCloud' %}{% elif source == 'spotify' %}{% set src_label = 'Spotify' %}{% else %}{% set src_label = 'YouTube' %}{% endif %}
+        <span class="d-inline-flex align-items-center gap-1 badge"
+              style="background:#fff3e0;color:#c84b00;font-size:0.75rem;padding:.3em .6em;border-radius:999px;font-weight:500;">
+          {{ src_label }}
+          <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q }}"
+             class="text-decoration-none" style="color:#c84b00;opacity:.7;margin-left:2px;"
+             title="Quitar fuente">✕</a>
+        </span>
+      {% endif %}
+      {% if date_filter_active %}
+        <span class="d-inline-flex align-items-center gap-1 badge"
+              style="background:#fef3c7;color:#92400e;font-size:0.75rem;padding:.3em .6em;border-radius:999px;font-weight:500;">
+          📅 {{ date_from }} → {{ date_to }}
+          <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q }}&source={{ source }}"
+             class="text-decoration-none" style="color:#92400e;opacity:.7;margin-left:2px;"
+             title="Quitar fecha">✕</a>
+        </span>
+      {% endif %}
       <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}"
-         class="btn btn-outline-danger btn-sm">✕ Limpiar</a>
+         class="btn btn-sm btn-outline-danger" style="padding:.2rem .55rem;font-size:0.75rem;">
+        ✕ Limpiar todo
+      </a>
+    </div>
     {% endif %}
-  </div>
 
-  {# Date range panel — visible when active or toggled #}
-  <div id="date-filter-panel"
-       class="d-flex align-items-center gap-2 mt-2 pt-2 border-top"
-       style="display:{% if date_filter_active %}flex{% else %}none{% endif %} !important;">
-    <label class="form-label mb-0 small fw-semibold text-nowrap">Desde</label>
-    <input type="date" name="date_from"
-           value="{{ date_from if date_from else default_date_from }}"
-           class="form-control form-control-sm" style="max-width:150px;">
-    <label class="form-label mb-0 small fw-semibold text-nowrap">Hasta</label>
-    <input type="date" name="date_to"
-           value="{{ date_to if date_to else default_date_to }}"
-           class="form-control form-control-sm" style="max-width:150px;">
-    <button type="submit" class="btn btn-primary btn-sm">Aplicar</button>
-    {% if date_filter_active %}
-      <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q }}"
-         class="btn btn-outline-secondary btn-sm">Quitar fecha</a>
-    {% endif %}
-  </div>
+    {# Panel de fecha #}
+    <div id="date-filter-panel"
+         class="d-flex align-items-center flex-wrap gap-2 mt-2 pt-2 border-top"
+         style="display:{% if date_filter_active %}flex{% else %}none{% endif %} !important;">
+      <label class="form-label mb-0 fw-semibold" style="white-space:nowrap;font-size:0.78rem;">Desde</label>
+      <input type="date" name="date_from"
+             value="{{ date_from if date_from else default_date_from }}"
+             class="form-control form-control-sm" style="max-width:145px;">
+      <label class="form-label mb-0 fw-semibold" style="white-space:nowrap;font-size:0.78rem;">Hasta</label>
+      <input type="date" name="date_to"
+             value="{{ date_to if date_to else default_date_to }}"
+             class="form-control form-control-sm" style="max-width:145px;">
+      <button type="submit" class="btn btn-primary btn-sm">Aplicar</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" onclick="closeDateFilter()">Cerrar</button>
+      {% if date_filter_active %}
+        <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q }}&source={{ source }}"
+           class="btn btn-outline-danger btn-sm">✕ Quitar fecha</a>
+      {% endif %}
+    </div>
 
-  </div>{# end bg-white card #}
+  </div>
 </form>
+{% endif %}
 
-{% endif %}{# end if not compare_mode — filters #}
-
-{# ── Track table ─────────────────────────────────────────────────────────── #}
+{# ── Track table ───────────────────────────────────────────────── #}
 {% if rows %}
 <form method="POST" action="/tracks/download-queue" id="queue-form">
 
-<div class="d-flex justify-content-end gap-2 mb-2 flex-wrap">
-  {# Armar cola — visible cuando hay tracks seleccionables para descargar #}
-  {% if active_status in ['pending', 'not_found', 'vinyl_only', 'bandcamp_only', 'all'] %}
-    <button type="submit" class="btn btn-success btn-sm">Armar lista de descarga ↗</button>
-  {% endif %}
-
-  {# Reintentar — visible en tabs resueltos (vuelve a la cola de descarga) #}
-  {% if active_status in ['downloaded', 'not_found', 'vinyl_only', 'bandcamp_only'] %}
-    <button type="submit" form="queue-form" formaction="/tracks/bulk-to-queue"
-            class="btn btn-primary btn-sm">↺ Reintentar descarga</button>
-  {% endif %}
-
-  {# Volver a pendiente — visible en cualquier tab que no sea pending #}
-  {% if active_status != 'pending' and active_status != 'queued' %}
-    <button type="submit" form="queue-form" formaction="/tracks/bulk-to-pending"
-            class="btn btn-outline-secondary btn-sm">↩ Volver a pendiente</button>
-  {% endif %}
+<div class="tm-bulk-bar mb-2">
+  <span class="text-muted small" id="sel-count">0 seleccionados</span>
+  <div class="ms-auto d-flex gap-1 flex-wrap">
+    {% if active_status in ['pending', 'not_found', 'vinyl_only', 'bandcamp_only', 'all'] %}
+      <button type="submit" class="btn btn-success btn-sm"
+              data-toast="Cola armada" data-toast-type="success">
+        ↗ Armar cola de descarga
+      </button>
+    {% endif %}
+    {% if active_status == 'pending' %}
+      <button type="submit" form="queue-form" formaction="/tracks/bulk-discard"
+              class="btn btn-outline-danger btn-sm"
+              data-toast="Tracks descartados" data-toast-type="warning">
+        ✕ Descartar
+      </button>
+    {% endif %}
+    {% if active_status in ['downloaded', 'not_found', 'vinyl_only', 'bandcamp_only'] %}
+      <button type="submit" form="queue-form" formaction="/tracks/bulk-to-queue"
+              class="btn btn-outline-primary btn-sm"
+              data-toast="Tracks enviados a la cola" data-toast-type="success">
+        ↺ Reintentar
+      </button>
+    {% endif %}
+    {% if active_status != 'pending' and active_status != 'queued' %}
+      <button type="submit" form="queue-form" formaction="/tracks/bulk-to-pending"
+              class="btn btn-outline-secondary btn-sm"
+              data-toast="Tracks vueltos a pendiente" data-toast-type="info">
+        ↩ A pendiente
+      </button>
+    {% endif %}
+  </div>
 </div>
 
 <div class="table-responsive">
-  <table class="table table-hover table-sm align-middle bg-white shadow-sm rounded">
+  <table class="table table-hover table-sm align-middle bg-white">
     <thead class="table-dark">
       <tr>
-        <th><input type="checkbox" id="check-all" onclick="toggleAll()"></th>
-        <th>#</th>
+        <th style="width:32px;"><input type="checkbox" id="check-all" onclick="toggleAll()"></th>
         <th>
           <a href="/tracks/pending?status={{ active_status }}&q={{ q }}&sort={% if sort == 'artist_asc' %}artist_desc{% else %}artist_asc{% endif %}"
-             class="text-white text-decoration-none">
+             class="text-white text-decoration-none" style="opacity:.8;">
             Artista {% if sort == 'artist_asc' %}↑{% elif sort == 'artist_desc' %}↓{% endif %}
           </a>
         </th>
         <th>
           <a href="/tracks/pending?status={{ active_status }}&q={{ q }}&sort={% if sort == 'title_asc' %}title_desc{% else %}title_asc{% endif %}"
-             class="text-white text-decoration-none">
+             class="text-white text-decoration-none" style="opacity:.8;">
             Título {% if sort == 'title_asc' %}↑{% elif sort == 'title_desc' %}↓{% endif %}
           </a>
         </th>
@@ -228,7 +394,7 @@
         <th>Likeado</th>
         <th>Dur.</th>
         <th>Notas</th>
-        <th>Acciones</th>
+        <th></th>
       </tr>
     </thead>
     <tbody>
@@ -239,30 +405,32 @@
             <input type="checkbox" name="review_ids" value="{{ row.review_id }}" class="row-check">
           {% endif %}
         </td>
-        <td class="text-muted small">{{ loop.index }}</td>
 
-        <td>
-          <strong>{{ row.artist or "—" }}</strong>
+        <td style="max-width:180px;">
+          <span class="fw-semibold text-truncate d-block" style="max-width:170px;" title="{{ row.artist }}">
+            {{ row.artist or "—" }}
+          </span>
           {% if row.channel and row.channel != row.artist and row.channel != "—" %}
-            <br/><span class="text-muted" style="font-size:0.72rem;">{{ row.channel }}</span>
+            <span class="text-muted" style="font-size:0.7rem;">{{ row.channel }}</span>
           {% endif %}
         </td>
 
-        <td>
+        <td style="max-width:220px;">
           {% if row.source_url and row.source_url != "#" %}
-            <a href="{{ row.source_url }}" target="_blank" rel="noopener">{{ row.title or "—" }}</a>
+            <a href="{{ row.source_url }}" target="_blank" rel="noopener"
+               class="text-truncate d-block" style="max-width:210px;" title="{{ row.raw_title }}">
+              {{ row.title or "—" }}
+            </a>
           {% else %}
-            {{ row.title or "—" }}
+            <span class="text-truncate d-block" style="max-width:210px;" title="{{ row.raw_title }}">
+              {{ row.title or "—" }}
+            </span>
           {% endif %}
-          <br/>
-          <span class="text-muted" style="font-size:0.72rem;" title="{{ row.raw_title }}">
-            {{ row.raw_title | truncate(50, True) }}
-          </span>
         </td>
 
         <td>
           {% if row.version %}
-            <span class="badge bg-info text-dark version-badge">{{ row.version }}</span>
+            <span class="badge s-set version-badge">{{ row.version }}</span>
           {% else %}
             <span class="text-muted">—</span>
           {% endif %}
@@ -270,40 +438,42 @@
 
         <td>
           {% if row.status == "pending" %}
-            <span class="badge bg-secondary">Pendiente</span>
+            <span class="badge s-pending">Pendiente</span>
           {% elif row.status == "queued" %}
-            <span class="badge bg-primary">En cola</span>
+            <span class="badge s-queued">En cola</span>
           {% elif row.status == "downloaded" %}
-            <span class="badge bg-success">Descargado</span>
+            <span class="badge s-downloaded">Descargado</span>
           {% elif row.status == "not_found" %}
-            <span class="badge bg-danger">No encontrado</span>
+            <span class="badge s-not_found">No encontrado</span>
           {% elif row.status == "vinyl_only" %}
-            <span class="badge bg-warning text-dark">Solo vinilo</span>
+            <span class="badge s-vinyl">Solo vinilo</span>
           {% elif row.status == "bandcamp_only" %}
-            <span class="badge bg-primary">Solo Bandcamp</span>
+            <span class="badge s-bandcamp">Solo Bandcamp</span>
           {% elif row.status == "set_mix" %}
-            <span class="badge bg-info text-dark">Set</span>
+            <span class="badge s-set">Set</span>
           {% elif row.status == "discarded" %}
-            <span class="badge bg-secondary">Descartado</span>
+            <span class="badge s-discarded">Descartado</span>
           {% endif %}
         </td>
 
         <td>
           {% if row.source == "soundcloud" %}
-            <span class="badge" style="background:#ff8800;">SoundCloud</span>
+            <span class="badge src-sc">SC</span>
           {% elif row.source == "spotify" %}
-            <span class="badge bg-success">Spotify</span>
+            <span class="badge src-sp">SP</span>
           {% elif row.source == "youtube" %}
-            <span class="badge bg-danger">YouTube</span>
+            <span class="badge src-yt">YT</span>
           {% else %}
-            <span class="badge bg-secondary">{{ row.source }}</span>
+            <span class="badge s-pending">{{ row.source }}</span>
           {% endif %}
         </td>
-        <td class="text-muted small">{{ row.liked_at }}</td>
-        <td class="text-muted small">{{ row.duration }}</td>
+
+        <td class="text-muted small" style="white-space:nowrap;">{{ row.liked_at }}</td>
+        <td class="text-muted small" style="white-space:nowrap;">{{ row.duration }}</td>
+
         <td class="notes">
           {% if row.dup_compare_url %}
-            <a href="{{ row.dup_compare_url }}" class="text-warning fw-semibold" title="Ver ambos tracks juntos">
+            <a href="{{ row.dup_compare_url }}" class="text-warning fw-semibold text-decoration-none" title="Ver ambos tracks juntos">
               ⚠ {{ row.notes }}
             </a>
           {% else %}
@@ -311,7 +481,7 @@
           {% endif %}
         </td>
 
-        <td class="action-btns">
+        <td class="action-btns" style="white-space:nowrap;">
           {% if row.nt_id %}
             <button type="button" class="btn btn-outline-secondary btn-sm" title="Editar metadata"
                     data-nt-id="{{ row.nt_id }}"
@@ -324,18 +494,22 @@
           {% endif %}
           {% if row.status == "pending" %}
             <form method="POST" action="/review/{{ row.review_id }}/discard/form">
-              <button class="btn btn-outline-danger btn-sm" title="Descartar">✕</button>
+              <button class="btn btn-outline-danger btn-sm" title="Descartar"
+                      data-toast="Track descartado" data-toast-type="warning">✕</button>
             </form>
           {% elif row.status in ["downloaded", "not_found", "vinyl_only", "bandcamp_only"] %}
             <form method="POST" action="/review/{{ row.review_id }}/retry-queue/form" class="d-inline">
-              <button class="btn btn-outline-primary btn-sm" title="Volver a la cola de descarga">↺</button>
+              <button class="btn btn-outline-primary btn-sm" title="Volver a la cola de descarga"
+                      data-toast="Enviado a la cola" data-toast-type="success">↺</button>
             </form>
             <form method="POST" action="/review/{{ row.review_id }}/pending/form" class="d-inline">
-              <button class="btn btn-outline-secondary btn-sm" title="Volver a pendiente">↩</button>
+              <button class="btn btn-outline-secondary btn-sm" title="Volver a pendiente"
+                      data-toast="Vuelto a pendiente" data-toast-type="info">↩</button>
             </form>
           {% elif row.status in ["queued", "discarded"] %}
             <form method="POST" action="/review/{{ row.review_id }}/pending/form">
-              <button class="btn btn-outline-secondary btn-sm" title="Volver a pendiente">↩</button>
+              <button class="btn btn-outline-secondary btn-sm" title="Volver a pendiente"
+                      data-toast="Vuelto a pendiente" data-toast-type="info">↩</button>
             </form>
           {% endif %}
         </td>
@@ -346,13 +520,11 @@
 </div>
 </form>
 
-
 {% else %}
 <div class="alert alert-info">
   {% if q %}
-    No se encontraron tracks para <strong>"{{ q }}"</strong>
-    {% if active_status != 'all' %} en el estado actual{% endif %}.
-    <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}">Limpiar búsqueda</a>
+    Sin resultados para <strong>"{{ q }}"</strong>{% if active_status != 'all' %} en este estado{% endif %}.
+    <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}" class="alert-link">Limpiar búsqueda</a>
   {% elif active_status == 'discarded' %}
     No hay tracks descartados.
   {% elif active_status == 'queued' %}
@@ -364,12 +536,12 @@
   {% elif active_status == 'vinyl_only' %}
     No hay tracks marcados como solo vinilo.
   {% else %}
-    No hay tracks pendientes. Click en <strong>Sync SoundCloud</strong> para traer tus likes.
+    No hay tracks pendientes. Presioná <strong>↻ SoundCloud</strong> / <strong>↻ Spotify</strong> / <strong>↻ YouTube</strong> para importar tus likes.
   {% endif %}
 </div>
 {% endif %}
 
-{# ── Edit metadata modal ─────────────────────────────────────────────────── #}
+{# ── Edit metadata modal ───────────────────────────────────────── #}
 <div class="modal fade" id="editModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -380,30 +552,31 @@
         </div>
         <div class="modal-body">
           <div class="mb-2">
-            <label class="form-label small text-muted mb-1">Subido por</label>
-            <p id="edit-channel" class="form-control-plaintext py-0 fw-semibold"></p>
+            <p class="form-label" style="font-size:0.75rem;color:var(--tm-muted);margin-bottom:.2rem;">Subido por</p>
+            <p id="edit-channel" class="mb-0 fw-semibold" style="font-size:0.875rem;"></p>
           </div>
           <div class="mb-3">
-            <label class="form-label small text-muted mb-1">Título sin modificar</label>
-            <p id="edit-raw-title" class="form-control-plaintext py-0 font-monospace small text-break"></p>
+            <p class="form-label" style="font-size:0.75rem;color:var(--tm-muted);margin-bottom:.2rem;">Título original</p>
+            <p id="edit-raw-title" class="mb-0 font-monospace text-break" style="font-size:0.78rem;color:var(--tm-muted);"></p>
           </div>
-          <hr class="my-2">
+          <hr>
           <div class="mb-3">
-            <label class="form-label fw-semibold">Artista</label>
+            <label class="form-label">Artista</label>
             <input type="text" name="artist" id="edit-artist" class="form-control">
           </div>
           <div class="mb-3">
-            <label class="form-label fw-semibold">Título</label>
+            <label class="form-label">Título</label>
             <input type="text" name="title" id="edit-title" class="form-control">
           </div>
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Versión</label>
-            <input type="text" name="version" id="edit-version" class="form-control" placeholder="ej: Original Mix, Remix…">
+          <div class="mb-1">
+            <label class="form-label">Versión</label>
+            <input type="text" name="version" id="edit-version" class="form-control"
+                   placeholder="ej: Original Mix, Remix…">
           </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-primary">Guardar</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary btn-sm">Guardar</button>
         </div>
       </form>
     </div>
@@ -411,24 +584,37 @@
 </div>
 
 <script>
-// Preserve scroll position across form submissions
 document.addEventListener('DOMContentLoaded', () => {
+  /* Restore scroll */
   const saved = sessionStorage.getItem('pending_scroll');
-  if (saved) {
-    window.scrollTo(0, parseInt(saved));
-    sessionStorage.removeItem('pending_scroll');
-  }
-  // Edit modal form
+  if (saved) { window.scrollTo(0, parseInt(saved)); sessionStorage.removeItem('pending_scroll'); }
+
+  /* Edit modal */
   document.getElementById('edit-form').addEventListener('submit', () => {
     sessionStorage.setItem('pending_scroll', window.scrollY);
+    _setToast('Metadata guardada', 'success');
   });
-  // Action buttons (discard, return to pending)
+
+  /* Row action forms */
   document.querySelectorAll('.action-btns form').forEach(form => {
-    form.addEventListener('submit', () => {
-      sessionStorage.setItem('pending_scroll', window.scrollY);
-    });
+    form.addEventListener('submit', () => sessionStorage.setItem('pending_scroll', window.scrollY));
+  });
+
+  /* data-toast buttons */
+  document.querySelectorAll('[data-toast]').forEach(btn => {
+    btn.addEventListener('click', () => _setToast(btn.dataset.toast, btn.dataset.toastType || 'success'));
+  });
+
+  /* Selection counter */
+  document.querySelectorAll('.row-check').forEach(cb => {
+    cb.addEventListener('change', updateSelCount);
   });
 });
+
+function updateSelCount() {
+  const n = document.querySelectorAll('.row-check:checked').length;
+  document.getElementById('sel-count').textContent = n + ' seleccionado' + (n !== 1 ? 's' : '');
+}
 
 function openEditModal(btn) {
   document.getElementById('edit-form').action    = '/tracks/' + btn.dataset.ntId + '/edit-metadata';
@@ -443,6 +629,7 @@ function openEditModal(btn) {
 function toggleAll() {
   const all = document.getElementById('check-all');
   document.querySelectorAll('.row-check').forEach(cb => cb.checked = all.checked);
+  updateSelCount();
 }
 
 function toggleDateFilter() {
@@ -452,18 +639,19 @@ function toggleDateFilter() {
   setDateInputsDisabled(visible);
 }
 
-function setDateInputsDisabled(disabled) {
-  document.querySelectorAll('#date-filter-panel input[type=date]').forEach(el => {
-    el.disabled = disabled;
-  });
+function closeDateFilter() {
+  const panel = document.getElementById('date-filter-panel');
+  panel.style.display = 'none';
+  setDateInputsDisabled(true);
 }
 
-// On load: disable date inputs if panel is hidden
+function setDateInputsDisabled(disabled) {
+  document.querySelectorAll('#date-filter-panel input[type=date]').forEach(el => el.disabled = disabled);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const panel = document.getElementById('date-filter-panel');
-  if (panel && panel.style.display === 'none') {
-    setDateInputsDisabled(true);
-  }
+  if (panel && panel.style.display === 'none') setDateInputsDisabled(true);
 });
 </script>
 

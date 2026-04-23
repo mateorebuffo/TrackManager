@@ -1,5 +1,5 @@
 import re
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from urllib.parse import quote, quote_plus
 from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -8,10 +8,12 @@ from sqlalchemy import asc, desc, nulls_last, or_
 from sqlalchemy.orm import Session, contains_eager
 from typing import Annotated
 
+from app.auth_middleware import get_current_user
 from app.db import get_db
 from app.models.normalized_track import NormalizedTrack
 from app.models.review_item import ReviewItem, TrackStatus
 from app.models.source_track import SourceTrack
+from app.models.user import User
 from app.services import spotify_auth, youtube_auth
 
 router = APIRouter(prefix="/tracks", tags=["tracks"])
@@ -21,7 +23,6 @@ _QUEUE_STATUSES = [
     TrackStatus.queued,
 ]
 
-# Maps the ?status= param to the DB values to include
 _STATUS_FILTER: dict[str, list[TrackStatus]] = {
     "pending":    [TrackStatus.pending],
     "queued":     [TrackStatus.queued],
@@ -34,7 +35,6 @@ _STATUS_FILTER: dict[str, list[TrackStatus]] = {
     "all":        list(TrackStatus),
 }
 
-# Maps the ?sort= param to a SQLAlchemy order clause
 _SORT_OPTIONS = {
     "newest":      nulls_last(desc(SourceTrack.liked_at)),
     "oldest":      nulls_last(asc(SourceTrack.liked_at)),
@@ -56,8 +56,8 @@ def pending_tracks_page(
     source: str | None = Query(default=None),
     compare: str | None = Query(default=None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> HTMLResponse:
-    # ── Compare mode: show only two specific review items ──────────────────
     compare_ids: list[int] = []
     if compare:
         compare_ids = [int(x) for x in compare.split(",") if x.strip().isdigit()]
@@ -67,7 +67,10 @@ def pending_tracks_page(
             db.query(ReviewItem)
             .join(ReviewItem.normalized_track)
             .join(NormalizedTrack.source_track)
-            .filter(ReviewItem.id.in_(compare_ids))
+            .filter(
+                ReviewItem.id.in_(compare_ids),
+                SourceTrack.user_id == current_user.id,
+            )
             .options(
                 contains_eager(ReviewItem.normalized_track)
                 .contains_eager(NormalizedTrack.source_track)
@@ -83,7 +86,10 @@ def pending_tracks_page(
             db.query(ReviewItem)
             .join(ReviewItem.normalized_track)
             .join(NormalizedTrack.source_track)
-            .filter(ReviewItem.status.in_(visible))
+            .filter(
+                ReviewItem.status.in_(visible),
+                SourceTrack.user_id == current_user.id,
+            )
             .options(
                 contains_eager(ReviewItem.normalized_track)
                 .contains_eager(NormalizedTrack.source_track)
@@ -91,7 +97,6 @@ def pending_tracks_page(
         )
 
         if q and q.strip():
-            # Normalize search term: strip ' - ' so "Artist - Title" matches search_query "Artist Title"
             q_normalized = re.sub(r"\s*-\s*", " ", q.strip()).strip()
             pattern_raw = f"%{q.strip()}%"
             pattern_norm = f"%{q_normalized}%"
@@ -116,7 +121,6 @@ def pending_tracks_page(
 
         items = query.order_by(order).all()
 
-    # Defaults shown in the UI when date filter is opened
     today = date.today()
     first_of_prev = date(today.year if today.month > 1 else today.year - 1, today.month - 1 if today.month > 1 else 12, 1)
     default_date_from = first_of_prev.isoformat()
@@ -158,7 +162,7 @@ def pending_tracks_page(
             }
         )
 
-    counts = _status_counts(db)
+    counts = _status_counts(db, current_user.id)
 
     return templates.TemplateResponse(
         "pending_tracks.html",
@@ -177,21 +181,26 @@ def pending_tracks_page(
             "counts": counts,
             "queued_count": counts.get("queued", 0),
             "source": source or "",
-            "spotify_connected": spotify_auth.is_connected(),
-            "youtube_connected": youtube_auth.is_connected(),
+            "spotify_connected": spotify_auth.is_connected(db, current_user.id),
+            "youtube_connected": youtube_auth.is_connected(db, current_user.id),
             "compare_mode": bool(compare_ids),
         },
     )
 
 
 @router.get("/pending/json")
-def pending_tracks_json(db: Session = Depends(get_db)) -> list[dict]:
-    """JSON list of pending tracks (API consumers)."""
+def pending_tracks_json(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[dict]:
     items = (
         db.query(ReviewItem)
         .join(ReviewItem.normalized_track)
         .join(NormalizedTrack.source_track)
-        .filter(ReviewItem.status == TrackStatus.pending)
+        .filter(
+            ReviewItem.status == TrackStatus.pending,
+            SourceTrack.user_id == current_user.id,
+        )
         .options(
             contains_eager(ReviewItem.normalized_track)
             .contains_eager(NormalizedTrack.source_track)
@@ -229,8 +238,17 @@ def edit_metadata(
     title: Annotated[str, Form()],
     version: Annotated[str, Form()] = "",
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> RedirectResponse:
-    nt = db.query(NormalizedTrack).filter(NormalizedTrack.id == nt_id).first()
+    nt = (
+        db.query(NormalizedTrack)
+        .join(NormalizedTrack.source_track)
+        .filter(
+            NormalizedTrack.id == nt_id,
+            SourceTrack.user_id == current_user.id,
+        )
+        .first()
+    )
     if nt:
         nt.normalized_artist = artist.strip() or None
         nt.normalized_title = title.strip() or None
@@ -245,15 +263,17 @@ def download_queue_post(
     request: Request,
     review_ids: Annotated[list[int], Form()] = [],
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> Response:
-    """Transition selected tracks from pending → queued and show the queue."""
     if not review_ids:
         return RedirectResponse(url="/tracks/pending", status_code=303)
-    db.query(ReviewItem).filter(ReviewItem.id.in_(review_ids)).update(
-        {"status": TrackStatus.queued}, synchronize_session=False
-    )
-    db.commit()
-    return _render_queue(request, db)
+    valid = _user_review_ids(db, current_user.id, review_ids)
+    if valid:
+        db.query(ReviewItem).filter(ReviewItem.id.in_(valid)).update(
+            {"status": TrackStatus.queued}, synchronize_session=False
+        )
+        db.commit()
+    return _render_queue(request, db, current_user.id)
 
 
 @router.post("/bulk-to-pending")
@@ -261,54 +281,90 @@ def bulk_to_pending(
     request: Request,
     review_ids: Annotated[list[int], Form()] = [],
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> RedirectResponse:
-    """Move selected tracks back to pending."""
-    if review_ids:
-        db.query(ReviewItem).filter(ReviewItem.id.in_(review_ids)).update(
-            {"status": TrackStatus.pending, "reviewed_at": None},
-            synchronize_session=False,
+    valid = _user_review_ids(db, current_user.id, review_ids)
+    if valid:
+        db.query(ReviewItem).filter(ReviewItem.id.in_(valid)).update(
+            {"status": TrackStatus.pending, "reviewed_at": None}, synchronize_session=False
         )
         db.commit()
     referer = request.headers.get("referer", "/tracks/pending")
     return RedirectResponse(url=referer, status_code=303)
 
 
+@router.post("/bulk-discard")
+def bulk_discard(
+    review_ids: Annotated[list[int], Form()] = [],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> RedirectResponse:
+    valid = _user_review_ids(db, current_user.id, review_ids)
+    if valid:
+        db.query(ReviewItem).filter(ReviewItem.id.in_(valid)).update(
+            {"status": TrackStatus.discarded}, synchronize_session=False
+        )
+        db.commit()
+    return RedirectResponse(url="/tracks/pending", status_code=303)
+
+
 @router.post("/bulk-to-queue")
 def bulk_to_queue(
     review_ids: Annotated[list[int], Form()] = [],
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> RedirectResponse:
-    """Move selected resolved tracks back to queued for retry."""
-    if review_ids:
-        db.query(ReviewItem).filter(ReviewItem.id.in_(review_ids)).update(
-            {"status": TrackStatus.queued, "reviewed_at": None},
-            synchronize_session=False,
+    valid = _user_review_ids(db, current_user.id, review_ids)
+    if valid:
+        db.query(ReviewItem).filter(ReviewItem.id.in_(valid)).update(
+            {"status": TrackStatus.queued, "reviewed_at": None}, synchronize_session=False
         )
         db.commit()
     return RedirectResponse(url="/tracks/download-queue", status_code=303)
 
 
 @router.post("/download-queue/reset-all")
-def download_queue_reset_all(db: Session = Depends(get_db)) -> RedirectResponse:
-    """Move all queue tracks back to pending."""
-    db.query(ReviewItem).filter(ReviewItem.status.in_(_QUEUE_STATUSES)).update(
-        {"status": TrackStatus.pending, "reviewed_at": None}, synchronize_session=False
+def download_queue_reset_all(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> RedirectResponse:
+    valid = (
+        db.query(ReviewItem.id)
+        .join(ReviewItem.normalized_track)
+        .join(NormalizedTrack.source_track)
+        .filter(
+            ReviewItem.status.in_(_QUEUE_STATUSES),
+            SourceTrack.user_id == current_user.id,
+        )
+        .scalars()
+        .all()
     )
-    db.commit()
+    if valid:
+        db.query(ReviewItem).filter(ReviewItem.id.in_(valid)).update(
+            {"status": TrackStatus.pending, "reviewed_at": None}, synchronize_session=False
+        )
+        db.commit()
     return RedirectResponse(url="/tracks/pending", status_code=303)
 
 
 @router.get("/download-queue", response_class=HTMLResponse)
-def download_queue_get(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
-    return _render_queue(request, db)
+def download_queue_get(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> HTMLResponse:
+    return _render_queue(request, db, current_user.id)
 
 
-def _render_queue(request: Request, db: Session) -> HTMLResponse:
+def _render_queue(request: Request, db: Session, user_id: int) -> HTMLResponse:
     items = (
         db.query(ReviewItem)
         .join(ReviewItem.normalized_track)
         .join(NormalizedTrack.source_track)
-        .filter(ReviewItem.status.in_(_QUEUE_STATUSES))
+        .filter(
+            ReviewItem.status.in_(_QUEUE_STATUSES),
+            SourceTrack.user_id == user_id,
+        )
         .options(
             contains_eager(ReviewItem.normalized_track)
             .contains_eager(NormalizedTrack.source_track)
@@ -356,9 +412,33 @@ def _build_queue_rows(items: list) -> list[dict]:
     return rows
 
 
-def _status_counts(db: Session) -> dict:
+def _user_review_ids(db: Session, user_id: int, candidate_ids: list[int]) -> list[int]:
+    """Return the subset of candidate_ids that belong to user_id."""
+    if not candidate_ids:
+        return []
+    return (
+        db.query(ReviewItem.id)
+        .join(ReviewItem.normalized_track)
+        .join(NormalizedTrack.source_track)
+        .filter(
+            ReviewItem.id.in_(candidate_ids),
+            SourceTrack.user_id == user_id,
+        )
+        .scalars()
+        .all()
+    )
+
+
+def _status_counts(db: Session, user_id: int) -> dict:
     from sqlalchemy import func
-    rows = db.query(ReviewItem.status, func.count(ReviewItem.id)).group_by(ReviewItem.status).all()
+    rows = (
+        db.query(ReviewItem.status, func.count(ReviewItem.id))
+        .join(ReviewItem.normalized_track)
+        .join(NormalizedTrack.source_track)
+        .filter(SourceTrack.user_id == user_id)
+        .group_by(ReviewItem.status)
+        .all()
+    )
     return {status.value: count for status, count in rows}
 
 

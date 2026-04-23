@@ -31,8 +31,11 @@ _PAGE_SIZE = 200
 class SoundCloudCollector(BaseCollector):
     """
     Fetches liked tracks from the SoundCloud API.
-    Requires SOUNDCLOUD_OAUTH_TOKEN in environment.
+    Pass oauth_token explicitly (from UserSettings) or falls back to global .env setting.
     """
+
+    def __init__(self, oauth_token: str | None = None) -> None:
+        self._oauth_token = oauth_token or settings.soundcloud_oauth_token
 
     @property
     def source_name(self) -> str:
@@ -44,16 +47,16 @@ class SoundCloudCollector(BaseCollector):
             yield from _MockSoundCloudCollector().fetch_liked_tracks()
             return
 
-        if not settings.soundcloud_oauth_token:
+        if not self._oauth_token:
             raise RuntimeError(
-                "SOUNDCLOUD_OAUTH_TOKEN is not set. "
-                "Set USE_MOCK_COLLECTOR=true to use mock data."
+                "SoundCloud OAuth token is not set. "
+                "Configure it in Settings or set USE_MOCK_COLLECTOR=true."
             )
 
         yield from self._fetch_real()
 
     def _fetch_real(self) -> Iterator[RawTrack]:
-        headers = {"Authorization": f"OAuth {settings.soundcloud_oauth_token}"}
+        headers = {"Authorization": f"OAuth {self._oauth_token}"}
         base_params = {"client_id": settings.soundcloud_client_id}
 
         with httpx.Client(timeout=30) as client:

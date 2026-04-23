@@ -1,117 +1,232 @@
 {% extends "base.html" %}
-{% block title %}Configuraciones — Music Collector{% endblock %}
+{% block title %}Configuración — Track Manager{% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center justify-content-between mb-3">
-  <h4 class="mb-0">Configuraciones</h4>
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <h4 class="tm-page-title mb-0">Configuración</h4>
 </div>
 
 {% if request.query_params.get('saved') %}
-<div class="alert alert-success alert-dismissible fade show" role="alert">
+<div class="alert alert-success alert-dismissible fade show mb-3" role="alert">
   Configuración guardada correctamente.
   <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
 </div>
 {% endif %}
 
+<style>
+  .cfg-card { border-radius: var(--tm-radius-lg); border: 1px solid var(--tm-border); box-shadow: var(--tm-shadow); overflow: hidden; }
+  .cfg-card-head {
+    background: #1e293b;
+    color: rgba(255,255,255,.85);
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 0.7rem 1.25rem;
+  }
+  .cfg-card-body { background: var(--tm-card); }
+
+  /* Filas de servicio */
+  .svc-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 1rem 1.25rem;
+    border-left: 3px solid transparent;
+    transition: background .15s;
+  }
+  .svc-row + .svc-row { border-top: 1px solid var(--tm-border); }
+  .svc-row:hover { background: #fafbfc; }
+
+  .svc-sc      { border-left-color: #f97316; }
+  .svc-spotify { border-left-color: #22c55e; }
+  .svc-youtube { border-left-color: #ef4444; }
+  .svc-muzpa   { border-left-color: #6366f1; }
+  .svc-deezer  { border-left-color: #ec4899; }
+
+  .svc-name {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--tm-text);
+    letter-spacing: 0.02em;
+  }
+  .svc-dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    margin-right: 6px;
+    flex-shrink: 0;
+  }
+  .dot-sc      { background: #f97316; }
+  .dot-spotify { background: #22c55e; }
+  .dot-youtube { background: #ef4444; }
+  .dot-muzpa   { background: #6366f1; }
+  .dot-deezer  { background: #ec4899; }
+
+  /* Panel derecho */
+  .pref-section { padding: 1.25rem; }
+  .pref-section + .pref-section { border-top: 1px solid var(--tm-border); }
+  .pref-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--tm-muted);
+    margin-bottom: 0.85rem;
+  }
+</style>
+
 <form method="POST" action="/settings">
-<div class="d-flex flex-column gap-4">
+<div class="row g-4 align-items-start">
 
-  {# ── SoundCloud ───────────────────────────────────────────────────────── #}
-  <div class="card shadow-sm">
-    <div class="card-header fw-semibold">SoundCloud</div>
-    <div class="card-body d-flex flex-column gap-3">
-      {% for key, label, field_type, required in fields if key.startswith('SOUNDCLOUD') %}
-        <div>
-          <label class="form-label fw-semibold small mb-1">{{ label }}</label>
-          <input type="{{ field_type }}" name="{{ key }}" class="form-control form-control-sm font-monospace"
-                 value="{{ current.get(key, '') }}" autocomplete="off"
-                 {% if required %}required{% endif %}>
+  {# ── Columna izquierda: Autorizaciones ────────────────────────── #}
+  <div class="col-lg-6">
+    <div class="cfg-card">
+      <div class="cfg-card-head">Autorizaciones</div>
+      <div class="cfg-card-body">
+
+        {# SoundCloud #}
+        <div class="svc-row svc-sc">
+          <div class="svc-name">
+            <span class="svc-dot dot-sc"></span>SoundCloud
+          </div>
+          <div>
+            <label class="form-label text-muted mb-1" style="font-size:0.72rem;">OAuth Token</label>
+            <input type="password" name="soundcloud_oauth_token"
+                   class="form-control form-control-sm font-monospace"
+                   value="{{ current.get('soundcloud_oauth_token', '') }}"
+                   placeholder="OAuth 2-xxxxx-xxxxxxxx-..."
+                   autocomplete="off">
+          </div>
         </div>
-      {% endfor %}
+
+        {# Spotify #}
+        <div class="svc-row svc-spotify">
+          <div class="d-flex align-items-center justify-content-between">
+            <div class="svc-name">
+              <span class="svc-dot dot-spotify"></span>Spotify
+            </div>
+            {% if spotify_connected %}
+              <span class="badge s-downloaded" style="font-size:0.67rem;">Conectado</span>
+            {% else %}
+              <span class="badge s-not_found" style="font-size:0.67rem;">No conectado</span>
+            {% endif %}
+          </div>
+          {% if spotify_connected %}
+            <form method="POST" action="/sync/spotify/disconnect" class="m-0">
+              <button class="btn btn-outline-danger btn-sm w-100">Desconectar</button>
+            </form>
+          {% else %}
+            <a href="/sync/spotify/connect" class="btn btn-outline-secondary btn-sm w-100">
+              Conectar con Spotify →
+            </a>
+          {% endif %}
+        </div>
+
+        {# YouTube #}
+        <div class="svc-row svc-youtube">
+          <div class="d-flex align-items-center justify-content-between">
+            <div class="svc-name">
+              <span class="svc-dot dot-youtube"></span>YouTube
+            </div>
+            {% if youtube_connected %}
+              <span class="badge s-downloaded" style="font-size:0.67rem;">Conectado</span>
+            {% else %}
+              <span class="badge s-not_found" style="font-size:0.67rem;">No conectado</span>
+            {% endif %}
+          </div>
+          {% if youtube_connected %}
+            <form method="POST" action="/sync/youtube/disconnect" class="m-0">
+              <button class="btn btn-outline-danger btn-sm w-100">Desconectar</button>
+            </form>
+          {% else %}
+            <a href="/sync/youtube/connect" class="btn btn-outline-secondary btn-sm w-100">
+              Conectar con YouTube →
+            </a>
+          {% endif %}
+        </div>
+
+        {# Muzpa #}
+        <div class="svc-row svc-muzpa">
+          <div class="svc-name">
+            <span class="svc-dot dot-muzpa"></span>Muzpa
+          </div>
+          <div>
+            <label class="form-label text-muted mb-1" style="font-size:0.72rem;">Session (SESS=…)</label>
+            <input type="password" name="muzpa_sess"
+                   class="form-control form-control-sm font-monospace"
+                   value="{{ current.get('muzpa_sess', '') }}" autocomplete="off">
+          </div>
+        </div>
+
+        {# Deezer #}
+        <div class="svc-row svc-deezer">
+          <div class="svc-name">
+            <span class="svc-dot dot-deezer"></span>Deezer
+          </div>
+          <div>
+            <label class="form-label text-muted mb-1" style="font-size:0.72rem;">ARL</label>
+            <input type="password" name="deezer_arl"
+                   class="form-control form-control-sm font-monospace"
+                   value="{{ current.get('deezer_arl', '') }}" autocomplete="off">
+          </div>
+        </div>
+
+      </div>
     </div>
   </div>
 
-  {# ── Spotify ──────────────────────────────────────────────────────────── #}
-  <div class="card shadow-sm">
-    <div class="card-header fw-semibold">Spotify</div>
-    <div class="card-body d-flex flex-column gap-3">
-      {% for key, label, field_type, required in fields if key.startswith('SPOTIFY') %}
-        <div>
-          <label class="form-label fw-semibold small mb-1">{{ label }}</label>
-          <input type="{{ field_type }}" name="{{ key }}" class="form-control form-control-sm font-monospace"
-                 value="{{ current.get(key, '') }}" autocomplete="off"
-                 {% if required %}required{% endif %}>
+  {# ── Columna derecha: Preferencias ────────────────────────────── #}
+  <div class="col-lg-6">
+    <div class="cfg-card">
+      <div class="cfg-card-head">Preferencias de descarga</div>
+      <div class="cfg-card-body">
+
+        <div class="pref-section">
+          <div class="pref-title">Destino</div>
+          <label class="form-label mb-1" style="font-size:0.8rem;">Carpeta de descarga</label>
+          <div class="input-group input-group-sm">
+            <input type="text" name="download_dir" id="download-dir"
+                   class="form-control font-monospace"
+                   value="{{ current.get('download_dir', '') }}"
+                   placeholder="C:\Users\...\Music">
+            <button type="button" class="btn btn-outline-secondary" onclick="pickFolder()">Examinar…</button>
+          </div>
+          <div class="form-text" style="font-size:0.72rem;">
+            Ruta completa donde se guardarán los MP3.
+          </div>
         </div>
-      {% endfor %}
-    </div>
-  </div>
 
-  {# ── YouTube ──────────────────────────────────────────────────────────── #}
-  <div class="card shadow-sm">
-    <div class="card-header fw-semibold">YouTube</div>
-    <div class="card-body d-flex flex-column gap-3">
-      {% for key, label, field_type, required in fields if key.startswith('YOUTUBE') %}
-        <div>
-          <label class="form-label fw-semibold small mb-1">{{ label }}</label>
-          <input type="{{ field_type }}" name="{{ key }}" class="form-control form-control-sm font-monospace"
-                 value="{{ current.get(key, '') }}" autocomplete="off"
-                 {% if required %}required{% endif %}>
+        <div class="pref-section">
+          <div class="pref-title">Opciones</div>
+          <div class="d-flex flex-column gap-3">
+
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="download_full_eps" id="download-eps"
+                     {% if current.get('download_full_eps') %}checked{% endif %}>
+              <label class="form-check-label" for="download-eps" style="font-size:0.875rem; font-weight:500;">
+                Descargar EPs completos
+              </label>
+              <div class="form-text" style="font-size:0.72rem;">
+                Cuando el track pertenece a un EP/Album, descarga todos los temas en una subcarpeta.
+              </div>
+            </div>
+
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="organize_by_like_date" id="organize-date"
+                     {% if current.get('organize_by_like_date') %}checked{% endif %}>
+              <label class="form-check-label" for="organize-date" style="font-size:0.875rem; font-weight:500;">
+                Organizar por fecha de like
+              </label>
+              <div class="form-text" style="font-size:0.72rem;">
+                Guarda cada track en <code>carpeta/YYYY/YYYY-MM/</code> según la fecha en que lo likeaste.
+              </div>
+            </div>
+
+          </div>
         </div>
-      {% endfor %}
-    </div>
-  </div>
 
-  {# ── Descarga automática ──────────────────────────────────────────────── #}
-  <div class="card shadow-sm">
-    <div class="card-header fw-semibold">Descarga automática</div>
-    <div class="card-body d-flex flex-column gap-3">
-
-      <div>
-        <label class="form-label fw-semibold small mb-1">Muzpa Session (SESS=...)</label>
-        <input type="password" name="MUZPA_SESS" class="form-control form-control-sm font-monospace"
-               value="{{ current.get('MUZPA_SESS', '') }}" autocomplete="off">
       </div>
-
-      <div>
-        <label class="form-label fw-semibold small mb-1">Deezer ARL</label>
-        <input type="password" name="DEEZER_ARL" class="form-control form-control-sm font-monospace"
-               value="{{ current.get('DEEZER_ARL', '') }}" autocomplete="off">
-      </div>
-
-      <div>
-        <label class="form-label fw-semibold small mb-1">Carpeta de descarga</label>
-        <div class="input-group input-group-sm">
-          <input type="text" name="DOWNLOAD_DIR" id="download-dir"
-                 class="form-control font-monospace"
-                 value="{{ current.get('DOWNLOAD_DIR', '') }}"
-                 placeholder="C:\Users\...\Music">
-          <button type="button" class="btn btn-outline-secondary" onclick="pickFolder()">
-            Examinar…
-          </button>
-        </div>
-        <div class="form-text text-muted small">
-          Ruta completa a la carpeta donde se guardarán los MP3.
-        </div>
-      </div>
-
-      <div class="form-check">
-        <input class="form-check-input" type="checkbox" name="DOWNLOAD_FULL_EPS" id="download-eps"
-               {% if current.get('DOWNLOAD_FULL_EPS', 'false') == 'true' %}checked{% endif %}>
-        <label class="form-check-label" for="download-eps">
-          Descargar EPs completos
-          <span class="text-muted small d-block">Cuando el track pertenece a un EP/Album, descarga todos los temas en una subcarpeta.</span>
-        </label>
-      </div>
-
-      <div class="form-check">
-        <input class="form-check-input" type="checkbox" name="ORGANIZE_BY_LIKE_DATE" id="organize-date"
-               {% if current.get('ORGANIZE_BY_LIKE_DATE', 'false') == 'true' %}checked{% endif %}>
-        <label class="form-check-label" for="organize-date">
-          Organizar descargas por fecha de like
-          <span class="text-muted small d-block">Guarda cada track en <code>&lt;carpeta&gt;/YYYY/YYYY-MM/</code> según la fecha en que lo likeaste.</span>
-        </label>
-      </div>
-
     </div>
   </div>
 
@@ -131,21 +246,16 @@ async function pickFolder() {
   }
   try {
     const handle = await window.showDirectoryPicker({ mode: 'read' });
-    // showDirectoryPicker only gives the folder name, not the full path.
-    // We populate it so the user can verify and adjust manually if needed.
     const input = document.getElementById('download-dir');
-    const current = input.value;
-    if (current) {
-      // Replace last segment with picked folder name
-      const parts = current.replace(/[/\\]+$/, '').split(/[/\\]/);
+    const cur = input.value;
+    if (cur) {
+      const parts = cur.replace(/[/\\]+$/, '').split(/[/\\]/);
       parts[parts.length - 1] = handle.name;
       input.value = parts.join('\\');
     } else {
       input.value = handle.name;
     }
-  } catch (e) {
-    // User cancelled picker — do nothing
-  }
+  } catch (e) { /* cancelled */ }
 }
 </script>
 {% endblock %}

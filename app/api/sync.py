@@ -5,10 +5,12 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from app.auth_middleware import get_current_user
 from app.collectors.soundcloud import SoundCloudCollector
 from app.collectors.spotify import SpotifyCollector
 from app.collectors.youtube import YouTubeCollector
 from app.db import get_db
+from app.models.user import User
 from app.services.ingestion import SyncResult, run_sync
 from app.services import spotify_auth, youtube_auth
 
@@ -22,10 +24,17 @@ templates = Jinja2Templates(directory="app/templates")
 # ---------------------------------------------------------------------------
 
 @router.post("/soundcloud")
-def sync_soundcloud(request: Request, db: Session = Depends(get_db)):
-    """Trigger a SoundCloud likes sync. Redirects to /tracks/pending for browsers."""
-    collector = SoundCloudCollector()
-    result: SyncResult = run_sync(collector, db)
+def sync_soundcloud(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Trigger a SoundCloud likes sync."""
+    from app.models.user_settings import UserSettings
+    us = db.query(UserSettings).filter_by(user_id=current_user.id).first()
+    sc_token = (us.soundcloud_oauth_token or "") if us else ""
+    collector = SoundCloudCollector(oauth_token=sc_token or None)
+    result: SyncResult = run_sync(collector, db, user_id=current_user.id)
 
     accept = request.headers.get("accept", "")
     if "text/html" in accept:
@@ -47,7 +56,7 @@ def sync_soundcloud(request: Request, db: Session = Depends(get_db)):
 # ---------------------------------------------------------------------------
 
 @router.get("/spotify/connect")
-def spotify_connect():
+def spotify_connect(current_user: User = Depends(get_current_user)):
     from app.config import settings
     if not settings.spotify_client_id:
         return HTMLResponse(
@@ -58,7 +67,13 @@ def spotify_connect():
 
 
 @router.get("/spotify/callback")
-def spotify_callback(request: Request, code: str = "", error: str = ""):
+def spotify_callback(
+    request: Request,
+    code: str = "",
+    error: str = "",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     if error or not code:
         return HTMLResponse(
             f"<h3>Error al conectar Spotify: {error or 'no code received'}</h3>"
@@ -66,7 +81,7 @@ def spotify_callback(request: Request, code: str = "", error: str = ""):
             status_code=400,
         )
     try:
-        spotify_auth.exchange_code(code)
+        spotify_auth.exchange_code(code, db, current_user.id)
     except Exception as exc:
         logger.exception("Spotify token exchange failed")
         return HTMLResponse(
@@ -78,15 +93,22 @@ def spotify_callback(request: Request, code: str = "", error: str = ""):
 
 
 @router.post("/spotify/disconnect")
-def spotify_disconnect():
-    spotify_auth.disconnect()
+def spotify_disconnect(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    spotify_auth.disconnect(db, current_user.id)
     return RedirectResponse(url="/tracks/pending", status_code=303)
 
 
 @router.post("/spotify")
-def sync_spotify(request: Request, db: Session = Depends(get_db)):
+def sync_spotify(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     try:
-        access_token = spotify_auth.get_valid_access_token()
+        access_token = spotify_auth.get_valid_access_token(db, current_user.id)
     except RuntimeError as exc:
         accept = request.headers.get("accept", "")
         if "text/html" in accept:
@@ -99,7 +121,7 @@ def sync_spotify(request: Request, db: Session = Depends(get_db)):
 
     try:
         collector = SpotifyCollector(access_token)
-        result: SyncResult = run_sync(collector, db)
+        result: SyncResult = run_sync(collector, db, user_id=current_user.id)
     except ValueError as exc:
         accept = request.headers.get("accept", "")
         if "text/html" in accept:
@@ -130,7 +152,7 @@ def sync_spotify(request: Request, db: Session = Depends(get_db)):
 # ---------------------------------------------------------------------------
 
 @router.get("/youtube/connect")
-def youtube_connect():
+def youtube_connect(current_user: User = Depends(get_current_user)):
     from app.config import settings
     if not settings.youtube_client_id:
         return HTMLResponse(
@@ -141,7 +163,13 @@ def youtube_connect():
 
 
 @router.get("/youtube/callback")
-def youtube_callback(request: Request, code: str = "", error: str = ""):
+def youtube_callback(
+    request: Request,
+    code: str = "",
+    error: str = "",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     if error or not code:
         return HTMLResponse(
             f"<h3>Error al conectar YouTube: {error or 'no code received'}</h3>"
@@ -149,7 +177,7 @@ def youtube_callback(request: Request, code: str = "", error: str = ""):
             status_code=400,
         )
     try:
-        youtube_auth.exchange_code(code)
+        youtube_auth.exchange_code(code, db, current_user.id)
     except Exception as exc:
         logger.exception("YouTube token exchange failed")
         return HTMLResponse(
@@ -161,15 +189,22 @@ def youtube_callback(request: Request, code: str = "", error: str = ""):
 
 
 @router.post("/youtube/disconnect")
-def youtube_disconnect():
-    youtube_auth.disconnect()
+def youtube_disconnect(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    youtube_auth.disconnect(db, current_user.id)
     return RedirectResponse(url="/tracks/pending", status_code=303)
 
 
 @router.post("/youtube")
-def sync_youtube(request: Request, db: Session = Depends(get_db)):
+def sync_youtube(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     try:
-        access_token = youtube_auth.get_valid_access_token()
+        access_token = youtube_auth.get_valid_access_token(db, current_user.id)
     except RuntimeError as exc:
         accept = request.headers.get("accept", "")
         if "text/html" in accept:
@@ -182,7 +217,7 @@ def sync_youtube(request: Request, db: Session = Depends(get_db)):
 
     try:
         collector = YouTubeCollector(access_token)
-        result: SyncResult = run_sync(collector, db)
+        result: SyncResult = run_sync(collector, db, user_id=current_user.id)
     except ValueError as exc:
         accept = request.headers.get("accept", "")
         if "text/html" in accept:
