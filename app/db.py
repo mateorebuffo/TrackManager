@@ -4,9 +4,10 @@ from typing import Generator
 from app.config import settings
 
 
-_is_sqlite = settings.database_url.startswith("sqlite")
+_url = settings.database_url_safe
+_is_sqlite = _url.startswith("sqlite")
 _connect_args = {"check_same_thread": False} if _is_sqlite else {}
-engine = create_engine(settings.database_url, connect_args=_connect_args, pool_pre_ping=not _is_sqlite)
+engine = create_engine(_url, connect_args=_connect_args, pool_pre_ping=not _is_sqlite)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
