@@ -11,6 +11,10 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+# Override URL from app config so Railway's DATABASE_URL is always used
+from app.config import settings as _app_settings
+config.set_main_option("sqlalchemy.url", _app_settings.database_url_safe)
+
 target_metadata = Base.metadata
 
 

@@ -13,9 +13,9 @@ from sqlalchemy.orm import Session
 
 from app.models.user import User
 
-_SECRET_KEY = "track-manager-secret-key-change-in-prod"
+from app.config import settings as _cfg
 _COOKIE_NAME = "mc_session"
-_signer = URLSafeSerializer(_SECRET_KEY, salt="session")
+_signer = URLSafeSerializer(_cfg.secret_key, salt="session")
 _ITERATIONS = 260_000
 
 

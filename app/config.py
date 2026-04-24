@@ -3,6 +3,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     database_url: str = "postgresql://music_user:music_pass@localhost:5432/music_mvp"
+    secret_key: str = "track-manager-secret-key-change-in-prod"
+
     soundcloud_client_id: str = ""
     soundcloud_oauth_token: str = ""
     use_mock_collector: bool = True
@@ -21,14 +23,22 @@ class Settings(BaseSettings):
     muzpa_sess: str = ""
     deezer_arl: str = ""
     download_dir: str = ""
-    download_full_eps: bool = False  # download entire EP/album when query contains EP keyword
-    organize_by_like_date: bool = False  # organize downloads into <base>/<YYYY>/<YYYY-MM>/
+    download_full_eps: bool = False
+    organize_by_like_date: bool = False
 
     # Deduplication thresholds
     dedup_strong_match_score: float = 90.0
     dedup_weak_match_score: float = 75.0
 
     model_config = SettingsConfigDict(env_file=".env")
+
+    @property
+    def database_url_safe(self) -> str:
+        """Normalize postgres:// → postgresql:// for SQLAlchemy 2.x compatibility."""
+        url = self.database_url
+        if url.startswith("postgres://"):
+            url = "postgresql://" + url[len("postgres://"):]
+        return url
 
 
 settings = Settings()
