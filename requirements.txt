@@ -18,3 +18,6 @@ mutagen==1.47.0
 # Optional — Deezer downloads (requires valid ARL)
 # deemix==3.6.6
 # deezer-py==1.3.7
+
+# Desktop build only (not needed for Railway)
+# pyinstaller==6.11.1

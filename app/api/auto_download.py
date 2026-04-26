@@ -87,12 +87,22 @@ def auto_download_all_start(
         },
         "summary": None,
         "total": len(items),
+        "cancelled": False,
     }
 
     return templates.TemplateResponse(
         "download_progress.html",
         {"request": request, "job_id": job_id, "total": len(items)},
     )
+
+
+@router.post("/cancel/{job_id}")
+def auto_download_cancel(job_id: str) -> dict:
+    """Mark a job as cancelled — the stream will stop after the current track."""
+    job = _jobs.get(job_id)
+    if job:
+        job["cancelled"] = True
+    return {"ok": True}
 
 
 @router.get("/stream/{job_id}")
@@ -147,6 +157,11 @@ async def _run_downloads(job_id: str):
     async def _process_one(i: int, review_id: int) -> None:
         label = labels.get(review_id, f"Track #{review_id}")
         async with sem:
+            if job.get("cancelled"):
+                await event_queue.put(
+                    {"type": "result", "current": i, "total": total, "label": label, "result": "cancelled"}
+                )
+                return
             await event_queue.put(
                 {"type": "processing", "current": i, "total": total, "label": label}
             )
@@ -224,6 +239,12 @@ async def _run_downloads(job_id: str):
         yield f"data: {json.dumps(event)}\n\n"
         if event["type"] == "result":
             completed += 1
+            if job.get("cancelled") and event.get("result") == "cancelled":
+                # Drain remaining tasks and stop
+                await asyncio.gather(*tasks, return_exceptions=True)
+                job["summary"] = summary
+                yield f"data: {json.dumps({'type': 'cancelled', 'job_id': job_id})}\n\n"
+                return
 
     await asyncio.gather(*tasks, return_exceptions=True)
 
