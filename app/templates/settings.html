@@ -187,7 +187,7 @@
             <button type="button" class="btn btn-outline-secondary" onclick="pickFolder()">Examinar…</button>
           </div>
           <div class="form-text" style="font-size:0.72rem;">
-            Ruta completa donde se guardarán los MP3.
+            Ruta completa donde se guardarán los MP3. Usá Examinar para seleccionarla desde el explorador.
           </div>
         </div>
 
@@ -270,22 +270,22 @@ document.getElementById('settings-form').addEventListener('submit', function() {
 });
 
 async function pickFolder() {
-  if (!window.showDirectoryPicker) {
-    alert('Tu navegador no soporta el selector de carpetas.\nIngresá la ruta manualmente.');
-    return;
-  }
+  const btn = document.querySelector('button[onclick="pickFolder()"]');
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Abriendo…';
   try {
-    const handle = await window.showDirectoryPicker({ mode: 'read' });
-    const input = document.getElementById('download-dir');
-    const cur = input.value;
-    if (cur) {
-      const parts = cur.replace(/[/\\]+$/, '').split(/[/\\]/);
-      parts[parts.length - 1] = handle.name;
-      input.value = parts.join('\\');
-    } else {
-      input.value = handle.name;
+    const res = await fetch('/settings/pick-folder');
+    const data = await res.json();
+    if (data.path) {
+      document.getElementById('download-dir').value = data.path;
     }
-  } catch (e) { /* cancelled */ }
+  } catch(e) {
+    alert('No se pudo abrir el selector de carpetas.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = orig;
+  }
 }
 </script>
 {% endblock %}

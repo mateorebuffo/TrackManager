@@ -3,8 +3,10 @@ Settings page — per-user configuration stored in UserSettings table.
 """
 from __future__ import annotations
 
+import asyncio
+
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from typing import Annotated
@@ -35,6 +37,33 @@ def _get_or_create_settings(db: Session, user_id: int) -> UserSettings:
         db.commit()
         db.refresh(us)
     return us
+
+
+def _native_pick_folder() -> str | None:
+    """Open the native OS folder picker and return the selected path (blocking)."""
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+        root = tk.Tk()
+        root.withdraw()
+        root.wm_attributes("-topmost", 1)
+        path = filedialog.askdirectory(title="Seleccionar carpeta de descarga")
+        root.destroy()
+        return path or None
+    except Exception:
+        return None
+
+
+@router.get("/pick-folder")
+async def pick_folder_native(
+    current_user: User = Depends(get_current_user),
+) -> JSONResponse:
+    """Open native OS folder picker and return the full path."""
+    loop = asyncio.get_event_loop()
+    path = await loop.run_in_executor(None, _native_pick_folder)
+    if path:
+        return JSONResponse({"path": path})
+    return JSONResponse({"path": None})
 
 
 @router.get("", response_class=HTMLResponse)
