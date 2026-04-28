@@ -213,7 +213,8 @@ class SetupWindow:
 # ── Running window ───────────────────────────────────────────────────────────
 
 _STATUS_LABEL = {
-    "downloading":   ("⏳ Descargando…",   "#f59e0b"),
+    "pending":       ("⏳ En cola",         "#94a3b8"),
+    "downloading":   ("⬇ Descargando…",    "#f59e0b"),
     "completed":     ("✅ Completado",      "#16a34a"),
     "not_found":     ("❌ No encontrado",   "#6b7280"),
     "vinyl_only":    ("💿 Solo vinilo",     "#7c3aed"),
@@ -285,9 +286,10 @@ class RunningWindow:
         self.tree.column("track",  width=310, stretch=True,  anchor="w")
         self.tree.column("status", width=150, stretch=False, anchor="w")
 
-        self.tree.tag_configure("downloading", foreground="#b45309")
-        self.tree.tag_configure("completed",   foreground="#15803d")
-        self.tree.tag_configure("not_found",   foreground="#6b7280")
+        self.tree.tag_configure("pending",       foreground="#94a3b8")
+        self.tree.tag_configure("downloading",   foreground="#b45309")
+        self.tree.tag_configure("completed",     foreground="#15803d")
+        self.tree.tag_configure("not_found",     foreground="#6b7280")
         self.tree.tag_configure("vinyl_only",    foreground="#7c3aed")
         self.tree.tag_configure("bandcamp_only", foreground="#0ea5e9")
         self.tree.tag_configure("failed",        foreground="#dc2626")
@@ -334,11 +336,19 @@ class RunningWindow:
         elif kind == "no_creds":
             self.dot.config(fg="#f59e0b")
             self.status_lbl.config(text="Sin credenciales — configurá Muzpa en Ajustes")
-        elif kind == "start":
+        elif kind == "enqueue":
             _, job_id, query = msg
-            label, _ = _STATUS_LABEL["downloading"]
-            iid = self.tree.insert("", 0, values=(query, label), tags=("downloading",))
+            label, _ = _STATUS_LABEL["pending"]
+            iid = self.tree.insert("", "end", values=(query, label), tags=("pending",))
             self._rows[job_id] = iid
+        elif kind == "start":
+            _, job_id = msg
+            label, _ = _STATUS_LABEL["downloading"]
+            iid = self._rows.get(job_id)
+            if iid:
+                query = self.tree.set(iid, "track")
+                self.tree.item(iid, values=(query, label), tags=("downloading",))
+                self.tree.see(iid)
             self.dot.config(fg="#f59e0b")
             self.status_lbl.config(text="Descargando…")
         elif kind == "finish":
@@ -351,8 +361,6 @@ class RunningWindow:
             if status == "completed":
                 self.total += 1
                 self.count_lbl.config(text=f"{self.total} completados")
-                self.dot.config(fg="#22c55e")
-                self.status_lbl.config(text="Corriendo")
 
     def _poll(self) -> None:
         try:
@@ -367,7 +375,7 @@ class RunningWindow:
     def _process_job(self, job: dict, user_settings: dict) -> None:
         if not self.running:
             return
-        self.q.put(("start", job["id"], job["query"]))
+        self.q.put(("start", job["id"]))
         api_start(self.cfg, job["id"])
         result = download_track(job["query"], self.cfg, user_settings)
         api_complete(self.cfg, job["id"], result)
@@ -389,6 +397,9 @@ class RunningWindow:
                 if not jobs:
                     self.q.put(("idle",))
                 else:
+                    # Pre-load all pending jobs into the treeview
+                    for job in jobs:
+                        self.q.put(("enqueue", job["id"], job["query"]))
                     with ThreadPoolExecutor(max_workers=4) as pool:
                         futures = {
                             pool.submit(self._process_job, job, user_settings): job
