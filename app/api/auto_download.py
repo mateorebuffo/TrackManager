@@ -126,8 +126,17 @@ def jobs_status(
     current_user: User = Depends(get_current_user),
 ) -> HTMLResponse:
     from app.models.download_job import JobStatus as JS
-    pending_count  = db.query(DownloadJob).filter(DownloadJob.user_id == current_user.id, DownloadJob.status == JS.pending).count()
-    progress_count = db.query(DownloadJob).filter(DownloadJob.user_id == current_user.id, DownloadJob.status == JS.in_progress).count()
+    from sqlalchemy import func
+
+    counts = dict(
+        db.query(DownloadJob.status, func.count())
+        .filter(DownloadJob.user_id == current_user.id)
+        .group_by(DownloadJob.status)
+        .all()
+    )
+    pending_count  = counts.get(JS.pending,     0)
+    progress_count = counts.get(JS.in_progress, 0)
+
     jobs = (
         db.query(DownloadJob)
         .filter(DownloadJob.user_id == current_user.id)
@@ -142,7 +151,12 @@ def jobs_status(
             "jobs": jobs,
             "enqueued": enqueued,
             "token": current_user.api_token,
-            "pending_count": pending_count,
-            "progress_count": progress_count,
+            "pending_count":      pending_count,
+            "progress_count":     progress_count,
+            "completed_count":    counts.get(JS.completed,     0),
+            "not_found_count":    counts.get(JS.not_found,     0),
+            "vinyl_only_count":   counts.get(JS.vinyl_only,    0),
+            "bandcamp_only_count": counts.get(JS.bandcamp_only, 0),
+            "failed_count":       counts.get(JS.failed,        0),
         },
     )
