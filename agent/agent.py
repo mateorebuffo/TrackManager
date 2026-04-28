@@ -18,6 +18,8 @@ from tkinter import *
 from tkinter import filedialog, messagebox
 from tkinter import ttk
 
+import subprocess
+
 import httpx
 from download.orchestrator import try_download as _try_download
 
@@ -27,6 +29,31 @@ try:
     _TRAY_OK = True
 except ImportError:
     _TRAY_OK = False
+
+
+def _notify(title: str, message: str) -> None:
+    """Windows toast notification via PowerShell — no extra dependencies."""
+    try:
+        script = (
+            "[Windows.UI.Notifications.ToastNotificationManager,"
+            "Windows.UI.Notifications,ContentType=WindowsRuntime]|Out-Null;"
+            "$t=[Windows.UI.Notifications.ToastTemplateType]::ToastText02;"
+            "$x=[Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent($t);"
+            "$n=$x.GetElementsByTagName('text');"
+            f"$n[0].AppendChild($x.CreateTextNode('{title}'))|Out-Null;"
+            f"$n[1].AppendChild($x.CreateTextNode('{message}'))|Out-Null;"
+            "$toast=[Windows.UI.Notifications.ToastNotification]::new($x);"
+            "[Windows.UI.Notifications.ToastNotificationManager]"
+            "::CreateToastNotifier('TrackManager').Show($toast)"
+        )
+        subprocess.Popen(
+            ["powershell", "-WindowStyle", "Hidden", "-NonInteractive", "-Command", script],
+            creationflags=0x08000000,  # CREATE_NO_WINDOW
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except Exception as e:
+        log.debug("Notification failed: %s", e)
 
 # ── Rutas ────────────────────────────────────────────────────────────────────
 
@@ -344,10 +371,11 @@ class RunningWindow:
                 "TrackManager", _tray_image(), "Track Manager — corriendo", menu
             )
             threading.Thread(target=self._tray.run, daemon=True).start()
-        try:
-            self._tray.notify("TrackManager está minimizado", "Track Manager")
-        except Exception:
-            pass
+        threading.Thread(
+            target=_notify,
+            args=("Track Manager", "TrackManager está minimizado"),
+            daemon=True,
+        ).start()
 
     def _from_tray(self, icon=None, item=None) -> None:
         self.root.after(0, self._restore)
