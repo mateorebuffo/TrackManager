@@ -198,6 +198,28 @@ def get_pending_jobs(
     ]
 
 
+@router.post("/api/download-jobs/reset-stuck")
+def reset_stuck_jobs(
+    authorization: str | None = Header(None),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Reset in_progress jobs back to pending (called by agent on startup)."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Token requerido")
+    token = authorization.removeprefix("Bearer ").strip()
+    user = get_user_by_token(token, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Token inválido")
+
+    count = (
+        db.query(DownloadJob)
+        .filter(DownloadJob.user_id == user.id, DownloadJob.status == JobStatus.in_progress)
+        .update({"status": JobStatus.pending, "updated_at": datetime.now(timezone.utc)})
+    )
+    db.commit()
+    return {"reset": count}
+
+
 @router.post("/api/download-jobs/{job_id}/start")
 def start_job(
     job_id: int,

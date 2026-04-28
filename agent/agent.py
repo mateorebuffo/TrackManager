@@ -117,6 +117,17 @@ def download_track(query: str, cfg: dict, user_settings: dict) -> str:
 def _headers(cfg: dict) -> dict:
     return {"Authorization": f"Bearer {cfg['token']}"}
 
+def api_reset_stuck(cfg: dict) -> None:
+    try:
+        r = httpx.post(f"{cfg['api_url'].rstrip('/')}/api/download-jobs/reset-stuck",
+                       headers=_headers(cfg), timeout=10)
+        data = r.json()
+        if data.get("reset", 0) > 0:
+            log.info("Reset %d stuck in_progress jobs to pending", data["reset"])
+    except Exception as e:
+        log.error("reset stuck: %s", e)
+
+
 def api_get_jobs(cfg: dict) -> list[dict]:
     try:
         r = httpx.get(f"{cfg['api_url'].rstrip('/')}/api/download-jobs",
@@ -466,6 +477,8 @@ class RunningWindow:
     def _worker(self) -> None:
         poll = int(self.cfg.get("poll_seconds", 10))
         user_settings: dict = {}
+
+        api_reset_stuck(self.cfg)  # reset any jobs stuck in_progress from a previous run
 
         while self.running:
             fresh = api_get_settings(self.cfg)
