@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Auto-descarga{% endblock %}
+{% block content %}
+<div class="container py-4" style="max-width:760px;">
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">Auto-descarga</h4>
+    <a href="/tracks/download-queue" class="btn btn-outline-secondary btn-sm">← Cola</a>
+  </div>
+
+  {% if enqueued %}
+  <div class="alert alert-success alert-dismissible fade show" role="alert">
+    ✅ <strong>{{ enqueued }} track(s)</strong> agregados a la cola. El agente los descargará automáticamente.
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {% endif %}
+
+  {# ── Estado de la cola ──────────────────────────────────────────── #}
+  {% set pending_count  = jobs | selectattr("status", "equalto", "pending")     | list | length %}
+  {% set progress_count = jobs | selectattr("status", "equalto", "in_progress") | list | length %}
+  {% set done_count     = jobs | selectattr("status", "equalto", "completed")   | list | length %}
+
+  {% if progress_count > 0 %}
+  <div class="alert alert-warning d-flex align-items-center gap-2 mb-3">
+    <div class="spinner-border spinner-border-sm" role="status"></div>
+    El agente está descargando <strong>{{ progress_count }}</strong> track(s) ahora mismo.
+  </div>
+  {% elif pending_count > 0 %}
+  <div class="alert alert-info mb-3">
+    ⏳ <strong>{{ pending_count }}</strong> track(s) esperando. Asegurate de que el agente esté corriendo.
+  </div>
+  {% elif jobs %}
+  <div class="alert alert-secondary mb-3">
+    ✅ Sin pendientes. Cola al día.
+  </div>
+  {% endif %}
+
+  {# ── Token ─────────────────────────────────────────────────────── #}
+  <div class="card mb-4">
+    <div class="card-body py-3 d-flex align-items-center gap-3 flex-wrap">
+      <span class="text-muted small fw-semibold" style="white-space:nowrap;">Token del agente</span>
+      {% if token %}
+      <div class="input-group input-group-sm flex-grow-1" style="max-width:420px;">
+        <input type="password" class="form-control font-monospace" id="token-field" value="{{ token }}" readonly>
+        <button class="btn btn-outline-secondary" type="button" onclick="toggleToken()">👁</button>
+        <button class="btn btn-outline-secondary" type="button" onclick="copyToken()">Copiar</button>
+      </div>
+      <div class="text-success small d-none" id="copy-confirm">¡Copiado!</div>
+      {% else %}
+      <span class="text-muted small">Sin token —</span>
+      {% endif %}
+      <a href="/settings#agente" class="btn btn-outline-secondary btn-sm ms-auto">⚙️ Configurar agente</a>
+    </div>
+  </div>
+
+  {# ── Historial ──────────────────────────────────────────────────── #}
+  {% if jobs %}
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span class="fw-semibold">Historial</span>
+      <span class="text-muted small">{{ jobs | length }} total · {{ done_count }} completados</span>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Track</th>
+            <th>Estado</th>
+            <th>Actualizado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% set badge = {
+            "pending":     ("secondary", "Pendiente"),
+            "in_progress": ("warning",   "Descargando…"),
+            "completed":   ("success",   "Completado"),
+            "not_found":   ("danger",    "No encontrado"),
+            "vinyl_only":  ("info",      "Solo vinilo"),
+            "bandcamp_only": ("primary",  "Solo Bandcamp"),
+            "failed":      ("danger",    "Error"),
+            "cancelled":   ("secondary", "Cancelado"),
+          } %}
+          {% for job in jobs %}
+          <tr>
+            <td style="max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+                title="{{ job.query }}">{{ job.query }}</td>
+            <td>
+              {% set b = badge.get(job.status, ("secondary", job.status)) %}
+              <span class="badge bg-{{ b[0] }}">{{ b[1] }}</span>
+            </td>
+            <td class="text-muted small">
+              {{ job.updated_at.strftime('%d/%m %H:%M') if job.updated_at else '—' }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<script>
+function toggleToken() {
+  const f = document.getElementById('token-field');
+  f.type = f.type === 'password' ? 'text' : 'password';
+}
+function copyToken() {
+  navigator.clipboard.writeText(document.getElementById('token-field').value);
+  document.getElementById('copy-confirm').classList.remove('d-none');
+  setTimeout(() => document.getElementById('copy-confirm').classList.add('d-none'), 2000);
+}
+</script>
+{% endblock %}

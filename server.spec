@@ -4,15 +4,21 @@ PyInstaller spec for the FastAPI server bundle.
 Run: pyinstaller server.spec
 Output: dist/server/ (directory bundle)
 """
+from PyInstaller.utils.hooks import collect_all, collect_data_files
 
 block_cipher = None
+
+# Collect pydantic_core and other packages with C extensions fully
+pc_datas, pc_binaries, pc_hiddenimports = collect_all('pydantic_core')
+fc_datas, fc_binaries, fc_hiddenimports = collect_all('fastapi')
 
 datas = [
     ("app/templates",  "app/templates"),
     ("app/static",     "app/static"),
     ("alembic",        "alembic"),
     ("alembic.ini",    "."),
-]
+    ("credentials.env", "."),
+] + pc_datas + fc_datas
 
 hiddenimports = [
     # App modules
@@ -28,6 +34,8 @@ hiddenimports = [
     "app.models.app_event",
     "app.models.track_history",
     "app.models.user_report",
+    "app.models.download_job",
+    "app.api.download_jobs",
     "app.api.auth",
     "app.api.auto_download",
     "app.api.debug",
@@ -78,9 +86,9 @@ hiddenimports = [
 a = Analysis(
     ["server_entry.py"],
     pathex=["."],
-    binaries=[],
+    binaries=pc_binaries + fc_binaries,
     datas=datas,
-    hiddenimports=hiddenimports,
+    hiddenimports=hiddenimports + pc_hiddenimports + fc_hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -89,7 +97,7 @@ a = Analysis(
     noarchive=False,
 )
 
-pyz = PYZ(a.pure, a.zlib_data, cipher=block_cipher)
+pyz = PYZ(a.pure)
 
 exe = EXE(
     pyz,

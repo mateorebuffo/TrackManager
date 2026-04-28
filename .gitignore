@@ -39,3 +39,10 @@ queue_response.html
 
 # deemix config (contains ARL)
 .config/deemix/
+
+# Agent binary and build artifacts (built locally via agent/build.bat)
+app/static/agent/TrackManagerAgent.exe
+agent/build/
+agent/dist/
+agent/*.log
+agent/*.spec
