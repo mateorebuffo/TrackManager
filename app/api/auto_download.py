@@ -125,6 +125,9 @@ def jobs_status(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> HTMLResponse:
+    from app.models.download_job import JobStatus as JS
+    pending_count  = db.query(DownloadJob).filter(DownloadJob.user_id == current_user.id, DownloadJob.status == JS.pending).count()
+    progress_count = db.query(DownloadJob).filter(DownloadJob.user_id == current_user.id, DownloadJob.status == JS.in_progress).count()
     jobs = (
         db.query(DownloadJob)
         .filter(DownloadJob.user_id == current_user.id)
@@ -134,5 +137,12 @@ def jobs_status(
     )
     return templates.TemplateResponse(
         "download_jobs.html",
-        {"request": request, "jobs": jobs, "enqueued": enqueued, "token": current_user.api_token},
+        {
+            "request": request,
+            "jobs": jobs,
+            "enqueued": enqueued,
+            "token": current_user.api_token,
+            "pending_count": pending_count,
+            "progress_count": progress_count,
+        },
     )
