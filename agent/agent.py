@@ -31,17 +31,16 @@ except ImportError:
     _TRAY_OK = False
 
 
-def _notify(title: str, message: str) -> None:
+def _notify(message: str) -> None:
     """Windows toast notification via PowerShell — no extra dependencies."""
     try:
         script = (
             "[Windows.UI.Notifications.ToastNotificationManager,"
             "Windows.UI.Notifications,ContentType=WindowsRuntime]|Out-Null;"
-            "$t=[Windows.UI.Notifications.ToastTemplateType]::ToastText02;"
+            "$t=[Windows.UI.Notifications.ToastTemplateType]::ToastText01;"
             "$x=[Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent($t);"
             "$n=$x.GetElementsByTagName('text');"
-            f"$n[0].AppendChild($x.CreateTextNode('{title}'))|Out-Null;"
-            f"$n[1].AppendChild($x.CreateTextNode('{message}'))|Out-Null;"
+            f"$n[0].AppendChild($x.CreateTextNode('{message}'))|Out-Null;"
             "$toast=[Windows.UI.Notifications.ToastNotification]::new($x);"
             "[Windows.UI.Notifications.ToastNotificationManager]"
             "::CreateToastNotifier('TrackManager').Show($toast)"
@@ -373,7 +372,7 @@ class RunningWindow:
             threading.Thread(target=self._tray.run, daemon=True).start()
         threading.Thread(
             target=_notify,
-            args=("Track Manager", "TrackManager está minimizado"),
+            args=("TrackManager está minimizado",),
             daemon=True,
         ).start()
 
