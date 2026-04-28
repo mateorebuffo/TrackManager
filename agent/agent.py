@@ -21,6 +21,13 @@ from tkinter import ttk
 import httpx
 from download.orchestrator import try_download as _try_download
 
+try:
+    import pystray
+    from PIL import Image, ImageDraw
+    _TRAY_OK = True
+except ImportError:
+    _TRAY_OK = False
+
 # ── Rutas ────────────────────────────────────────────────────────────────────
 
 def _exe_dir() -> Path:
@@ -121,6 +128,17 @@ def api_complete(cfg: dict, job_id: int, status: str) -> None:
         pass
 
 # ── Colores ──────────────────────────────────────────────────────────────────
+
+def _tray_image() -> "Image.Image":
+    img = Image.new("RGB", (64, 64), color=(37, 99, 235))
+    d = ImageDraw.Draw(img)
+    # Simple music note
+    d.ellipse([8, 38, 28, 56], fill="white")
+    d.ellipse([34, 30, 54, 48], fill="white")
+    d.rectangle([24, 8, 30, 44], fill="white")
+    d.rectangle([50, 4, 56, 36], fill="white")
+    d.rectangle([24, 8, 56, 14], fill="white")
+    return img
 
 ACCENT = "#2563eb"
 BG     = "#f8fafc"
@@ -224,18 +242,21 @@ _STATUS_LABEL = {
 
 class RunningWindow:
     def __init__(self, cfg: dict):
-        self.cfg     = cfg
-        self.running = True
-        self.total   = 0
+        self.cfg      = cfg
+        self.running  = True
+        self.total    = 0
         self.q: queue.Queue[tuple] = queue.Queue()
         self._rows: dict[int, str] = {}
+        self._tray: "pystray.Icon | None" = None
+        self._in_tray = False
 
         self.root = Tk()
         self.root.title("Track Manager — Agente")
         self.root.configure(bg=BG)
         self.root.resizable(True, True)
         self.root.minsize(460, 340)
-        self.root.protocol("WM_DELETE_WINDOW", self._stop)
+        self.root.protocol("WM_DELETE_WINDOW", self._to_tray)
+        self.root.bind("<Unmap>", lambda e: self._to_tray() if e.widget is self.root and not self._in_tray else None)
         self._center(500, 460)
         self._build()
 
@@ -305,9 +326,47 @@ class RunningWindow:
         footer.pack(fill="x", padx=16, pady=8)
         Label(footer, text=f"Log: {LOG_PATH}", font=("Segoe UI", 7),
               bg=BG, fg="#94a3b8").pack(side="left")
-        Button(footer, text="Detener agente", font=("Segoe UI", 9),
-               bg="white", fg="#ef4444", relief="solid", bd=1, cursor="hand2",
-               command=self._stop).pack(side="right", ipady=3, ipadx=8)
+        Button(footer, text="Minimizar", font=("Segoe UI", 9),
+               bg="white", fg=MUTED, relief="solid", bd=1, cursor="hand2",
+               command=self._to_tray).pack(side="right", ipady=3, ipadx=8)
+
+    def _to_tray(self) -> None:
+        if not _TRAY_OK or self._in_tray:
+            return
+        self._in_tray = True
+        self.root.withdraw()
+        if self._tray is None:
+            menu = pystray.Menu(
+                pystray.MenuItem("Mostrar", self._from_tray, default=True),
+                pystray.MenuItem("Salir", self._quit),
+            )
+            self._tray = pystray.Icon(
+                "TrackManager", _tray_image(), "Track Manager — corriendo", menu
+            )
+            threading.Thread(target=self._tray.run, daemon=True).start()
+        try:
+            self._tray.notify("TrackManager está minimizado", "Track Manager")
+        except Exception:
+            pass
+
+    def _from_tray(self, icon=None, item=None) -> None:
+        self.root.after(0, self._restore)
+
+    def _restore(self) -> None:
+        self._in_tray = False
+        self.root.deiconify()
+        self.root.lift()
+        self.root.focus_force()
+        if self._tray:
+            self._tray.stop()
+            self._tray = None
+
+    def _quit(self, icon=None, item=None) -> None:
+        self.running = False
+        if self._tray:
+            self._tray.stop()
+            self._tray = None
+        self.root.after(0, self.root.destroy)
 
     def _on_tree_select(self, _event=None) -> None:
         sel = self.tree.selection()
@@ -320,10 +379,6 @@ class RunningWindow:
         short = track if len(track) <= 44 else track[:44] + "…"
         self.status_lbl.config(text=f"Copiado: {short}")
         self.root.after(1800, lambda: self.status_lbl.config(text=prev))
-
-    def _stop(self) -> None:
-        self.running = False
-        self.root.destroy()
 
     def _apply(self, msg: tuple) -> None:
         kind = msg[0]
