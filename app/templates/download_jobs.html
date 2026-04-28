@@ -16,21 +16,59 @@
   {% endif %}
 
   {# ── Estado de la cola ──────────────────────────────────────────── #}
-  {% set done_count = jobs | selectattr("status", "equalto", "completed") | list | length %}
+  {% set active = progress_count > 0 or pending_count > 0 %}
 
   {% if progress_count > 0 %}
   <div class="alert alert-warning d-flex align-items-center gap-2 mb-3">
     <div class="spinner-border spinner-border-sm" role="status"></div>
     El agente está descargando <strong>{{ progress_count }}</strong> track(s) ahora mismo.
-    {% if pending_count > 0 %} · <span class="ms-1">{{ pending_count }} en cola.</span>{% endif %}
+    {% if pending_count > 0 %}<span class="ms-1">· {{ pending_count }} en cola.</span>{% endif %}
   </div>
   {% elif pending_count > 0 %}
   <div class="alert alert-info mb-3">
     ⏳ <strong>{{ pending_count }}</strong> track(s) esperando. Asegurate de que el agente esté corriendo.
   </div>
-  {% elif jobs %}
-  <div class="alert alert-secondary mb-3">
-    ✅ Sin pendientes. Cola al día.
+  {% endif %}
+
+  {# ── Resumen final ──────────────────────────────────────────────── #}
+  {% set total_done = completed_count + not_found_count + vinyl_only_count + bandcamp_only_count + failed_count %}
+  {% if not active and total_done > 0 %}
+  <div class="card mb-4">
+    <div class="card-header fw-semibold">Resumen de la descarga</div>
+    <div class="card-body pb-2">
+      <div class="row g-3 text-center">
+        {% if completed_count %}
+        <div class="col">
+          <div class="fs-4 fw-bold text-success">{{ completed_count }}</div>
+          <div class="small text-muted">Descargados</div>
+        </div>
+        {% endif %}
+        {% if not_found_count %}
+        <div class="col">
+          <div class="fs-4 fw-bold text-secondary">{{ not_found_count }}</div>
+          <div class="small text-muted">No encontrados</div>
+        </div>
+        {% endif %}
+        {% if vinyl_only_count %}
+        <div class="col">
+          <div class="fs-4 fw-bold" style="color:#7c3aed;">{{ vinyl_only_count }}</div>
+          <div class="small text-muted">Solo vinilo</div>
+        </div>
+        {% endif %}
+        {% if bandcamp_only_count %}
+        <div class="col">
+          <div class="fs-4 fw-bold text-primary">{{ bandcamp_only_count }}</div>
+          <div class="small text-muted">Solo Bandcamp</div>
+        </div>
+        {% endif %}
+        {% if failed_count %}
+        <div class="col">
+          <div class="fs-4 fw-bold text-danger">{{ failed_count }}</div>
+          <div class="small text-muted">Errores</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
   </div>
   {% endif %}
 
@@ -57,7 +95,7 @@
   <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
       <span class="fw-semibold">Historial</span>
-      <span class="text-muted small">{{ jobs | length }} total · {{ done_count }} completados</span>
+      <span class="text-muted small">últimos {{ jobs | length }} · {{ completed_count }} completados</span>
     </div>
     <div class="table-responsive">
       <table class="table table-sm table-hover mb-0">
@@ -70,14 +108,14 @@
         </thead>
         <tbody>
           {% set badge = {
-            "pending":     ("secondary", "Pendiente"),
-            "in_progress": ("warning",   "Descargando…"),
-            "completed":   ("success",   "Completado"),
-            "not_found":   ("danger",    "No encontrado"),
-            "vinyl_only":  ("info",      "Solo vinilo"),
-            "bandcamp_only": ("primary",  "Solo Bandcamp"),
-            "failed":      ("danger",    "Error"),
-            "cancelled":   ("secondary", "Cancelado"),
+            "pending":       ("secondary", "Pendiente"),
+            "in_progress":   ("warning",   "Descargando…"),
+            "completed":     ("success",   "Completado"),
+            "not_found":     ("secondary", "No encontrado"),
+            "vinyl_only":    ("info",      "Solo vinilo"),
+            "bandcamp_only": ("primary",   "Solo Bandcamp"),
+            "failed":        ("danger",    "Error"),
+            "cancelled":     ("secondary", "Cancelado"),
           } %}
           {% for job in jobs %}
           <tr>
@@ -110,5 +148,30 @@ function copyToken() {
   document.getElementById('copy-confirm').classList.remove('d-none');
   setTimeout(() => document.getElementById('copy-confirm').classList.add('d-none'), 2000);
 }
+
+// Auto-refresh while the agent is working
+{% if active %}
+(function() {
+  function refresh() {
+    fetch(window.location.href, { headers: { 'X-Poll': '1' } })
+      .then(r => r.text())
+      .then(html => {
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const stillActive = doc.querySelector('[data-active]');
+        if (stillActive) {
+          setTimeout(refresh, 8000);
+        } else {
+          window.location.reload();
+        }
+      })
+      .catch(() => setTimeout(refresh, 12000));
+  }
+  setTimeout(refresh, 8000);
+})();
+{% endif %}
 </script>
+
+{# Marker read by the polling JS above #}
+{% if active %}<span data-active hidden></span>{% endif %}
+
 {% endblock %}
