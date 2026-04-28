@@ -34,18 +34,6 @@
 
 {% if rows %}
 
-{# ── Export text ───────────────────────────────────────────────── #}
-<div class="card mb-4">
-  <div class="card-header">Exportar lista</div>
-  <div class="card-body" style="padding:1rem;">
-    <textarea id="plain-list" class="form-control font-monospace" rows="{{ [rows|length, 12]|min }}"
-              readonly style="font-size:0.78rem;resize:none;background:#f8fafc;">{% for row in rows %}{% if row.status == "queued" %}{{ row.label }}
-{% endif %}{% endfor %}</textarea>
-    <button type="button" class="btn btn-outline-secondary btn-sm mt-2" onclick="copyList()">
-      Copiar todo
-    </button>
-  </div>
-</div>
 
 {# ── Track table ───────────────────────────────────────────────── #}
 <div class="table-responsive">
@@ -178,15 +166,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-function copyList() {
-  const ta = document.getElementById('plain-list');
-  navigator.clipboard.writeText(ta.value).then(() => {
-    const btn = event.target;
-    const orig = btn.textContent;
-    btn.textContent = '¡Copiado!';
-    setTimeout(() => btn.textContent = orig, 1500);
-  });
-}
 
 function markSearched(btn) {
   localStorage.setItem('searched:' + btn.dataset.key, '1');
