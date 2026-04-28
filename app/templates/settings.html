@@ -264,6 +264,77 @@
 </div>
 </form>
 
+{# ── Agente de Descarga ────────────────────────────────────── #}
+<div class="cfg-card mt-4">
+  <div class="cfg-card-head">Agente de Descarga</div>
+  <div class="cfg-card-body">
+    <div class="row g-0">
+
+      {# Token #}
+      <div class="col-lg-6 pref-section" style="border-right:1px solid var(--tm-border);">
+        <div class="pref-title">Token de acceso</div>
+        <div class="form-text mb-2" style="font-size:0.72rem;">
+          El agente usa este token para autenticarse. Pegalo en el <code>.env</code> del agente.
+        </div>
+
+        {% if api_token %}
+        <div id="agent-token-display">
+          <div class="input-group input-group-sm mb-1">
+            <input type="password" class="form-control font-monospace" id="agent-token-field"
+                   value="{{ api_token }}" readonly>
+            <button class="btn btn-outline-secondary" type="button" onclick="toggleAgentToken()">👁</button>
+            <button class="btn btn-outline-secondary" type="button" onclick="copyAgentToken()">Copiar</button>
+          </div>
+          <div class="text-success small d-none" id="agent-token-confirm">¡Copiado!</div>
+          <button class="btn btn-outline-secondary btn-sm mt-2" type="button"
+                  onclick="generateAgentToken()">Regenerar token</button>
+        </div>
+        {% else %}
+        <div id="agent-token-empty">
+          <button class="btn btn-primary btn-sm" type="button" onclick="generateAgentToken()">Generar token</button>
+        </div>
+        <div id="agent-token-display" class="d-none">
+          <div class="input-group input-group-sm mb-1">
+            <input type="password" class="form-control font-monospace" id="agent-token-field" value="" readonly>
+            <button class="btn btn-outline-secondary" type="button" onclick="toggleAgentToken()">👁</button>
+            <button class="btn btn-outline-secondary" type="button" onclick="copyAgentToken()">Copiar</button>
+          </div>
+          <div class="text-success small d-none" id="agent-token-confirm">¡Copiado!</div>
+        </div>
+        {% endif %}
+      </div>
+
+      {# Instalación #}
+      <div class="col-lg-6 pref-section">
+        <div class="pref-title">Instalación</div>
+        <div class="form-text mb-3" style="font-size:0.72rem;">
+          Descargá el agente una sola vez. Se configura solo con tu token y te pide la carpeta al abrirlo por primera vez.
+        </div>
+
+        <a href="/api/download-agent" class="btn btn-primary btn-sm mb-3">
+          ⬇ Descargar agente (.exe)
+        </a>
+
+        <div class="collapse" id="agent-setup-help">
+          <div class="card card-body bg-light" style="font-size:0.78rem;">
+            <ol class="mb-0 ps-3">
+              <li>Descomprimí el ZIP descargado</li>
+              <li>Hacé doble click en <strong>TrackManagerAgent.exe</strong></li>
+              <li>Elegí la carpeta donde querés guardar los MP3</li>
+              <li>¡Listo! El agente descarga automáticamente mientras está abierto</li>
+            </ol>
+          </div>
+        </div>
+
+        <button class="btn btn-link btn-sm p-0 text-muted" type="button"
+                data-bs-toggle="collapse" data-bs-target="#agent-setup-help"
+                style="font-size:0.78rem;">¿Cómo lo instalo?</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 <script>
 document.getElementById('settings-form').addEventListener('submit', function() {
   _setToast('Configuración guardada correctamente.', 'success');
@@ -286,6 +357,28 @@ async function pickFolder() {
     btn.disabled = false;
     btn.textContent = orig;
   }
+}
+
+async function generateAgentToken() {
+  const res = await fetch('/api/generate-token', {method: 'POST'});
+  const data = await res.json();
+  document.getElementById('agent-token-field').value = data.token;
+  document.getElementById('agent-token-display').classList.remove('d-none');
+  const emptyDiv = document.getElementById('agent-token-empty');
+  if (emptyDiv) emptyDiv.classList.add('d-none');
+  const envBlock = document.getElementById('agent-env-block');
+  if (envBlock) {
+    envBlock.textContent = envBlock.textContent.replace(/TM_API_TOKEN=.*/, 'TM_API_TOKEN=' + data.token);
+  }
+}
+function toggleAgentToken() {
+  const f = document.getElementById('agent-token-field');
+  f.type = f.type === 'password' ? 'text' : 'password';
+}
+function copyAgentToken() {
+  navigator.clipboard.writeText(document.getElementById('agent-token-field').value);
+  document.getElementById('agent-token-confirm').classList.remove('d-none');
+  setTimeout(() => document.getElementById('agent-token-confirm').classList.add('d-none'), 2000);
 }
 </script>
 {% endblock %}

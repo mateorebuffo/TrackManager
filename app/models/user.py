@@ -12,6 +12,7 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     is_admin = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    api_token = Column(String(64), unique=True, nullable=True)
 
     settings = relationship("UserSettings", back_populates="user", uselist=False)
 

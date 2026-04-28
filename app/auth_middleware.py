@@ -27,6 +27,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if path in _PUBLIC or path.startswith("/static"):
             return await call_next(request)
 
+        # Allow Bearer token auth on API routes (used by the Download Agent)
+        if path.startswith("/api/") and request.headers.get("authorization", "").startswith("Bearer "):
+            return await call_next(request)
+
         db = SessionLocal()
         try:
             # First-run: no users yet → redirect to setup

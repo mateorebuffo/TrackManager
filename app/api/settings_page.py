@@ -90,6 +90,8 @@ def settings_page(
             "current": current,
             "spotify_connected": spotify_auth.is_connected(db, current_user.id),
             "youtube_connected": youtube_auth.is_connected(db, current_user.id),
+            "api_token": current_user.api_token,
+            "base_url": str(request.base_url).rstrip("/"),
         },
     )
 
