@@ -44,7 +44,7 @@
       <th>Track</th>
       <th>Estado</th>
       <th class="d-none">Buscar</th>
-      <th>Marcar como</th>
+      <th class="d-none">Marcar como</th>
     </tr>
   </thead>
   <tbody>
@@ -111,7 +111,7 @@
                   onclick="copySoulseek(this)" title="Copiar para Soulseek">⧉ SS</button>
         </div>
       </td>
-      <td class="action-btns">
+      <td class="action-btns d-none">
         <div class="d-flex flex-wrap gap-1">
           <form method="POST" action="/review/{{ row.review_id }}/downloaded/form">
             <button class="btn btn-success btn-sm"
