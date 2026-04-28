@@ -279,7 +279,7 @@ class RunningWindow:
 
         self.tree = ttk.Treeview(tree_frame, columns=("track", "status"),
                                  show="headings", style="Agent.Treeview",
-                                 selectmode="none")
+                                 selectmode="browse")
         self.tree.heading("track",  text="TRACK")
         self.tree.heading("status", text="ESTADO")
         self.tree.column("track",  width=310, stretch=True,  anchor="w")
@@ -296,6 +296,7 @@ class RunningWindow:
         self.tree.configure(yscrollcommand=vsb.set)
         vsb.pack(side="right", fill="y")
         self.tree.pack(side="left", fill="both", expand=True)
+        self.tree.bind("<<TreeviewSelect>>", self._on_tree_select)
 
         Frame(r, height=1, bg="#e2e8f0").pack(fill="x")
         footer = Frame(r, bg=BG)
@@ -305,6 +306,18 @@ class RunningWindow:
         Button(footer, text="Detener agente", font=("Segoe UI", 9),
                bg="white", fg="#ef4444", relief="solid", bd=1, cursor="hand2",
                command=self._stop).pack(side="right", ipady=3, ipadx=8)
+
+    def _on_tree_select(self, _event=None) -> None:
+        sel = self.tree.selection()
+        if not sel:
+            return
+        track = self.tree.set(sel[0], "track")
+        self.root.clipboard_clear()
+        self.root.clipboard_append(track)
+        prev = self.status_lbl.cget("text")
+        short = track if len(track) <= 44 else track[:44] + "…"
+        self.status_lbl.config(text=f"Copiado: {short}")
+        self.root.after(1800, lambda: self.status_lbl.config(text=prev))
 
     def _stop(self) -> None:
         self.running = False
