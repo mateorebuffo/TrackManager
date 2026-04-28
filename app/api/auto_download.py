@@ -29,7 +29,12 @@ templates = Jinja2Templates(directory="app/templates")
 
 
 def _make_query(nt: NormalizedTrack) -> str:
-    return nt.search_query or f"{nt.normalized_artist or ''} {nt.normalized_title or ''}".strip()
+    artist  = nt.normalized_artist or ""
+    title   = nt.normalized_title  or ""
+    version = nt.version_info      or ""
+    full_title = f"{title} ({version})" if version else title
+    label = f"{artist} - {full_title}" if artist else full_title
+    return label.strip() or nt.search_query or ""
 
 
 def _enqueue(db: Session, review_id: int, query: str, user_id: int) -> DownloadJob:
