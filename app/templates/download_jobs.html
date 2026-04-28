@@ -237,16 +237,20 @@
   <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
       <span class="fw-semibold">Historial</span>
-      <input type="search" id="historial-search" class="form-control form-control-sm"
-             placeholder="Buscar track…" style="max-width:260px;"
-             oninput="filterHistorial(this.value)">
       <span class="text-muted small ms-auto">últimos {{ jobs | length }} · {{ completed_count }} completados</span>
     </div>
     <div class="table-responsive">
       <table class="table table-sm table-hover mb-0">
         <thead class="table-light">
           <tr>
-            <th>Track</th>
+            <th>
+              <div class="d-flex align-items-center gap-2">
+                Track
+                <input type="search" id="historial-search" class="form-control form-control-sm fw-normal"
+                       placeholder="Buscar…" style="max-width:220px;font-weight:normal;"
+                       oninput="filterHistorial(this.value)">
+              </div>
+            </th>
             <th>Estado</th>
             <th>Actualizado</th>
           </tr>
