@@ -16,14 +16,13 @@
   {% endif %}
 
   {# ── Estado de la cola ──────────────────────────────────────────── #}
-  {% set pending_count  = jobs | selectattr("status", "equalto", "pending")     | list | length %}
-  {% set progress_count = jobs | selectattr("status", "equalto", "in_progress") | list | length %}
-  {% set done_count     = jobs | selectattr("status", "equalto", "completed")   | list | length %}
+  {% set done_count = jobs | selectattr("status", "equalto", "completed") | list | length %}
 
   {% if progress_count > 0 %}
   <div class="alert alert-warning d-flex align-items-center gap-2 mb-3">
     <div class="spinner-border spinner-border-sm" role="status"></div>
     El agente está descargando <strong>{{ progress_count }}</strong> track(s) ahora mismo.
+    {% if pending_count > 0 %} · <span class="ms-1">{{ pending_count }} en cola.</span>{% endif %}
   </div>
   {% elif pending_count > 0 %}
   <div class="alert alert-info mb-3">
