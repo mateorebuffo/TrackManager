@@ -141,9 +141,15 @@ def jobs_status(
     FILTERABLE = {"not_found", "vinyl_only", "bandcamp_only", "failed"}
     active_filter = status_filter if status_filter in FILTERABLE else None
 
+    filter_rows: list[dict] = []
     if active_filter:
-        jobs = (
-            db.query(DownloadJob)
+        from urllib.parse import quote, quote_plus
+        items = (
+            db.query(ReviewItem)
+            .join(DownloadJob, DownloadJob.review_id == ReviewItem.id)
+            .options(
+                joinedload(ReviewItem.normalized_track).joinedload(NormalizedTrack.source_track)
+            )
             .filter(
                 DownloadJob.user_id == current_user.id,
                 DownloadJob.status == JS(active_filter),
@@ -151,14 +157,41 @@ def jobs_status(
             .order_by(DownloadJob.updated_at.desc())
             .all()
         )
-    else:
-        jobs = (
-            db.query(DownloadJob)
-            .filter(DownloadJob.user_id == current_user.id)
-            .order_by(DownloadJob.created_at.desc())
-            .limit(100)
-            .all()
-        )
+        for item in items:
+            nt = item.normalized_track
+            st = nt.source_track if nt else None
+            artist  = nt.normalized_artist if nt else ""
+            title   = nt.normalized_title  if nt else ""
+            version = nt.version_info      if nt else ""
+            full_title = f"{title} ({version})" if version else title
+            label  = f"{artist} - {full_title}" if artist else full_title
+            q = quote_plus(label)
+            filter_rows.append({
+                "review_id":    item.id,
+                "nt_id":        nt.id if nt else None,
+                "status":       item.status.value,
+                "artist":       artist,
+                "title":        full_title,
+                "title_only":   title,
+                "raw_title":    st.raw_title  if st else "",
+                "channel":      st.raw_artist if st and st.raw_artist else "",
+                "version":      version,
+                "source_url":   st.source_url if st else "#",
+                "label":        label,
+                "search_query": label,
+                "url_muzpa":    f"https://srv.muzpa.com/#/search?text={quote(label)}",
+                "url_deemix":   f"http://localhost:6595/search?term={q}",
+                "url_bandcamp": f"https://bandcamp.com/search?q={q}",
+                "url_discogs":  f"https://www.discogs.com/search/?q={q}&type=release",
+            })
+
+    jobs = (
+        db.query(DownloadJob)
+        .filter(DownloadJob.user_id == current_user.id)
+        .order_by(DownloadJob.created_at.desc())
+        .limit(100)
+        .all()
+    )
 
     return templates.TemplateResponse(
         "download_jobs.html",
@@ -175,5 +208,6 @@ def jobs_status(
             "bandcamp_only_count": counts.get(JS.bandcamp_only, 0),
             "failed_count":        counts.get(JS.failed,        0),
             "active_filter":       active_filter,
+            "filter_rows":         filter_rows,
         },
     )

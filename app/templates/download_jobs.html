@@ -91,7 +91,7 @@
   </div>
   {% endif %}
 
-  {# ── Vista filtrada con búsqueda manual ─────────────────────────── #}
+  {# ── Vista filtrada — misma tabla que la cola ──────────────────── #}
   {% if active_filter %}
   {% set filter_label = {
     "not_found":     "No encontrados",
@@ -99,41 +99,118 @@
     "bandcamp_only": "Solo Bandcamp",
     "failed":        "Errores",
   } %}
-  <div class="card mb-4">
-    <div class="card-header d-flex justify-content-between align-items-center">
-      <span class="fw-semibold">{{ filter_label.get(active_filter, active_filter) }} — búsqueda manual</span>
-      <div class="d-flex align-items-center gap-2">
-        <span class="text-muted small">{{ jobs | length }} tracks</span>
-        <a href="?" class="btn btn-outline-secondary btn-sm">✕ Limpiar filtro</a>
-      </div>
-    </div>
-    <div class="table-responsive">
-      <table class="table table-sm table-hover mb-0 align-middle">
-        <thead class="table-light">
-          <tr>
-            <th>Track</th>
-            <th class="text-center" style="width:220px;">Buscar en</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for job in jobs %}
-          {% set q = job.query | urlencode %}
-          <tr>
-            <td style="max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
-                title="{{ job.query }}">{{ job.query }}</td>
-            <td class="text-center">
-              <a href="https://www.muzpa.com/search?text={{ q }}" target="_blank"
-                 class="btn btn-outline-secondary btn-sm px-2 py-0" title="Buscar en Muzpa">Muzpa</a>
-              <a href="https://bandcamp.com/search?q={{ q }}" target="_blank"
-                 class="btn btn-outline-secondary btn-sm px-2 py-0" title="Buscar en Bandcamp">Bandcamp</a>
-              <a href="https://www.discogs.com/search/?q={{ q }}" target="_blank"
-                 class="btn btn-outline-secondary btn-sm px-2 py-0" title="Buscar en Discogs">Discogs</a>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <span class="fw-semibold">{{ filter_label.get(active_filter, active_filter) }} — {{ filter_rows | length }} tracks</span>
+    <a href="?" class="btn btn-outline-secondary btn-sm">✕ Limpiar filtro</a>
+  </div>
+
+  <div class="table-responsive mb-4">
+  <table class="table table-hover table-sm align-middle bg-white">
+    <thead class="table-dark">
+      <tr>
+        <th>#</th>
+        <th>Track</th>
+        <th>Estado</th>
+        <th>Buscar</th>
+        <th>Marcar como</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in filter_rows %}
+      <tr>
+        <td class="text-muted small">{{ loop.index }}</td>
+        <td>
+          <div class="d-flex align-items-center gap-2">
+            {% if row.nt_id %}
+              <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0" title="Editar metadata"
+                      data-nt-id="{{ row.nt_id }}"
+                      data-artist="{{ row.artist }}"
+                      data-title="{{ row.title_only }}"
+                      data-version="{{ row.version or '' }}"
+                      data-channel="{{ row.channel }}"
+                      data-raw-title="{{ row.raw_title }}"
+                      onclick="openEditModal(this)" style="padding:0.2rem 0.45rem;line-height:1;">✎</button>
+            {% endif %}
+            {% if row.source_url and row.source_url != "#" %}
+              <a href="{{ row.source_url }}" target="_blank" rel="noopener"
+                 style="font-size:0.855rem;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;">
+                {{ row.label }}
+              </a>
+            {% else %}
+              <span style="font-size:0.855rem;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;">
+                {{ row.label }}
+              </span>
+            {% endif %}
+          </div>
+        </td>
+        <td>
+          {% if row.status == "queued" %}
+            <span class="badge s-queued">En cola</span>
+          {% elif row.status == "downloaded" %}
+            <span class="badge s-downloaded">Descargado</span>
+          {% elif row.status == "not_found" %}
+            <span class="badge s-not_found">No encontrado</span>
+          {% elif row.status == "vinyl_only" %}
+            <span class="badge s-vinyl">Solo vinilo</span>
+          {% elif row.status == "bandcamp_only" %}
+            <span class="badge s-bandcamp">Solo Bandcamp</span>
+          {% endif %}
+        </td>
+        <td class="action-btns">
+          <div class="d-flex flex-wrap gap-1">
+            <form method="POST" action="/auto-download/{{ row.review_id }}/form" class="d-inline">
+              <button class="btn btn-primary btn-sm" title="Buscar y descargar automáticamente">⬇ Auto</button>
+            </form>
+            <a href="{{ row.url_muzpa }}" target="_blank" rel="noopener"
+               class="btn btn-outline-secondary btn-sm search-btn"
+               data-key="muzpa-{{ row.review_id }}" onclick="markSearched(this)">Muzpa</a>
+            <a href="{{ row.url_deemix }}" target="_blank" rel="noopener"
+               class="btn btn-outline-secondary btn-sm search-btn"
+               data-key="deemix-{{ row.review_id }}" onclick="markSearched(this)">Deemix</a>
+            <a href="{{ row.url_bandcamp }}" target="_blank" rel="noopener"
+               class="btn btn-outline-secondary btn-sm search-btn"
+               data-key="bandcamp-{{ row.review_id }}" onclick="markSearched(this)">Bandcamp</a>
+            <a href="{{ row.url_discogs }}" target="_blank" rel="noopener"
+               class="btn btn-outline-secondary btn-sm search-btn"
+               data-key="discogs-{{ row.review_id }}" onclick="markSearched(this)">Discogs</a>
+            <button type="button" class="btn btn-outline-secondary btn-sm search-btn"
+                    data-query="{{ row.search_query }}"
+                    data-key="soulseek-{{ row.review_id }}"
+                    onclick="copySoulseek(this)" title="Copiar para Soulseek">⧉ SS</button>
+          </div>
+        </td>
+        <td class="action-btns">
+          <div class="d-flex flex-wrap gap-1">
+            <form method="POST" action="/review/{{ row.review_id }}/downloaded/form">
+              <button class="btn btn-success btn-sm"
+                      data-toast="✓ Descargado" data-toast-type="success">✓</button>
+            </form>
+            <form method="POST" action="/review/{{ row.review_id }}/not-found/form">
+              <button class="btn btn-outline-secondary btn-sm"
+                      data-toast="Marcado como no encontrado" data-toast-type="info"
+                      title="No se encuentra">✕</button>
+            </form>
+            <form method="POST" action="/review/{{ row.review_id }}/vinyl-only/form">
+              <button class="btn btn-outline-secondary btn-sm" style="background:#fef3c7;border-color:#fde68a;color:#92400e;"
+                      data-toast="Marcado como solo vinilo" data-toast-type="warning"
+                      title="Solo vinilo">LP</button>
+            </form>
+            <form method="POST" action="/review/{{ row.review_id }}/bandcamp-only/form">
+              <button class="btn btn-outline-secondary btn-sm" style="background:#dbeafe;border-color:#bfdbfe;color:#1e40af;"
+                      data-toast="Marcado como solo Bandcamp" data-toast-type="info"
+                      title="Solo Bandcamp">BC</button>
+            </form>
+            <form method="POST" action="/review/{{ row.review_id }}/requeue/form">
+              <button class="btn btn-outline-secondary btn-sm"
+                      data-toast="Vuelto a pendiente" data-toast-type="info"
+                      title="Quitar de la cola">↩</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
   </div>
   {% endif %}
 
@@ -214,6 +291,43 @@ function copyToken() {
   setTimeout(() => document.getElementById('copy-confirm').classList.add('d-none'), 2000);
 }
 
+function markSearched(btn) {
+  localStorage.setItem('searched:' + btn.dataset.key, '1');
+  btn.style.background = '#e0f2fe';
+  btn.style.borderColor = '#7dd3fc';
+  btn.style.color = '#0369a1';
+}
+function copySoulseek(btn) {
+  markSearched(btn);
+  navigator.clipboard.writeText(btn.dataset.query).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = '¡Copiado!';
+    setTimeout(() => btn.textContent = orig, 1500);
+  });
+}
+function openEditModal(btn) {
+  document.getElementById('edit-form').action = '/tracks/' + btn.dataset.ntId + '/edit-metadata';
+  document.getElementById('edit-channel').textContent   = btn.dataset.channel;
+  document.getElementById('edit-raw-title').textContent = btn.dataset.rawTitle;
+  document.getElementById('edit-artist').value  = btn.dataset.artist;
+  document.getElementById('edit-title').value   = btn.dataset.title;
+  document.getElementById('edit-version').value = btn.dataset.version;
+  new bootstrap.Modal(document.getElementById('editModal')).show();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.search-btn').forEach(btn => {
+    if (localStorage.getItem('searched:' + btn.dataset.key)) {
+      btn.style.background = '#e0f2fe';
+      btn.style.borderColor = '#7dd3fc';
+      btn.style.color = '#0369a1';
+    }
+  });
+  document.querySelectorAll('[data-toast]').forEach(btn => {
+    btn.addEventListener('click', () => _setToast(btn.dataset.toast, btn.dataset.toastType || 'success'));
+  });
+});
+
 {% if active %}
 (function() {
   function refresh() {
@@ -233,6 +347,49 @@ function copyToken() {
 })();
 {% endif %}
 </script>
+
+{% if active_filter %}
+<div class="modal fade" id="editModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" id="edit-form">
+        <div class="modal-header">
+          <h5 class="modal-title">Editar metadata</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-2">
+            <p class="form-label" style="font-size:0.75rem;color:var(--tm-muted);margin-bottom:.2rem;">Subido por</p>
+            <p id="edit-channel" class="mb-0 fw-semibold" style="font-size:0.875rem;"></p>
+          </div>
+          <div class="mb-3">
+            <p class="form-label" style="font-size:0.75rem;color:var(--tm-muted);margin-bottom:.2rem;">Título original</p>
+            <p id="edit-raw-title" class="mb-0 font-monospace text-break" style="font-size:0.78rem;color:var(--tm-muted);"></p>
+          </div>
+          <hr>
+          <div class="mb-3">
+            <label class="form-label">Artista</label>
+            <input type="text" name="artist" id="edit-artist" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Título</label>
+            <input type="text" name="title" id="edit-title" class="form-control">
+          </div>
+          <div class="mb-1">
+            <label class="form-label">Versión</label>
+            <input type="text" name="version" id="edit-version" class="form-control"
+                   placeholder="ej: Original Mix, Remix…">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary btn-sm">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 {% if active %}<span data-active hidden></span>{% endif %}
 
