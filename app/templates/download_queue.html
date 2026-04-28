@@ -43,7 +43,7 @@
       <th>#</th>
       <th>Track</th>
       <th>Estado</th>
-      <th>Buscar</th>
+      <th class="d-none">Buscar</th>
       <th>Marcar como</th>
     </tr>
   </thead>
@@ -88,7 +88,7 @@
           <span class="badge s-bandcamp">Solo Bandcamp</span>
         {% endif %}
       </td>
-      <td class="action-btns">
+      <td class="action-btns d-none">
         <div class="d-flex flex-wrap gap-1">
           <form method="POST" action="/auto-download/{{ row.review_id }}/form" class="d-inline">
             <button class="btn btn-primary btn-sm" title="Buscar y descargar automáticamente">⬇ Auto</button>
