@@ -1,10 +1,11 @@
 @echo off
+cd /d "%~dp0"
 echo === Track Manager Agent — Build ===
 
 set VENV=..\.venv-build\Scripts
 
 echo [1/3] Instalando dependencias...
-%VENV%\pip install mutagen --quiet
+%VENV%\pip install mutagen pystray pillow --quiet
 %VENV%\pip install deemix --quiet 2>nul || echo [INFO] deemix no disponible, Deezer no estara disponible
 
 echo [2/3] Buildeando .exe...
@@ -14,6 +15,8 @@ echo [2/3] Buildeando .exe...
   --name TrackManagerAgent ^
   --hidden-import httpx ^
   --hidden-import mutagen.mp3 ^
+  --hidden-import pystray._win32 ^
+  --hidden-import PIL._imaging ^
   --add-data "download;download" ^
   agent.py
 
