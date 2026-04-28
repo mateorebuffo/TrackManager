@@ -122,6 +122,7 @@ def auto_download_one(
 def jobs_status(
     request: Request,
     enqueued: int = 0,
+    status_filter: str | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> HTMLResponse:
@@ -137,13 +138,28 @@ def jobs_status(
     pending_count  = counts.get(JS.pending,     0)
     progress_count = counts.get(JS.in_progress, 0)
 
-    jobs = (
-        db.query(DownloadJob)
-        .filter(DownloadJob.user_id == current_user.id)
-        .order_by(DownloadJob.created_at.desc())
-        .limit(100)
-        .all()
-    )
+    FILTERABLE = {"not_found", "vinyl_only", "bandcamp_only", "failed"}
+    active_filter = status_filter if status_filter in FILTERABLE else None
+
+    if active_filter:
+        jobs = (
+            db.query(DownloadJob)
+            .filter(
+                DownloadJob.user_id == current_user.id,
+                DownloadJob.status == JS(active_filter),
+            )
+            .order_by(DownloadJob.updated_at.desc())
+            .all()
+        )
+    else:
+        jobs = (
+            db.query(DownloadJob)
+            .filter(DownloadJob.user_id == current_user.id)
+            .order_by(DownloadJob.created_at.desc())
+            .limit(100)
+            .all()
+        )
+
     return templates.TemplateResponse(
         "download_jobs.html",
         {
@@ -151,12 +167,13 @@ def jobs_status(
             "jobs": jobs,
             "enqueued": enqueued,
             "token": current_user.api_token,
-            "pending_count":      pending_count,
-            "progress_count":     progress_count,
-            "completed_count":    counts.get(JS.completed,     0),
-            "not_found_count":    counts.get(JS.not_found,     0),
-            "vinyl_only_count":   counts.get(JS.vinyl_only,    0),
+            "pending_count":       pending_count,
+            "progress_count":      progress_count,
+            "completed_count":     counts.get(JS.completed,     0),
+            "not_found_count":     counts.get(JS.not_found,     0),
+            "vinyl_only_count":    counts.get(JS.vinyl_only,    0),
             "bandcamp_only_count": counts.get(JS.bandcamp_only, 0),
-            "failed_count":       counts.get(JS.failed,        0),
+            "failed_count":        counts.get(JS.failed,        0),
+            "active_filter":       active_filter,
         },
     )
