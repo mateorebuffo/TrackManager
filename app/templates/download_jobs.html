@@ -237,7 +237,10 @@
   <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
       <span class="fw-semibold">Historial</span>
-      <span class="text-muted small">últimos {{ jobs | length }} · {{ completed_count }} completados</span>
+      <input type="search" id="historial-search" class="form-control form-control-sm"
+             placeholder="Buscar track…" style="max-width:260px;"
+             oninput="filterHistorial(this.value)">
+      <span class="text-muted small ms-auto">últimos {{ jobs | length }} · {{ completed_count }} completados</span>
     </div>
     <div class="table-responsive">
       <table class="table table-sm table-hover mb-0">
@@ -248,7 +251,7 @@
             <th>Actualizado</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="historial-tbody">
           {% set badge = {
             "pending":       ("secondary", "Pendiente"),
             "in_progress":   ("warning",   "Descargando…"),
@@ -289,6 +292,14 @@ function copyToken() {
   navigator.clipboard.writeText(document.getElementById('token-field').value);
   document.getElementById('copy-confirm').classList.remove('d-none');
   setTimeout(() => document.getElementById('copy-confirm').classList.add('d-none'), 2000);
+}
+
+function filterHistorial(q) {
+  const term = q.toLowerCase();
+  document.querySelectorAll('#historial-tbody tr').forEach(tr => {
+    const text = tr.querySelector('td')?.textContent.toLowerCase() || '';
+    tr.style.display = text.includes(term) ? '' : 'none';
+  });
 }
 
 function markSearched(btn) {
