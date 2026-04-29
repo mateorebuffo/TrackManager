@@ -15,6 +15,7 @@ from app.models.normalized_track import NormalizedTrack
 from app.models.review_item import ReviewItem, TrackStatus
 from app.models.source_track import SourceTrack
 from app.models.user import User
+from app.models.user_settings import UserSettings
 from app.services import log_service, spotify_auth, youtube_auth
 
 logger = logging.getLogger(__name__)
@@ -55,7 +56,7 @@ def pending_tracks_page(
     request: Request,
     status: str = Query(default="pending"),
     q: str | None = Query(default=None),
-    sort: str = Query(default="imported_newest"),
+    sort: str = Query(default="newest"),
     date_from: str | None = Query(default=None),
     date_to: str | None = Query(default=None),
     source: str | None = Query(default=None),
@@ -170,6 +171,13 @@ def pending_tracks_page(
 
     counts = _status_counts(db, current_user.id)
 
+    us = db.query(UserSettings).filter_by(user_id=current_user.id).first()
+    spotify_ok  = spotify_auth.is_connected(db, current_user.id)
+    youtube_ok  = youtube_auth.is_connected(db, current_user.id)
+    has_source  = bool((us and us.soundcloud_oauth_token) or spotify_ok or youtube_ok)
+    has_dl      = bool(us and (us.muzpa_sess or us.deezer_arl))
+    needs_setup = not has_source or not has_dl
+
     return templates.TemplateResponse(
         "pending_tracks.html",
         {
@@ -187,11 +195,12 @@ def pending_tracks_page(
             "counts": counts,
             "queued_count": counts.get("queued", 0),
             "source": source or "",
-            "spotify_connected": spotify_auth.is_connected(db, current_user.id),
-            "youtube_connected": youtube_auth.is_connected(db, current_user.id),
+            "spotify_connected": spotify_ok,
+            "youtube_connected": youtube_ok,
             "spotify_playlist_name": _user_playlist_name(db, current_user.id, "spotify"),
             "youtube_playlist_name": _user_playlist_name(db, current_user.id, "youtube"),
             "compare_mode": bool(compare_ids),
+            "needs_setup": needs_setup,
         },
     )
 

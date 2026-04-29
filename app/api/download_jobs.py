@@ -6,6 +6,7 @@ POST /api/download-jobs/{id}/start    — mark in_progress
 POST /api/download-jobs/{id}/complete — report result
 POST /api/generate-token              — generate API token for current user
 GET  /api/me/token                    — get current API token
+GET  /api/me/settings                 — get download credentials for the agent
 GET  /api/download-agent              — download pre-configured agent zip
 """
 from __future__ import annotations
@@ -18,14 +19,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy import func
+from sqlalchemy.orm import Session, joinedload
 
 from app.auth_middleware import get_current_user
 from app.db import get_db
 from app.models.download_job import DownloadJob, JobStatus
+from app.models.normalized_track import NormalizedTrack
 from app.models.review_item import ReviewItem, TrackStatus
+from app.models.source_track import SourceTrack
 from app.models.user import User
 from app.services import log_service
 
@@ -41,10 +45,9 @@ def get_user_by_token(token: str, db: Session) -> User | None:
 
 
 def agent_auth(
-    authorization: str | None = None,
+    authorization: str | None = Header(None),
     db: Session = Depends(get_db),
 ) -> User:
-    from fastapi import Header
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Token requerido")
     token = authorization.removeprefix("Bearer ").strip()
@@ -52,16 +55,6 @@ def agent_auth(
     if not user:
         raise HTTPException(status_code=401, detail="Token inválido")
     return user
-
-
-# Accept both session auth (browser) and token auth (agent)
-def flexible_auth(
-    request_obj=None,
-    db: Session = Depends(get_db),
-) -> User:
-    """Used by token-authenticated agent endpoints."""
-    from fastapi import Request
-    pass
 
 
 # ── Token management (browser-side) ─────────────────────────────────────────
@@ -100,25 +93,39 @@ def get_agent_settings(
     from app.models.user_settings import UserSettings
     us = db.query(UserSettings).filter_by(user_id=user.id).first()
     return {
-        "muzpa_sess":           us.muzpa_sess          if us else "",
-        "deezer_arl":           us.deezer_arl           if us else "",
-        "folder_organize_mode": us.folder_organize_mode if us else "none",
-        "download_full_eps":    us.download_full_eps    if us else False,
+        "muzpa_sess":        us.muzpa_sess        if us else "",
+        "deezer_arl":        us.deezer_arl         if us else "",
+        "download_full_eps": us.download_full_eps  if us else False,
     }
 
 
-@router.get("/api/download-agent")
+@router.get("/api/download-agent", response_model=None)
 def download_agent(
     request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> StreamingResponse:
-    """Return a zip with the pre-built agent exe + a pre-configured config.json."""
+) -> StreamingResponse | RedirectResponse:
+    """
+    Serve the pre-built agent zip.
+
+    Priority:
+      1. AGENT_DOWNLOAD_URL env var  → redirect to external URL (Railway / GitHub Releases)
+      2. Local exe in app/static/agent/ → build and stream zip (dev / self-hosted)
+      3. Neither                        → 503 with clear message
+    """
+    from app.config import settings
+
+    if settings.agent_download_url:
+        return RedirectResponse(url=settings.agent_download_url, status_code=302)
+
     exe_path = Path("app/static/agent/TrackManagerAgent.exe")
     if not exe_path.exists():
         raise HTTPException(
             status_code=503,
-            detail="El agente aún no está compilado. Ejecutá agent/build.bat primero.",
+            detail=(
+                "El agente aún no está disponible para descarga. "
+                "El administrador debe publicarlo o configurar AGENT_DOWNLOAD_URL."
+            ),
         )
 
     cfg = {
@@ -144,7 +151,7 @@ def download_agent(
 # ── Agent endpoints ───────────────────────────────────────────────────────────
 
 class CompletePayload(BaseModel):
-    status: str  # completed | not_found | vinyl_only | failed
+    status: str  # completed | not_found | vinyl_only | bandcamp_only | failed
     error: str | None = None
 
 
@@ -170,7 +177,6 @@ def get_pending_jobs(
     db: Session = Depends(get_db),
 ) -> list[dict]:
     """Return pending jobs for the authenticated agent."""
-    from fastapi import Header
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Token requerido")
     token = authorization.removeprefix("Bearer ").strip()
@@ -184,18 +190,63 @@ def get_pending_jobs(
             DownloadJob.user_id == user.id,
             DownloadJob.status == JobStatus.pending,
         )
+        .options(
+            joinedload(DownloadJob.review_item)
+            .joinedload(ReviewItem.normalized_track)
+            .joinedload(NormalizedTrack.source_track)
+        )
         .order_by(DownloadJob.created_at)
         .limit(BATCH_SIZE)
         .all()
     )
-    return [
-        {
-            "id":       j.id,
-            "query":    j.query,
-            "review_id": j.review_id,
-        }
-        for j in jobs
-    ]
+
+    result = []
+    for j in jobs:
+        liked_at = None
+        collected_at = None
+        try:
+            st = j.review_item.normalized_track.source_track
+            if st:
+                if st.liked_at:
+                    liked_at = st.liked_at.strftime("%Y-%m-%d")
+                if st.collected_at:
+                    collected_at = st.collected_at.strftime("%Y-%m-%d")
+        except Exception:
+            pass
+        result.append({
+            "id":           j.id,
+            "query":        j.query,
+            "review_id":    j.review_id,
+            "liked_at":     liked_at,
+            "collected_at": collected_at,
+        })
+    return result
+
+
+@router.get("/api/download-jobs/stats")
+def get_jobs_stats(
+    authorization: str | None = Header(None),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Return pending + in_progress counts for the authenticated agent."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Token requerido")
+    token = authorization.removeprefix("Bearer ").strip()
+    user = get_user_by_token(token, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Token inválido")
+
+    counts = dict(
+        db.query(DownloadJob.status, func.count())
+        .filter(DownloadJob.user_id == user.id)
+        .filter(DownloadJob.status.in_([JobStatus.pending, JobStatus.in_progress]))
+        .group_by(DownloadJob.status)
+        .all()
+    )
+    return {
+        "pending":     counts.get(JobStatus.pending, 0),
+        "in_progress": counts.get(JobStatus.in_progress, 0),
+    }
 
 
 @router.post("/api/download-jobs/reset-stuck")
@@ -247,13 +298,12 @@ def complete_job(
     if payload.status not in valid:
         raise HTTPException(status_code=422, detail=f"status debe ser uno de {valid}")
 
-    job.status = JobStatus(payload.status if payload.status != "completed" else "completed")
+    job.status = JobStatus(payload.status)
     job.last_error = payload.error
     job.updated_at = datetime.now(timezone.utc)
     if payload.status == "completed":
         job.downloaded_at = datetime.now(timezone.utc)
 
-    # Update the review item status
     status_map = {
         "completed":     TrackStatus.downloaded,
         "not_found":     TrackStatus.not_found,

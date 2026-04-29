@@ -3,15 +3,16 @@ Settings page — per-user configuration stored in UserSettings table.
 """
 from __future__ import annotations
 
-import asyncio
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from typing import Annotated
 
 from app.auth_middleware import get_current_user
+from app.config import settings
 from app.db import get_db
 from app.models.user import User
 from app.models.user_settings import UserSettings
@@ -39,31 +40,11 @@ def _get_or_create_settings(db: Session, user_id: int) -> UserSettings:
     return us
 
 
-def _native_pick_folder() -> str | None:
-    """Open the native OS folder picker and return the selected path (blocking)."""
-    try:
-        import tkinter as tk
-        from tkinter import filedialog
-        root = tk.Tk()
-        root.withdraw()
-        root.wm_attributes("-topmost", 1)
-        path = filedialog.askdirectory(title="Seleccionar carpeta de descarga")
-        root.destroy()
-        return path or None
-    except Exception:
-        return None
-
-
-@router.get("/pick-folder")
-async def pick_folder_native(
-    current_user: User = Depends(get_current_user),
-) -> JSONResponse:
-    """Open native OS folder picker and return the full path."""
-    loop = asyncio.get_event_loop()
-    path = await loop.run_in_executor(None, _native_pick_folder)
-    if path:
-        return JSONResponse({"path": path})
-    return JSONResponse({"path": None})
+def _agent_is_available() -> bool:
+    """Return True if the agent can be downloaded (external URL or local exe present)."""
+    if settings.agent_download_url:
+        return True
+    return Path("app/static/agent/TrackManagerAgent.exe").exists()
 
 
 @router.get("", response_class=HTMLResponse)
@@ -92,6 +73,7 @@ def settings_page(
             "youtube_connected": youtube_auth.is_connected(db, current_user.id),
             "api_token": current_user.api_token,
             "base_url": str(request.base_url).rstrip("/"),
+            "agent_available": _agent_is_available(),
         },
     )
 

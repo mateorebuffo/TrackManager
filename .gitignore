@@ -1,48 +1,75 @@
-# Environment / secrets
+# ── Secrets & environment ─────────────────────────────────────────────────────
 .env
 *.env
+.env.*
 
-# Databases
+# ── Databases ─────────────────────────────────────────────────────────────────
 *.db
 *.db-shm
 *.db-wal
 
-# OAuth tokens
+# ── OAuth token files ─────────────────────────────────────────────────────────
 spotify_token.json
 youtube_token.json
 
-# Python
+# ── Python ────────────────────────────────────────────────────────────────────
 .venv/
+.venv-build/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
 
-# Testing
+# ── Testing ───────────────────────────────────────────────────────────────────
 .pytest_cache/
 htmlcov/
 .coverage
 
-# IDE
+# ── IDE ───────────────────────────────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
 
-# OS
+# ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 
-# Temp / debug HTML snapshots
-queue_post_response.html
-queue_response.html
+# ── Build artifacts ───────────────────────────────────────────────────────────
+build/
+dist/
+*.spec
+hook_pydantic_core.py
 
-# deemix config (contains ARL)
-.config/deemix/
-
-# Agent binary and build artifacts (built locally via agent/build.bat)
+# ── Agent binary and build artifacts (built locally via agent/build.bat) ──────
 app/static/agent/TrackManagerAgent.exe
 agent/build/
 agent/dist/
 agent/*.log
 agent/*.spec
+
+# ── Server log files ──────────────────────────────────────────────────────────
+server_out.txt
+server_err.txt
+*.log
+
+# ── Deemix config (contains ARL) ─────────────────────────────────────────────
+.config/deemix/
+
+# ── Tauri desktop app (scaffold only, not shipped) ───────────────────────────
+tauri-app/node_modules/
+tauri-app/package-lock.json
+tauri-app/src-tauri/target/
+tauri-app/src-tauri/Cargo.lock
+tauri-app/src-tauri/gen/
+tauri-app/dist/
+tauri-app/frontend-placeholder/
+
+# ── Claude Code project memory ───────────────────────────────────────────────
+.claude/projects/
+
+# ── Scratch / temp files ─────────────────────────────────────────────────────
+consulta_arquitectura.md
+icon_source.png
+queue_post_response.html
+queue_response.html

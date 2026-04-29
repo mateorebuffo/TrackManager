@@ -25,6 +25,13 @@ templates = Jinja2Templates(directory="app/templates")
 _COOKIE = "mc_session"
 
 
+def _safe_next(next_url: str) -> str:
+    """Only allow same-origin relative redirects — prevents open-redirect attacks."""
+    if next_url and next_url.startswith("/") and not next_url.startswith("//"):
+        return next_url
+    return "/"
+
+
 # ── Login / Logout ───────────────────────────────────────────────────────────
 
 @router.get("/login", response_class=HTMLResponse, include_in_schema=False)
@@ -49,8 +56,14 @@ def login(
             status_code=401,
         )
     token = make_session_token(user.id)
-    response = RedirectResponse(url=next or "/", status_code=303)
-    response.set_cookie(_COOKIE, token, httponly=True, samesite="lax", max_age=60 * 60 * 24 * 30)
+    response = RedirectResponse(url=_safe_next(next), status_code=303)
+    is_secure = request.headers.get("x-forwarded-proto") == "https"
+    response.set_cookie(
+        _COOKIE, token,
+        httponly=True, samesite="lax",
+        max_age=60 * 60 * 24 * 30,
+        secure=is_secure,
+    )
     return response
 
 

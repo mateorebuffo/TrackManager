@@ -85,6 +85,36 @@
   }
 </style>
 
+{# ── Setup banner ──────────────────────────────────────────────── #}
+{% if needs_setup %}
+<div id="setup-banner" class="rounded-3 mb-4 p-4" style="background:linear-gradient(135deg,#1e293b 0%,#312e81 100%);color:#fff;display:flex;align-items:center;gap:1.25rem;flex-wrap:wrap;">
+  <div style="font-size:1.6rem;line-height:1;">⚙️</div>
+  <div class="flex-grow-1">
+    <div style="font-weight:700;font-size:0.95rem;margin-bottom:0.2rem;">¡Bienvenido a Track Manager!</div>
+    <div style="font-size:0.82rem;color:rgba(255,255,255,.75);">
+      Antes de empezar, configurá tus credenciales de importación (SoundCloud, Spotify o YouTube) y de descarga (Muzpa o Deezer).
+    </div>
+  </div>
+  <div class="d-flex gap-2 align-items-center flex-shrink-0">
+    <a href="/settings" class="btn btn-sm btn-light fw-600" style="font-size:0.82rem;font-weight:600;">Ir a Configuración →</a>
+    <button type="button" class="btn btn-sm" onclick="dismissSetupBanner()"
+            style="background:rgba(255,255,255,.12);color:#fff;font-size:0.82rem;border:none;">✕</button>
+  </div>
+</div>
+<script>
+(function(){
+  if(localStorage.getItem('setup_banner_dismissed')==='1'){
+    var b=document.getElementById('setup-banner');
+    if(b) b.style.display='none';
+  }
+})();
+function dismissSetupBanner(){
+  localStorage.setItem('setup_banner_dismissed','1');
+  document.getElementById('setup-banner').style.display='none';
+}
+</script>
+{% endif %}
+
 {# ── Header ────────────────────────────────────────────────────── #}
 <div class="d-flex align-items-center justify-content-between mb-3 gap-3 flex-wrap">
   <div class="d-flex align-items-center gap-2">
@@ -154,13 +184,24 @@
       <form id="youtube-sync-form" method="POST" action="/sync/youtube" style="display:none;"></form>
       <form id="youtube-disconnect-form" method="POST" action="/sync/youtube/disconnect" onsubmit="return confirm('¿Desconectar YouTube?')" style="display:none;"></form>
       <div class="btn-group btn-group-sm">
+        {% if youtube_playlist_name %}
         <button type="submit" form="youtube-sync-form"
                 class="btn btn-sm src-btn d-inline-flex align-items-center gap-1"
                 style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;"
-                title="{% if youtube_playlist_name %}Sincronizar desde « {{ youtube_playlist_name }} »{% else %}Importar desde YouTube{% endif %}">
+                title="Sincronizar desde « {{ youtube_playlist_name }} »">
           <span class="pi" style="font-size:14px;"><img src="/static/icons/youtube.svg" alt="" style="filter:invert(14%) sepia(80%) saturate(800%) hue-rotate(340deg) brightness(85%);"></span>
           ↻
         </button>
+        {% else %}
+        <button type="button"
+                class="btn btn-sm src-btn d-inline-flex align-items-center gap-1"
+                style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;"
+                title="Elegí una playlist de YouTube para importar"
+                onclick="openPlaylistPicker('youtube')">
+          <span class="pi" style="font-size:14px;"><img src="/static/icons/youtube.svg" alt="" style="filter:invert(14%) sepia(80%) saturate(800%) hue-rotate(340deg) brightness(85%);"></span>
+          +
+        </button>
+        {% endif %}
         <button type="button" class="btn btn-sm dropdown-toggle dropdown-toggle-split"
                 style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;"
                 data-bs-toggle="dropdown"></button>
