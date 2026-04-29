@@ -1,2 +1,2 @@
 [phases.setup]
-aptPkgs = ["libpq5"]
+aptPkgs = ["libpq-dev", "gcc", "python3-dev"]
