@@ -121,6 +121,70 @@ def auto_download_one(
     return RedirectResponse(url=referer, status_code=303)
 
 
+# ── Live stats JSON (for polling) ────────────────────────────────────────────
+
+@router.get("/jobs/live")
+def jobs_live(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    from app.models.download_job import JobStatus as JS
+    from sqlalchemy import func
+    from datetime import timedelta
+
+    counts = dict(
+        db.query(DownloadJob.status, func.count())
+        .filter(DownloadJob.user_id == current_user.id)
+        .group_by(DownloadJob.status)
+        .all()
+    )
+
+    latest_created = db.query(func.max(DownloadJob.created_at)).filter(
+        DownloadJob.user_id == current_user.id
+    ).scalar()
+    batch_counts: dict = {}
+    if latest_created:
+        batch_start = latest_created - timedelta(seconds=60)
+        batch_counts = dict(
+            db.query(DownloadJob.status, func.count())
+            .filter(
+                DownloadJob.user_id == current_user.id,
+                DownloadJob.created_at >= batch_start,
+            )
+            .group_by(DownloadJob.status)
+            .all()
+        )
+
+    jobs = (
+        db.query(DownloadJob)
+        .filter(DownloadJob.user_id == current_user.id)
+        .order_by(DownloadJob.created_at.desc())
+        .all()
+    )
+    total_jobs = len(jobs)
+
+    return {
+        "pending":       counts.get(JS.pending, 0),
+        "in_progress":   counts.get(JS.in_progress, 0),
+        "total_jobs":    total_jobs,
+        "batch": {
+            "completed":     batch_counts.get(JS.completed, 0),
+            "not_found":     batch_counts.get(JS.not_found, 0),
+            "vinyl_only":    batch_counts.get(JS.vinyl_only, 0),
+            "bandcamp_only": batch_counts.get(JS.bandcamp_only, 0),
+            "failed":        batch_counts.get(JS.failed, 0),
+        },
+        "jobs": [
+            {
+                "query":      j.query,
+                "status":     j.status.value,
+                "updated_at": j.updated_at.strftime("%d/%m %H:%M") if j.updated_at else "—",
+            }
+            for j in jobs
+        ],
+    }
+
+
 # ── Job queue status page ─────────────────────────────────────────────────────
 
 @router.get("/jobs", response_class=HTMLResponse)
@@ -133,7 +197,9 @@ def jobs_status(
 ) -> HTMLResponse:
     from app.models.download_job import JobStatus as JS
     from sqlalchemy import func
+    from datetime import timedelta
 
+    # All-time counts — used for pending/in_progress banners only
     counts = dict(
         db.query(DownloadJob.status, func.count())
         .filter(DownloadJob.user_id == current_user.id)
@@ -142,6 +208,23 @@ def jobs_status(
     )
     pending_count  = counts.get(JS.pending,     0)
     progress_count = counts.get(JS.in_progress, 0)
+
+    # Latest batch — jobs created within 60s of the most recent job
+    latest_created = db.query(func.max(DownloadJob.created_at)).filter(
+        DownloadJob.user_id == current_user.id
+    ).scalar()
+    batch_counts: dict = {}
+    if latest_created:
+        batch_start = latest_created - timedelta(seconds=60)
+        batch_counts = dict(
+            db.query(DownloadJob.status, func.count())
+            .filter(
+                DownloadJob.user_id == current_user.id,
+                DownloadJob.created_at >= batch_start,
+            )
+            .group_by(DownloadJob.status)
+            .all()
+        )
 
     FILTERABLE = {"not_found", "vinyl_only", "bandcamp_only", "failed"}
     active_filter = status_filter if status_filter in FILTERABLE else None
@@ -207,11 +290,11 @@ def jobs_status(
             "token": current_user.api_token,
             "pending_count":       pending_count,
             "progress_count":      progress_count,
-            "completed_count":     counts.get(JS.completed,     0),
-            "not_found_count":     counts.get(JS.not_found,     0),
-            "vinyl_only_count":    counts.get(JS.vinyl_only,    0),
-            "bandcamp_only_count": counts.get(JS.bandcamp_only, 0),
-            "failed_count":        counts.get(JS.failed,        0),
+            "completed_count":     batch_counts.get(JS.completed,     0),
+            "not_found_count":     batch_counts.get(JS.not_found,     0),
+            "vinyl_only_count":    batch_counts.get(JS.vinyl_only,    0),
+            "bandcamp_only_count": batch_counts.get(JS.bandcamp_only, 0),
+            "failed_count":        batch_counts.get(JS.failed,        0),
             "active_filter":       active_filter,
             "filter_rows":         filter_rows,
         },

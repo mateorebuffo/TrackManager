@@ -16,7 +16,7 @@ from app.models.user import User
 from app.services.auth import decode_session_token, get_user_by_id, has_any_user
 
 _COOKIE = "mc_session"
-_PUBLIC = {"/login", "/setup", "/favicon.ico"}
+_PUBLIC = {"/login", "/setup", "/favicon.ico", "/health"}
 
 
 class AuthMiddleware(BaseHTTPMiddleware):

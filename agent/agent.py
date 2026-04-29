@@ -25,7 +25,7 @@ from download.orchestrator import try_download as _try_download
 
 try:
     import pystray
-    from PIL import Image, ImageDraw
+    from PIL import Image, ImageDraw, ImageTk
     _TRAY_OK = True
 except ImportError:
     _TRAY_OK = False
@@ -81,13 +81,14 @@ log = logging.getLogger("agent")
 # ── Config ───────────────────────────────────────────────────────────────────
 
 def load_config() -> dict:
+    cfg: dict = {}
     for path in [_exe_dir() / "config.json", SAVE_PATH]:
         if path.exists():
             try:
-                return json.loads(path.read_text(encoding="utf-8"))
+                cfg.update(json.loads(path.read_text(encoding="utf-8")))
             except Exception:
                 pass
-    return {}
+    return cfg
 
 def save_config(cfg: dict) -> None:
     SAVE_PATH.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
@@ -97,19 +98,32 @@ def is_complete(cfg: dict) -> bool:
 
 # ── Carpeta destino ───────────────────────────────────────────────────────────
 
-def _dest_folder(base: Path, organize: str) -> Path:
+def _dest_folder(base: Path, organize: str, liked_at: str | None = None, collected_at: str | None = None) -> Path:
     now = datetime.now(timezone.utc)
     if organize == "import_date":
+        if collected_at:
+            try:
+                d = datetime.strptime(collected_at, "%Y-%m-%d")
+                return base / d.strftime("%Y") / d.strftime("%Y-%m-%d")
+            except ValueError:
+                pass
         return base / now.strftime("%Y") / now.strftime("%Y-%m-%d")
     if organize == "like_date":
+        if liked_at:
+            try:
+                d = datetime.strptime(liked_at, "%Y-%m-%d")
+                return base / d.strftime("%Y") / d.strftime("%Y-%m")
+            except ValueError:
+                pass
         return base / now.strftime("%Y") / now.strftime("%Y-%m")
     return base
 
 # ── Download ──────────────────────────────────────────────────────────────────
 
-def download_track(query: str, cfg: dict, user_settings: dict) -> str:
+def download_track(query: str, cfg: dict, user_settings: dict, liked_at: str | None = None, collected_at: str | None = None) -> str:
     dest = _dest_folder(Path(cfg["download_dir"]),
-                        user_settings.get("folder_organize_mode", "none"))
+                        cfg.get("folder_organize_mode", "none"),
+                        liked_at, collected_at)
     return _try_download(query, dest, user_settings)
 
 # ── API ──────────────────────────────────────────────────────────────────────
@@ -137,6 +151,17 @@ def api_get_jobs(cfg: dict) -> list[dict]:
     except Exception as e:
         log.error("fetch jobs: %s", e)
         return []
+
+def api_get_stats(cfg: dict) -> dict:
+    try:
+        r = httpx.get(f"{cfg['api_url'].rstrip('/')}/api/download-jobs/stats",
+                      headers=_headers(cfg), timeout=10)
+        r.raise_for_status()
+        return r.json()
+    except Exception as e:
+        log.error("fetch stats: %s", e)
+        return {}
+
 
 def api_get_settings(cfg: dict) -> dict:
     try:
@@ -166,16 +191,32 @@ def api_complete(cfg: dict, job_id: int, status: str) -> None:
 
 # ── Colores ──────────────────────────────────────────────────────────────────
 
-def _tray_image() -> "Image.Image":
+def _app_icon(root) -> None:
+    """Set the music note icon on a tkinter window."""
+    if not _TRAY_OK:
+        return
+    try:
+        img = _make_icon_image()
+        photo = ImageTk.PhotoImage(img)
+        root.iconphoto(True, photo)
+        root._icon_ref = photo  # keep reference so GC doesn't collect it
+    except Exception:
+        pass
+
+
+def _make_icon_image() -> "Image.Image":
     img = Image.new("RGB", (64, 64), color=(37, 99, 235))
     d = ImageDraw.Draw(img)
-    # Simple music note
     d.ellipse([8, 38, 28, 56], fill="white")
     d.ellipse([34, 30, 54, 48], fill="white")
     d.rectangle([24, 8, 30, 44], fill="white")
     d.rectangle([50, 4, 56, 36], fill="white")
     d.rectangle([24, 8, 56, 14], fill="white")
     return img
+
+
+def _tray_image() -> "Image.Image":
+    return _make_icon_image()
 
 ACCENT = "#2563eb"
 BG     = "#f8fafc"
@@ -194,8 +235,9 @@ class SetupWindow:
         self.root.configure(bg=BG)
         self.root.resizable(False, False)
         needs_token = not cfg.get("token")
-        self._center(400, 320 if needs_token else 260)
+        self._center(440, 570 if needs_token else 510)
         self._build(needs_token)
+        _app_icon(self.root)
 
     def _center(self, w: int, h: int) -> None:
         sw, sh = self.root.winfo_screenwidth(), self.root.winfo_screenheight()
@@ -237,11 +279,38 @@ class SetupWindow:
         else:
             self.token_var = StringVar(value=self.cfg.get("token", ""))
 
+        Label(body, text="Organización de carpetas", font=("Segoe UI", 9, "bold"),
+              bg=BG, fg=FG).pack(anchor="w")
+        Label(body, text="Cómo organizar los MP3 dentro de la carpeta de descarga",
+              font=("Segoe UI", 8), bg=BG, fg=MUTED).pack(anchor="w", pady=(1, 6))
+
+        self.organize_var = StringVar(value=self.cfg.get("folder_organize_mode", "none"))
+        org_opts = [
+            ("none",
+             "Sin organizar",
+             "Todos los MP3 se guardan directamente en la carpeta de descarga."),
+            ("import_date",
+             "Por fecha de importación",
+             "Se crean subcarpetas AÑO/AÑO-MES-DIA según la fecha en que\n"
+             "los tracks se importaron a la app."),
+            ("like_date",
+             "Por fecha de like",
+             "Se crean subcarpetas AÑO/AÑO-MES según la fecha en que\n"
+             "likeaste el track."),
+        ]
+        for val, label, hint in org_opts:
+            Radiobutton(body, text=label, variable=self.organize_var, value=val,
+                        font=("Segoe UI", 9, "bold"), bg=BG, fg=FG,
+                        activebackground=BG, selectcolor=BG).pack(anchor="w", pady=(4, 0))
+            Label(body, text=hint, font=("Segoe UI", 8), bg=BG, fg=MUTED,
+                  justify="left").pack(anchor="w", padx=(20, 0))
+
+        Frame(body, height=14, bg=BG).pack()
         Frame(r, height=1, bg="#e2e8f0").pack(fill="x")
         Button(r, text="Iniciar agente →", font=("Segoe UI", 10, "bold"),
                bg=ACCENT, fg="white", relief="flat", cursor="hand2",
                activebackground="#1d4ed8", activeforeground="white",
-               command=self._submit).pack(fill="x", padx=24, pady=16, ipady=8)
+               command=self._submit).pack(fill="x", padx=24, pady=20, ipady=8)
 
     def _pick_folder(self) -> None:
         path = filedialog.askdirectory(title="Seleccionar carpeta de descarga")
@@ -257,7 +326,12 @@ class SetupWindow:
         if not token:
             messagebox.showerror("Error", "Ingresá el token de acceso.")
             return
-        self.result = {**self.cfg, "token": token, "download_dir": folder}
+        self.result = {
+            **self.cfg,
+            "token": token,
+            "download_dir": folder,
+            "folder_organize_mode": self.organize_var.get(),
+        }
         save_config(self.result)
         self.root.destroy()
 
@@ -280,8 +354,11 @@ _STATUS_LABEL = {
 class RunningWindow:
     def __init__(self, cfg: dict):
         self.cfg      = cfg
-        self.running  = True
-        self.total    = 0
+        self.running       = True
+        self._worker_done  = False
+        self.total         = 0   # completados
+        self.attempted     = 0   # intentados en esta sesión
+        self.pending_total = 0   # pendientes en el servidor
         self.q: queue.Queue[tuple] = queue.Queue()
         self._rows: dict[int, str] = {}
         self._tray: "pystray.Icon | None" = None
@@ -292,10 +369,11 @@ class RunningWindow:
         self.root.configure(bg=BG)
         self.root.resizable(True, True)
         self.root.minsize(460, 340)
-        self.root.protocol("WM_DELETE_WINDOW", self._to_tray)
+        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
         self.root.bind("<Unmap>", lambda e: self._to_tray() if e.widget is self.root and not self._in_tray else None)
         self._center(500, 460)
         self._build()
+        _app_icon(self.root)
 
     def _center(self, w: int, h: int) -> None:
         sw, sh = self.root.winfo_screenwidth(), self.root.winfo_screenheight()
@@ -308,6 +386,10 @@ class RunningWindow:
         hdr.pack(fill="x")
         Label(hdr, text="🎵 Track Manager", font=("Segoe UI", 11, "bold"),
               bg="#1e293b", fg="white").pack(side="left", padx=16, pady=10)
+        Button(hdr, text="⚙", font=("Segoe UI", 11), bg="#1e293b", fg="white",
+               relief="flat", cursor="hand2", activebackground="#334155",
+               activeforeground="white", bd=0,
+               command=self._open_settings_dialog).pack(side="right", padx=12, pady=6)
 
         bar = Frame(r, bg=BG)
         bar.pack(fill="x", padx=16, pady=(10, 6))
@@ -361,11 +443,112 @@ class RunningWindow:
         Frame(r, height=1, bg="#e2e8f0").pack(fill="x")
         footer = Frame(r, bg=BG)
         footer.pack(fill="x", padx=16, pady=8)
-        Label(footer, text=f"Log: {LOG_PATH}", font=("Segoe UI", 7),
-              bg=BG, fg="#94a3b8").pack(side="left")
-        Button(footer, text="Minimizar", font=("Segoe UI", 9),
+        Button(footer, text="📂 Abrir carpeta", font=("Segoe UI", 9),
                bg="white", fg=MUTED, relief="solid", bd=1, cursor="hand2",
-               command=self._to_tray).pack(side="right", ipady=3, ipadx=8)
+               command=self._open_folder).pack(side="left", ipady=3, ipadx=8)
+        self.stop_btn = Button(footer, text="⏹ Detener agente", font=("Segoe UI", 9),
+               bg="white", fg="#dc2626", relief="solid", bd=1, cursor="hand2",
+               command=self._stop_graceful)
+        self.stop_btn.pack(side="right", ipady=3, ipadx=8)
+
+    def _open_folder(self) -> None:
+        folder = self.cfg.get("download_dir", "")
+        if folder and Path(folder).exists():
+            os.startfile(folder)
+        else:
+            messagebox.showerror("Error", "La carpeta de descarga no existe o no está configurada.")
+
+    def _open_settings_dialog(self) -> None:
+        dlg = Toplevel(self.root)
+        dlg.title("Configuración")
+        dlg.configure(bg=BG)
+        dlg.resizable(False, False)
+        dlg.grab_set()
+        w, h = 440, 490
+        sw, sh = dlg.winfo_screenwidth(), dlg.winfo_screenheight()
+        dlg.geometry(f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
+        _app_icon(dlg)
+
+        Label(dlg, text="Configuración", font=("Segoe UI", 12, "bold"),
+              bg=BG, fg=FG).pack(anchor="w", padx=24, pady=(20, 2))
+        Frame(dlg, height=1, bg="#e2e8f0").pack(fill="x", pady=10)
+
+        body = Frame(dlg, bg=BG)
+        body.pack(fill="x", padx=24)
+
+        Label(body, text="Carpeta de descarga", font=("Segoe UI", 9, "bold"),
+              bg=BG, fg=FG).pack(anchor="w")
+        Label(body, text="Dónde se guardarán los MP3 en tu PC",
+              font=("Segoe UI", 8), bg=BG, fg=MUTED).pack(anchor="w", pady=(1, 5))
+
+        folder_var = StringVar(value=self.cfg.get("download_dir", ""))
+        row = Frame(body, bg=BG)
+        row.pack(fill="x", pady=(0, 14))
+        Entry(row, textvariable=folder_var, font=("Segoe UI", 9),
+              relief="solid", bd=1).pack(side="left", fill="x", expand=True, ipady=4)
+
+        def pick():
+            path = filedialog.askdirectory(title="Seleccionar carpeta de descarga", parent=dlg)
+            if path:
+                folder_var.set(path)
+
+        Button(row, text="📁", font=("Segoe UI", 9), relief="solid", bd=1,
+               bg="white", cursor="hand2",
+               command=pick).pack(side="left", padx=(4, 0), ipady=4, ipadx=8)
+
+        Label(body, text="Organización de carpetas", font=("Segoe UI", 9, "bold"),
+              bg=BG, fg=FG).pack(anchor="w")
+        Label(body, text="Cómo organizar los MP3 dentro de la carpeta de descarga",
+              font=("Segoe UI", 8), bg=BG, fg=MUTED).pack(anchor="w", pady=(1, 6))
+
+        organize_var = StringVar(value=self.cfg.get("folder_organize_mode", "none"))
+        org_opts = [
+            ("none",        "Sin organizar",         "Todos los MP3 se guardan directamente en la carpeta."),
+            ("import_date", "Por fecha de importación", "Subcarpetas AÑO/AÑO-MES-DIA según fecha de importación."),
+            ("like_date",   "Por fecha de like",     "Subcarpetas AÑO/AÑO-MES según la fecha de like."),
+        ]
+        for val, label, hint in org_opts:
+            Radiobutton(body, text=label, variable=organize_var, value=val,
+                        font=("Segoe UI", 9, "bold"), bg=BG, fg=FG,
+                        activebackground=BG, selectcolor=BG).pack(anchor="w", pady=(4, 0))
+            Label(body, text=hint, font=("Segoe UI", 8), bg=BG, fg=MUTED,
+                  justify="left").pack(anchor="w", padx=(20, 0))
+
+        Frame(dlg, height=1, bg="#e2e8f0").pack(fill="x", pady=(14, 0))
+
+        def save():
+            folder = folder_var.get().strip()
+            if not folder:
+                messagebox.showerror("Error", "Seleccioná una carpeta de descarga.", parent=dlg)
+                return
+            self.cfg["download_dir"] = folder
+            self.cfg["folder_organize_mode"] = organize_var.get()
+            save_config(self.cfg)
+            dlg.destroy()
+
+        Frame(dlg, height=1, bg="#e2e8f0").pack(fill="x", pady=(14, 0))
+
+        Label(dlg, text=f"Log: {LOG_PATH}", font=("Segoe UI", 7),
+              bg=BG, fg="#94a3b8").pack(anchor="w", padx=24, pady=(6, 0))
+
+        Button(dlg, text="Guardar configuración", font=("Segoe UI", 10, "bold"),
+               bg=ACCENT, fg="white", relief="flat", cursor="hand2",
+               activebackground="#1d4ed8", activeforeground="white",
+               command=save).pack(fill="x", padx=24, pady=(8, 16), ipady=8)
+
+    def _stop_graceful(self) -> None:
+        self.stop_btn.config(state="disabled", text="Deteniendo…")
+        self.running = False
+
+    def _restart(self) -> None:
+        self.running = True
+        self._worker_done = False
+        self.dot.config(fg="#22c55e")
+        self.status_lbl.config(text="Corriendo")
+        self.stop_btn.config(state="normal", text="⏹ Detener agente", command=self._stop_graceful)
+        t = threading.Thread(target=self._worker, daemon=True)
+        t.start()
+        self.root.after(200, self._poll)
 
     def _to_tray(self) -> None:
         if not _TRAY_OK or self._in_tray:
@@ -399,6 +582,16 @@ class RunningWindow:
             self._tray.stop()
             self._tray = None
 
+    def _on_close(self) -> None:
+        if self.running:
+            messagebox.showwarning(
+                "Agente activo",
+                "El agente todavía está descargando tracks.\n\n"
+                "Hacé clic en '⏹ Detener agente' y esperá a que termine antes de cerrar.",
+            )
+        else:
+            self.root.destroy()
+
     def _quit(self, icon=None, item=None) -> None:
         self.running = False
         if self._tray:
@@ -418,11 +611,30 @@ class RunningWindow:
         self.status_lbl.config(text=f"Copiado: {short}")
         self.root.after(1800, lambda: self.status_lbl.config(text=prev))
 
+    def _refresh_count_lbl(self) -> None:
+        parts = []
+        if self.attempted > 0:
+            parts.append(f"{self.total} completados")
+            if self.attempted > self.total:
+                parts.append(f"{self.attempted} intentados")
+        if self.pending_total > 0:
+            parts.append(f"{self.pending_total} pendientes")
+        self.count_lbl.config(text=" · ".join(parts) if parts else "")
+
     def _apply(self, msg: tuple) -> None:
         kind = msg[0]
-        if kind == "idle":
+        if kind == "stopped":
+            self._worker_done = True
+            self.dot.config(fg="#94a3b8")
+            self.status_lbl.config(text="Agente detenido")
+            self.stop_btn.config(state="normal", text="▶ Reanudar agente", command=self._restart)
+        elif kind == "idle":
             self.dot.config(fg="#22c55e")
             self.status_lbl.config(text="Corriendo — sin pendientes")
+        elif kind == "stats":
+            _, pending, in_progress = msg
+            self.pending_total = pending + in_progress
+            self._refresh_count_lbl()
         elif kind == "error":
             self.dot.config(fg="#ef4444")
             self.status_lbl.config(text="Error de conexión. Reintentando…")
@@ -451,9 +663,11 @@ class RunningWindow:
             if iid:
                 query = self.tree.set(iid, "track")
                 self.tree.item(iid, values=(query, label), tags=(status,))
+            self.attempted += 1
             if status == "completed":
                 self.total += 1
-                self.count_lbl.config(text=f"{self.total} completados")
+            self.pending_total = max(0, self.pending_total - 1)
+            self._refresh_count_lbl()
 
     def _poll(self) -> None:
         try:
@@ -462,7 +676,7 @@ class RunningWindow:
             delay = 80 if not self.q.empty() else 200
         except queue.Empty:
             delay = 200
-        if self.running:
+        if not self._worker_done:
             self.root.after(delay, self._poll)
 
     def _process_job(self, job: dict, user_settings: dict) -> None:
@@ -470,7 +684,7 @@ class RunningWindow:
             return
         self.q.put(("start", job["id"]))
         api_start(self.cfg, job["id"])
-        result = download_track(job["query"], self.cfg, user_settings)
+        result = download_track(job["query"], self.cfg, user_settings, job.get("liked_at"), job.get("collected_at"))
         api_complete(self.cfg, job["id"], result)
         self.q.put(("finish", job["id"], result))
 
@@ -488,6 +702,10 @@ class RunningWindow:
             if not user_settings.get("muzpa_sess"):
                 self.q.put(("no_creds",))
             else:
+                stats = api_get_stats(self.cfg)
+                if stats:
+                    self.q.put(("stats", stats.get("pending", 0), stats.get("in_progress", 0)))
+
                 jobs = api_get_jobs(self.cfg)
                 if not jobs:
                     self.q.put(("idle",))
@@ -511,6 +729,8 @@ class RunningWindow:
                 if not self.running:
                     break
                 time.sleep(0.5)
+
+        self.q.put(("stopped",))
 
     def run(self) -> None:
         t = threading.Thread(target=self._worker, daemon=True)

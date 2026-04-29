@@ -1,6 +1,7 @@
 import enum
 from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Enum
+from sqlalchemy.orm import relationship
 from app.db import Base
 
 
@@ -29,6 +30,8 @@ class DownloadJob(Base):
     attempt_count = Column(Integer, default=0, nullable=False)
     last_error    = Column(Text, nullable=True)
     downloaded_at = Column(DateTime, nullable=True)
+
+    review_item = relationship("ReviewItem", foreign_keys=[review_id], lazy="select")
 
     def __repr__(self) -> str:
         return f"<DownloadJob id={self.id} status={self.status} query={self.query!r}>"

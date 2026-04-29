@@ -60,7 +60,16 @@ def spotify_connect(current_user: User = Depends(get_current_user)):
     from app.config import settings
     if not settings.spotify_client_id:
         return HTMLResponse(
-            "<h3>Error: SPOTIFY_CLIENT_ID no configurado en .env</h3>",
+            "<h3>Error: SPOTIFY_CLIENT_ID no configurado.</h3>"
+            "<p>Añadí <code>SPOTIFY_CLIENT_ID</code> y <code>SPOTIFY_CLIENT_SECRET</code> "
+            "en las variables de entorno.</p>",
+            status_code=500,
+        )
+    if not settings.spotify_redirect_uri:
+        return HTMLResponse(
+            "<h3>Error: SPOTIFY_REDIRECT_URI no configurado.</h3>"
+            "<p>Añadí <code>SPOTIFY_REDIRECT_URI=https://tu-app.railway.app/sync/spotify/callback</code> "
+            "en las variables de entorno y registralo en el Spotify Developer Console.</p>",
             status_code=500,
         )
     return RedirectResponse(url=spotify_auth.get_auth_url())
@@ -209,7 +218,16 @@ def youtube_connect(current_user: User = Depends(get_current_user)):
     from app.config import settings
     if not settings.youtube_client_id:
         return HTMLResponse(
-            "<h3>Error: YOUTUBE_CLIENT_ID no configurado en .env</h3>",
+            "<h3>Error: YOUTUBE_CLIENT_ID no configurado.</h3>"
+            "<p>Añadí <code>YOUTUBE_CLIENT_ID</code> y <code>YOUTUBE_CLIENT_SECRET</code> "
+            "en las variables de entorno.</p>",
+            status_code=500,
+        )
+    if not settings.youtube_redirect_uri:
+        return HTMLResponse(
+            "<h3>Error: YOUTUBE_REDIRECT_URI no configurado.</h3>"
+            "<p>Añadí <code>YOUTUBE_REDIRECT_URI=https://tu-app.railway.app/sync/youtube/callback</code> "
+            "en las variables de entorno y registralo en Google Cloud Console.</p>",
             status_code=500,
         )
     return RedirectResponse(url=youtube_auth.get_auth_url())

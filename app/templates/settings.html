@@ -83,21 +83,6 @@
       <div class="cfg-card-head">Autorizaciones</div>
       <div class="cfg-card-body">
 
-        {# SoundCloud #}
-        <div class="svc-row svc-sc">
-          <div class="svc-name">
-            <span class="svc-dot dot-sc"></span>SoundCloud
-          </div>
-          <div>
-            <label class="form-label text-muted mb-1" style="font-size:0.72rem;">OAuth Token</label>
-            <input type="password" name="soundcloud_oauth_token"
-                   class="form-control form-control-sm font-monospace"
-                   value="{{ current.get('soundcloud_oauth_token', '') }}"
-                   placeholder="OAuth 2-xxxxx-xxxxxxxx-..."
-                   autocomplete="off">
-          </div>
-        </div>
-
         {# Spotify #}
         <div class="svc-row svc-spotify">
           <div class="d-flex align-items-center justify-content-between">
@@ -140,10 +125,35 @@
           {% endif %}
         </div>
 
+        {# SoundCloud #}
+        <div class="svc-row svc-sc">
+          <div class="d-flex align-items-center justify-content-between">
+            <div class="svc-name">
+              <span class="svc-dot dot-sc"></span>SoundCloud
+            </div>
+            <a href="/static/Manual-SoundCloud.pdf" target="_blank"
+               class="btn btn-link btn-sm p-0 text-muted"
+               style="font-size:0.78rem;">¿Cómo configuro esto?</a>
+          </div>
+          <div>
+            <label class="form-label text-muted mb-1" style="font-size:0.72rem;">OAuth Token</label>
+            <input type="password" name="soundcloud_oauth_token"
+                   class="form-control form-control-sm font-monospace"
+                   value="{{ current.get('soundcloud_oauth_token', '') }}"
+                   placeholder="OAuth 2-xxxxx-xxxxxxxx-..."
+                   autocomplete="off">
+          </div>
+        </div>
+
         {# Muzpa #}
         <div class="svc-row svc-muzpa">
-          <div class="svc-name">
-            <span class="svc-dot dot-muzpa"></span>Muzpa
+          <div class="d-flex align-items-center justify-content-between">
+            <div class="svc-name">
+              <span class="svc-dot dot-muzpa"></span>Muzpa
+            </div>
+            <a href="/static/Manual-MuzPA.pdf" target="_blank"
+               class="btn btn-link btn-sm p-0 text-muted"
+               style="font-size:0.78rem;">¿Cómo configuro esto?</a>
           </div>
           <div>
             <label class="form-label text-muted mb-1" style="font-size:0.72rem;">Session (SESS=…)</label>
@@ -155,8 +165,13 @@
 
         {# Deezer #}
         <div class="svc-row svc-deezer">
-          <div class="svc-name">
-            <span class="svc-dot dot-deezer"></span>Deezer
+          <div class="d-flex align-items-center justify-content-between">
+            <div class="svc-name">
+              <span class="svc-dot dot-deezer"></span>Deezer
+            </div>
+            <a href="/static/Manual-Deezer-Deemix.pdf" target="_blank"
+               class="btn btn-link btn-sm p-0 text-muted"
+               style="font-size:0.78rem;">¿Cómo configuro esto?</a>
           </div>
           <div>
             <label class="form-label text-muted mb-1" style="font-size:0.72rem;">ARL</label>
@@ -170,26 +185,12 @@
     </div>
   </div>
 
-  {# ── Columna derecha: Preferencias ────────────────────────────── #}
-  <div class="col-lg-6">
+  {# ── Columna derecha: Preferencias + Agente ──────────────────── #}
+  <div class="col-lg-6 d-flex flex-column gap-4">
+
     <div class="cfg-card">
       <div class="cfg-card-head">Preferencias de descarga</div>
       <div class="cfg-card-body">
-
-        <div class="pref-section">
-          <div class="pref-title">Destino</div>
-          <label class="form-label mb-1" style="font-size:0.8rem;">Carpeta de descarga</label>
-          <div class="input-group input-group-sm">
-            <input type="text" name="download_dir" id="download-dir"
-                   class="form-control font-monospace"
-                   value="{{ current.get('download_dir', '') }}"
-                   placeholder="C:\Users\...\Music">
-            <button type="button" class="btn btn-outline-secondary" onclick="pickFolder()">Examinar…</button>
-          </div>
-          <div class="form-text" style="font-size:0.72rem;">
-            Ruta completa donde se guardarán los MP3. Usá Examinar para seleccionarla desde el explorador.
-          </div>
-        </div>
 
         <div class="pref-section">
           <div class="pref-title">Opciones</div>
@@ -206,69 +207,17 @@
               </div>
             </div>
 
-            <div>
-              <div class="fw-semibold mb-2" style="font-size:0.875rem;">Organización de carpetas</div>
-              <div class="d-flex flex-column gap-2">
-
-                <div class="form-check">
-                  <input class="form-check-input" type="radio" name="folder_organize_mode"
-                         id="org-none" value="none"
-                         {% if current.get('folder_organize_mode', 'none') == 'none' %}checked{% endif %}>
-                  <label class="form-check-label" for="org-none" style="font-size:0.875rem;">
-                    No organizar
-                  </label>
-                  <div class="form-text" style="font-size:0.72rem;">
-                    Guarda todos los temas directamente en la carpeta de descarga.
-                  </div>
-                </div>
-
-                <div class="form-check">
-                  <input class="form-check-input" type="radio" name="folder_organize_mode"
-                         id="org-like" value="like_date"
-                         {% if current.get('folder_organize_mode') == 'like_date' %}checked{% endif %}>
-                  <label class="form-check-label" for="org-like" style="font-size:0.875rem;">
-                    Organizar por fecha de like
-                  </label>
-                  <div class="form-text" style="font-size:0.72rem;">
-                    Guarda en <code>carpeta/YYYY/YYYY-MM/</code> según la fecha en que lo likeaste.
-                  </div>
-                </div>
-
-                <div class="form-check">
-                  <input class="form-check-input" type="radio" name="folder_organize_mode"
-                         id="org-import" value="import_date"
-                         {% if current.get('folder_organize_mode') == 'import_date' %}checked{% endif %}>
-                  <label class="form-check-label" for="org-import" style="font-size:0.875rem;">
-                    Organizar por fecha de importación
-                  </label>
-                  <div class="form-text" style="font-size:0.72rem;">
-                    Guarda en <code>carpeta/YYYY/YYYY-MM-DD/</code> según la fecha en que se importó al sistema.
-                  </div>
-                </div>
-
-              </div>
-            </div>
-
           </div>
         </div>
 
       </div>
     </div>
-  </div>
 
-</div>
-
-<div class="mt-4 d-flex gap-2">
-  <button type="submit" class="btn btn-primary">Guardar configuración</button>
-  <a href="/tracks/pending" class="btn btn-outline-secondary">Cancelar</a>
-</div>
-</form>
-
-{# ── Agente de Descarga ────────────────────────────────────── #}
-<div class="cfg-card mt-4">
-  <div class="cfg-card-head">Agente de Descarga</div>
-  <div class="cfg-card-body">
-    <div class="row g-0">
+    {# ── Agente de Descarga ──────────────────────────────────── #}
+    <div class="cfg-card">
+      <div class="cfg-card-head">Agente de Descarga</div>
+      <div class="cfg-card-body">
+        <div class="row g-0">
 
       {# Token #}
       <div class="col-lg-6 pref-section" style="border-right:1px solid var(--tm-border);">
@@ -311,9 +260,16 @@
           Descargá el agente una sola vez. Se configura solo con tu token y te pide la carpeta al abrirlo por primera vez.
         </div>
 
+        {% if agent_available %}
         <a href="/api/download-agent" class="btn btn-primary btn-sm mb-3">
           ⬇ Descargar agente (.exe)
         </a>
+        {% else %}
+        <p class="text-muted mb-3" style="font-size:0.78rem;">
+          El agente aún no está disponible para descarga.<br>
+          El administrador debe publicarlo o configurar <code>AGENT_DOWNLOAD_URL</code>.
+        </p>
+        {% endif %}
 
         <div class="collapse" id="agent-setup-help">
           <div class="card card-body bg-light" style="font-size:0.78rem;">
@@ -329,35 +285,25 @@
         <button class="btn btn-link btn-sm p-0 text-muted" type="button"
                 data-bs-toggle="collapse" data-bs-target="#agent-setup-help"
                 style="font-size:0.78rem;">¿Cómo lo instalo?</button>
-      </div>
+          </div>{# /col-lg-6 instalación #}
 
-    </div>
-  </div>
+        </div>{# /row g-0 #}
+      </div>{# /cfg-card-body #}
+    </div>{# /cfg-card agente #}
+
+  </div>{# /col-lg-6 right #}
+</div>{# /row #}
+
+<div class="d-flex justify-content-start mt-3">
+  <button type="submit" class="btn btn-primary btn-sm px-4">Guardar cambios</button>
 </div>
+</form>
 
 <script>
 document.getElementById('settings-form').addEventListener('submit', function() {
   _setToast('Configuración guardada correctamente.', 'success');
 });
 
-async function pickFolder() {
-  const btn = document.querySelector('button[onclick="pickFolder()"]');
-  const orig = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = 'Abriendo…';
-  try {
-    const res = await fetch('/settings/pick-folder');
-    const data = await res.json();
-    if (data.path) {
-      document.getElementById('download-dir').value = data.path;
-    }
-  } catch(e) {
-    alert('No se pudo abrir el selector de carpetas.');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = orig;
-  }
-}
 
 async function generateAgentToken() {
   const res = await fetch('/api/generate-token', {method: 'POST'});
