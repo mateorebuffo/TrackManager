@@ -37,6 +37,30 @@ def _make_query(nt: NormalizedTrack) -> str:
     return label.strip() or nt.search_query or ""
 
 
+def _cancel_stale_jobs(db: Session, user_id: int) -> None:
+    """Cancel pending DownloadJobs whose ReviewItem is no longer queued."""
+    from app.models.download_job import DownloadJob, JobStatus
+    from datetime import datetime, timezone
+    stale_ids = [
+        r[0] for r in (
+            db.query(DownloadJob.id)
+            .join(ReviewItem, DownloadJob.review_id == ReviewItem.id)
+            .filter(
+                DownloadJob.user_id == user_id,
+                DownloadJob.status == JobStatus.pending,
+                ReviewItem.status != TrackStatus.queued,
+            )
+            .all()
+        )
+    ]
+    if stale_ids:
+        db.query(DownloadJob).filter(DownloadJob.id.in_(stale_ids)).update(
+            {"status": JobStatus.cancelled, "updated_at": datetime.now(timezone.utc)},
+            synchronize_session=False,
+        )
+        db.commit()
+
+
 def _enqueue(db: Session, review_id: int, query: str, user_id: int) -> DownloadJob:
     """Create a pending download job (idempotent — skip if one already exists)."""
     existing = db.query(DownloadJob).filter(
@@ -67,6 +91,7 @@ def auto_download_all_start(
     current_user: User = Depends(get_current_user),
 ) -> RedirectResponse:
     """Enqueue all 'queued' tracks as download jobs."""
+    _cancel_stale_jobs(db, current_user.id)
     items = (
         db.query(ReviewItem)
         .join(ReviewItem.normalized_track)
@@ -198,6 +223,8 @@ def jobs_status(
     from app.models.download_job import JobStatus as JS
     from sqlalchemy import func
     from datetime import timedelta
+
+    _cancel_stale_jobs(db, current_user.id)
 
     # All-time counts — used for pending/in_progress banners only
     counts = dict(
