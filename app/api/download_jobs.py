@@ -15,6 +15,8 @@ import io
 import json
 import secrets
 import zipfile
+
+import httpx
 from datetime import datetime, timezone
 from pathlib import Path
 
