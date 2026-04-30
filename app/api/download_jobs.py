@@ -11,17 +11,11 @@ GET  /api/download-agent              — download pre-configured agent zip
 """
 from __future__ import annotations
 
-import io
-import json
 import secrets
-import zipfile
-
-import httpx
 from datetime import datetime, timezone
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from fastapi.responses import RedirectResponse, StreamingResponse
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
@@ -103,47 +97,12 @@ def get_agent_settings(
 
 @router.get("/api/download-agent", response_model=None)
 def download_agent(
-    request: Request,
-    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> StreamingResponse | RedirectResponse:
-    """
-    If AGENT_DOWNLOAD_URL is set: redirect browser directly to the exe.
-    Otherwise: build and stream a zip with exe + config.json from local file.
-    """
+) -> RedirectResponse:
     from app.config import settings
-
-    if settings.agent_download_url:
-        return RedirectResponse(url=settings.agent_download_url, status_code=302)
-
-    exe_path = Path("app/static/agent/TrackManagerAgent.exe")
-    if not exe_path.exists():
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "El agente aún no está disponible para descarga. "
-                "El administrador debe publicarlo o configurar AGENT_DOWNLOAD_URL."
-            ),
-        )
-
-    cfg = {
-        "api_url":      str(request.base_url).rstrip("/"),
-        "token":        current_user.api_token or "",
-        "organize":     "import_date",
-        "poll_seconds": 10,
-    }
-
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.write(exe_path, "TrackManagerAgent.exe")
-        zf.writestr("config.json", json.dumps(cfg, indent=2, ensure_ascii=False))
-    buf.seek(0)
-
-    return StreamingResponse(
-        buf,
-        media_type="application/zip",
-        headers={"Content-Disposition": 'attachment; filename="TrackManager-Agent.zip"'},
-    )
+    if not settings.agent_download_url:
+        raise HTTPException(status_code=503, detail="AGENT_DOWNLOAD_URL no configurado.")
+    return RedirectResponse(url=settings.agent_download_url, status_code=302)
 
 
 # ── Agent endpoints ───────────────────────────────────────────────────────────
