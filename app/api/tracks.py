@@ -337,6 +337,7 @@ def bulk_to_pending(
         db.query(ReviewItem).filter(ReviewItem.id.in_(valid)).update(
             {"status": TrackStatus.pending, "reviewed_at": None}, synchronize_session=False
         )
+        _cancel_jobs(db, valid)
         db.commit()
     referer = request.headers.get("referer", "/tracks/pending")
     return RedirectResponse(url=referer, status_code=303)
@@ -397,6 +398,7 @@ def download_queue_reset_all(
         db.query(ReviewItem).filter(ReviewItem.id.in_(valid)).update(
             {"status": TrackStatus.pending, "reviewed_at": None}, synchronize_session=False
         )
+        _cancel_jobs(db, valid)
         db.commit()
     return RedirectResponse(url="/tracks/pending", status_code=303)
 
@@ -522,3 +524,17 @@ def _parse_date(value: str | None) -> date | None:
         return date.fromisoformat(value)
     except ValueError:
         return None
+
+
+def _cancel_jobs(db: Session, review_ids: list[int]) -> None:
+    from app.models.download_job import DownloadJob, JobStatus
+    from datetime import datetime, timezone
+    if not review_ids:
+        return
+    db.query(DownloadJob).filter(
+        DownloadJob.review_id.in_(review_ids),
+        DownloadJob.status.in_([JobStatus.pending, JobStatus.in_progress]),
+    ).update(
+        {"status": JobStatus.cancelled, "updated_at": datetime.now(timezone.utc)},
+        synchronize_session=False,
+    )

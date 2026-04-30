@@ -126,10 +126,19 @@ def reset_to_pending_form(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> RedirectResponse:
+    from app.models.download_job import DownloadJob, JobStatus
+    from datetime import datetime, timezone
     item = _get_item(item_id, current_user.id, db)
     item.status = TrackStatus.pending
     item.reviewed_at = None
     item.notes = None
+    db.query(DownloadJob).filter(
+        DownloadJob.review_id == item_id,
+        DownloadJob.status.in_([JobStatus.pending, JobStatus.in_progress]),
+    ).update(
+        {"status": JobStatus.cancelled, "updated_at": datetime.now(timezone.utc)},
+        synchronize_session=False,
+    )
     db.commit()
     return RedirectResponse(url="/tracks/pending", status_code=303)
 
