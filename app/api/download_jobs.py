@@ -123,10 +123,17 @@ def download_agent(
     }
 
     if settings.agent_download_url:
-        resp = httpx.get(settings.agent_download_url, follow_redirects=True, timeout=30)
-        if resp.status_code != 200:
-            raise HTTPException(status_code=503, detail="No se pudo descargar el agente desde el servidor.")
-        exe_bytes = resp.content
+        try:
+            resp = httpx.get(
+                settings.agent_download_url,
+                follow_redirects=True,
+                timeout=60,
+                headers={"User-Agent": "TrackManager/1.0"},
+            )
+            resp.raise_for_status()
+            exe_bytes = resp.content
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail=f"No se pudo descargar el agente: {exc}")
     else:
         exe_path = Path("app/static/agent/TrackManagerAgent.exe")
         if not exe_path.exists():
