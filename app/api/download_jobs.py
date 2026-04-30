@@ -106,16 +106,25 @@ def download_agent(
     request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> StreamingResponse:
+) -> StreamingResponse | RedirectResponse:
     """
-    Build and stream a zip containing the agent exe + a pre-configured config.json.
-
-    Exe source priority:
-      1. AGENT_DOWNLOAD_URL env var  → download exe from external URL (e.g. GitHub Releases)
-      2. Local exe in app/static/agent/
-      3. Neither → 503
+    If AGENT_DOWNLOAD_URL is set: redirect browser directly to the exe.
+    Otherwise: build and stream a zip with exe + config.json from local file.
     """
     from app.config import settings
+
+    if settings.agent_download_url:
+        return RedirectResponse(url=settings.agent_download_url, status_code=302)
+
+    exe_path = Path("app/static/agent/TrackManagerAgent.exe")
+    if not exe_path.exists():
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "El agente aún no está disponible para descarga. "
+                "El administrador debe publicarlo o configurar AGENT_DOWNLOAD_URL."
+            ),
+        )
 
     cfg = {
         "api_url":      str(request.base_url).rstrip("/"),
@@ -124,33 +133,9 @@ def download_agent(
         "poll_seconds": 10,
     }
 
-    if settings.agent_download_url:
-        try:
-            resp = httpx.get(
-                settings.agent_download_url,
-                follow_redirects=True,
-                timeout=60,
-                headers={"User-Agent": "TrackManager/1.0"},
-            )
-            resp.raise_for_status()
-            exe_bytes = resp.content
-        except Exception as exc:
-            raise HTTPException(status_code=503, detail=f"No se pudo descargar el agente: {exc}")
-    else:
-        exe_path = Path("app/static/agent/TrackManagerAgent.exe")
-        if not exe_path.exists():
-            raise HTTPException(
-                status_code=503,
-                detail=(
-                    "El agente aún no está disponible para descarga. "
-                    "El administrador debe publicarlo o configurar AGENT_DOWNLOAD_URL."
-                ),
-            )
-        exe_bytes = exe_path.read_bytes()
-
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr("TrackManagerAgent.exe", exe_bytes)
+        zf.write(exe_path, "TrackManagerAgent.exe")
         zf.writestr("config.json", json.dumps(cfg, indent=2, ensure_ascii=False))
     buf.seek(0)
 
