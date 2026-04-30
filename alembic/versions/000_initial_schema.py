@@ -94,7 +94,7 @@ def upgrade() -> None:
             nullable=False,
             unique=True,
         ),
-        sa.Column("status", sa.Enum(*_OLD_STATUS_VALUES, name="reviewstatus"), nullable=False, server_default="pending"),
+        sa.Column("status", sa.Enum(*_OLD_STATUS_VALUES, name="reviewstatus", create_type=False), nullable=False, server_default="pending"),
         sa.Column("notes", sa.Text(), nullable=True),
         sa.Column("reviewed_at", sa.DateTime(), nullable=True),
     )
