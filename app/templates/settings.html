@@ -240,7 +240,7 @@
       <div class="col-lg-6 pref-section" style="border-right:1px solid var(--tm-border);">
         <div class="pref-title">Token de acceso</div>
         <div class="form-text mb-2" style="font-size:0.72rem;">
-          El agente usa este token para autenticarse. Pegalo en el <code>.env</code> del agente.
+          Copiá este token y pegalo en el campo <strong>Token de acceso</strong> dentro de la configuración del agente.
         </div>
 
         {% if api_token %}
@@ -273,9 +273,6 @@
       {# Instalación #}
       <div class="col-lg-6 pref-section">
         <div class="pref-title">Instalación</div>
-        <div class="form-text mb-3" style="font-size:0.72rem;">
-          Descargá el agente una sola vez. Se configura solo con tu token y te pide la carpeta al abrirlo por primera vez.
-        </div>
 
         {% if agent_available %}
         <a href="/api/download-agent" class="btn btn-primary btn-sm mb-3">
@@ -290,18 +287,16 @@
 
         <div class="collapse" id="agent-setup-help">
           <div class="card card-body bg-light" style="font-size:0.78rem;">
-            <ol class="mb-0 ps-3">
-              <li>Descomprimí el ZIP descargado</li>
-              <li>Hacé doble click en <strong>TrackManagerAgent.exe</strong></li>
-              <li>Elegí la carpeta donde querés guardar los MP3</li>
-              <li>¡Listo! El agente descarga automáticamente mientras está abierto</li>
-            </ol>
+            <p class="mb-0">
+              No requiere instalación. Guardá el <strong>TrackManagerAgent.exe</strong> donde quieras
+              y ejecutalo cuando necesites que el agente corra. Podés cerrarlo y abrirlo cuantas veces quieras.
+            </p>
           </div>
         </div>
 
         <button class="btn btn-link btn-sm p-0 text-muted" type="button"
                 data-bs-toggle="collapse" data-bs-target="#agent-setup-help"
-                style="font-size:0.78rem;">¿Cómo lo instalo?</button>
+                style="font-size:0.78rem;">¿Cómo funciona?</button>
           </div>{# /col-lg-6 instalación #}
 
         </div>{# /row g-0 #}
