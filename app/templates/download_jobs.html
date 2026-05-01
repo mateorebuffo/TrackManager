@@ -5,7 +5,14 @@
 
   <div class="d-flex justify-content-between align-items-center mb-4">
     <h4 class="mb-0">Auto-descarga</h4>
-    <a href="/tracks/pending" class="btn btn-outline-secondary btn-sm">← Tracks</a>
+    <div class="d-flex gap-2">
+      {% if pending_count > 0 or progress_count > 0 %}
+      <button class="btn btn-outline-danger btn-sm" onclick="cancelAllPending()">
+        Cancelar cola ({{ pending_count + progress_count }})
+      </button>
+      {% endif %}
+      <a href="/tracks/pending" class="btn btn-outline-secondary btn-sm">← Tracks</a>
+    </div>
   </div>
 
   {% if enqueued %}
@@ -268,6 +275,14 @@
 </div>
 
 <script>
+async function cancelAllPending() {
+  if (!confirm('¿Cancelar todos los jobs pendientes y en progreso?')) return;
+  const res = await fetch('/api/download-jobs/cancel-all-pending', {method: 'POST'});
+  const data = await res.json();
+  _setToast(`${data.cancelled} jobs cancelados.`, 'success');
+  setTimeout(() => location.reload(), 800);
+}
+
 function toggleToken() {
   const f = document.getElementById('token-field');
   f.type = f.type === 'password' ? 'text' : 'password';

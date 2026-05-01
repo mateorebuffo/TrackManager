@@ -147,6 +147,9 @@ def get_pending_jobs(
     if not user:
         raise HTTPException(status_code=401, detail="Token inválido")
 
+    from app.api.auto_download import _cancel_stale_jobs
+    _cancel_stale_jobs(db, user.id)
+
     jobs = (
         db.query(DownloadJob)
         .filter(
@@ -210,6 +213,27 @@ def get_jobs_stats(
         "pending":     counts.get(JobStatus.pending, 0),
         "in_progress": counts.get(JobStatus.in_progress, 0),
     }
+
+
+@router.post("/api/download-jobs/cancel-all-pending")
+def cancel_all_pending(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Cancel all pending and in-progress jobs for the current user."""
+    count = (
+        db.query(DownloadJob)
+        .filter(
+            DownloadJob.user_id == current_user.id,
+            DownloadJob.status.in_([JobStatus.pending, JobStatus.in_progress]),
+        )
+        .update(
+            {"status": JobStatus.cancelled, "updated_at": datetime.now(timezone.utc)},
+            synchronize_session=False,
+        )
+    )
+    db.commit()
+    return {"cancelled": count}
 
 
 @router.post("/api/download-jobs/reset-stuck")
