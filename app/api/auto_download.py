@@ -142,8 +142,9 @@ def auto_download_one(
     if item and item.normalized_track:
         _enqueue(db, item.id, _make_query(item.normalized_track), current_user.id)
 
-    referer = request.headers.get("referer", "/tracks/download-queue")
-    return RedirectResponse(url=referer, status_code=303)
+    referer = request.headers.get("referer", "")
+    url = referer if referer.startswith("/") and not referer.startswith("//") else "/tracks/download-queue"
+    return RedirectResponse(url=url, status_code=303)
 
 
 # ── Live stats JSON (for polling) ────────────────────────────────────────────

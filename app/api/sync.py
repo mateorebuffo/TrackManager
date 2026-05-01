@@ -72,7 +72,7 @@ def spotify_connect(current_user: User = Depends(get_current_user)):
             "en las variables de entorno y registralo en el Spotify Developer Console.</p>",
             status_code=500,
         )
-    return RedirectResponse(url=spotify_auth.get_auth_url())
+    return RedirectResponse(url=spotify_auth.get_auth_url(current_user.id))
 
 
 @router.get("/spotify/callback")
@@ -80,21 +80,28 @@ def spotify_callback(
     request: Request,
     code: str = "",
     error: str = "",
+    state: str = "",
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if not spotify_auth.verify_state(state, current_user.id):
+        return HTMLResponse(
+            "<h3>Error de seguridad: estado OAuth inválido.</h3>"
+            "<p><a href='/tracks/pending'>Volver</a></p>",
+            status_code=400,
+        )
     if error or not code:
         return HTMLResponse(
-            f"<h3>Error al conectar Spotify: {error or 'no code received'}</h3>"
+            "<h3>Error al conectar Spotify.</h3>"
             "<p><a href='/tracks/pending'>Volver</a></p>",
             status_code=400,
         )
     try:
         spotify_auth.exchange_code(code, db, current_user.id)
-    except Exception as exc:
+    except Exception:
         logger.exception("Spotify token exchange failed")
         return HTMLResponse(
-            f"<h3>Error al obtener token de Spotify: {exc}</h3>"
+            "<h3>Error al conectar Spotify. Intentá de nuevo.</h3>"
             "<p><a href='/tracks/pending'>Volver</a></p>",
             status_code=500,
         )
@@ -230,7 +237,7 @@ def youtube_connect(current_user: User = Depends(get_current_user)):
             "en las variables de entorno y registralo en Google Cloud Console.</p>",
             status_code=500,
         )
-    return RedirectResponse(url=youtube_auth.get_auth_url())
+    return RedirectResponse(url=youtube_auth.get_auth_url(current_user.id))
 
 
 @router.get("/youtube/callback")
@@ -238,21 +245,28 @@ def youtube_callback(
     request: Request,
     code: str = "",
     error: str = "",
+    state: str = "",
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if not youtube_auth.verify_state(state, current_user.id):
+        return HTMLResponse(
+            "<h3>Error de seguridad: estado OAuth inválido.</h3>"
+            "<p><a href='/tracks/pending'>Volver</a></p>",
+            status_code=400,
+        )
     if error or not code:
         return HTMLResponse(
-            f"<h3>Error al conectar YouTube: {error or 'no code received'}</h3>"
+            "<h3>Error al conectar YouTube.</h3>"
             "<p><a href='/tracks/pending'>Volver</a></p>",
             status_code=400,
         )
     try:
         youtube_auth.exchange_code(code, db, current_user.id)
-    except Exception as exc:
+    except Exception:
         logger.exception("YouTube token exchange failed")
         return HTMLResponse(
-            f"<h3>Error al obtener token de YouTube: {exc}</h3>"
+            "<h3>Error al conectar YouTube. Intentá de nuevo.</h3>"
             "<p><a href='/tracks/pending'>Volver</a></p>",
             status_code=500,
         )

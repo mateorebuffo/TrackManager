@@ -2,13 +2,26 @@ import logging
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 
 from app.api import auth, auto_download, debug, download_jobs, review, settings_page, sync, tracks
 from app.auth_middleware import AuthMiddleware
 from app.config import settings
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next) -> Response:
+        response = await call_next(request)
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "same-origin"
+        if request.headers.get("x-forwarded-proto") == "https":
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        return response
 
 logging.basicConfig(
     level=logging.INFO,
@@ -54,6 +67,7 @@ app = FastAPI(
     openapi_url="/openapi.json" if settings.debug else None,
 )
 
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(AuthMiddleware)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 

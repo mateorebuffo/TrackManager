@@ -17,14 +17,26 @@ _TOKEN_URL = "https://accounts.spotify.com/api/token"
 _SCOPES = "user-library-read playlist-read-private playlist-read-collaborative"
 
 
-def get_auth_url() -> str:
+def get_auth_url(user_id: int) -> str:
+    from itsdangerous import URLSafeSerializer
+    state = URLSafeSerializer(settings.secret_key, salt="oauth-state").dumps({"uid": user_id})
     params = {
         "client_id": settings.spotify_client_id,
         "response_type": "code",
         "redirect_uri": settings.spotify_redirect_uri,
         "scope": _SCOPES,
+        "state": state,
     }
     return _AUTHORIZE_URL + "?" + urlencode(params)
+
+
+def verify_state(state: str, user_id: int) -> bool:
+    from itsdangerous import BadSignature, URLSafeSerializer
+    try:
+        data = URLSafeSerializer(settings.secret_key, salt="oauth-state").loads(state)
+        return int(data["uid"]) == user_id
+    except (BadSignature, KeyError, ValueError):
+        return False
 
 
 def exchange_code(code: str, db: Session, user_id: int) -> None:

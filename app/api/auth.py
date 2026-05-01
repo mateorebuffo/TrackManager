@@ -3,11 +3,40 @@ Auth routes: login, logout, setup (first-run), user management (admin).
 """
 from __future__ import annotations
 
+import threading
+import time
+from collections import defaultdict
+
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from typing import Annotated
+
+# ── Login rate limiting (in-memory, per IP) ──────────────────────────────────
+_failed: dict[str, list[float]] = defaultdict(list)
+_lock = threading.Lock()
+_MAX_ATTEMPTS = 10
+_WINDOW = 15 * 60  # 15 minutes
+
+
+def _client_ip(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for", "")
+    return forwarded.split(",")[0].strip() if forwarded else (
+        request.client.host if request.client else "unknown"
+    )
+
+
+def _is_rate_limited(ip: str) -> bool:
+    now = time.time()
+    with _lock:
+        _failed[ip] = [t for t in _failed[ip] if now - t < _WINDOW]
+        return len(_failed[ip]) >= _MAX_ATTEMPTS
+
+
+def _record_failure(ip: str) -> None:
+    with _lock:
+        _failed[ip].append(time.time())
 
 from app.auth_middleware import get_current_user, require_admin
 from app.db import get_db
@@ -47,9 +76,17 @@ def login(
     next: Annotated[str, Form()] = "/",
     db: Session = Depends(get_db),
 ) -> Response:
+    ip = _client_ip(request)
+    if _is_rate_limited(ip):
+        return templates.TemplateResponse(
+            "login.html",
+            {"request": request, "next": next, "error": "Demasiados intentos fallidos. Esperá 15 minutos."},
+            status_code=429,
+        )
     from app.services.auth import authenticate, make_session_token
     user = authenticate(username, password, db)
     if not user:
+        _record_failure(ip)
         return templates.TemplateResponse(
             "login.html",
             {"request": request, "next": next, "error": "Usuario o contraseña incorrectos."},

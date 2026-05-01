@@ -298,8 +298,9 @@ def edit_metadata(
                 }},
                 commit=True,
             )
-    referer = request.headers.get("referer", "/tracks/pending")
-    return RedirectResponse(url=referer, status_code=303)
+    referer = request.headers.get("referer", "")
+    url = referer if referer.startswith("/") and not referer.startswith("//") else "/tracks/pending"
+    return RedirectResponse(url=url, status_code=303)
 
 
 @router.post("/download-queue", response_class=HTMLResponse)
@@ -339,8 +340,9 @@ def bulk_to_pending(
         )
         _cancel_jobs(db, valid)
         db.commit()
-    referer = request.headers.get("referer", "/tracks/pending")
-    return RedirectResponse(url=referer, status_code=303)
+    referer = request.headers.get("referer", "")
+    url = referer if referer.startswith("/") and not referer.startswith("//") else "/tracks/pending"
+    return RedirectResponse(url=url, status_code=303)
 
 
 @router.post("/bulk-discard")
