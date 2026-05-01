@@ -137,11 +137,14 @@
           </div>
           <div>
             <label class="form-label text-muted mb-1" style="font-size:0.72rem;">OAuth Token</label>
-            <input type="password" name="soundcloud_oauth_token"
-                   class="form-control form-control-sm font-monospace"
-                   value="{{ current.get('soundcloud_oauth_token', '') }}"
-                   placeholder="OAuth 2-xxxxx-xxxxxxxx-..."
-                   autocomplete="off">
+            <div class="input-group input-group-sm">
+              <input type="password" name="soundcloud_oauth_token" id="field-sc-token"
+                     class="form-control form-control-sm font-monospace"
+                     value="{{ current.get('soundcloud_oauth_token', '') }}"
+                     placeholder="OAuth 2-xxxxx-xxxxxxxx-..."
+                     autocomplete="off">
+              <button class="btn btn-outline-secondary" type="button" onclick="toggleField('field-sc-token')">👁</button>
+            </div>
           </div>
         </div>
 
@@ -157,9 +160,12 @@
           </div>
           <div>
             <label class="form-label text-muted mb-1" style="font-size:0.72rem;">Session (SESS=…)</label>
-            <input type="password" name="muzpa_sess"
-                   class="form-control form-control-sm font-monospace"
-                   value="{{ current.get('muzpa_sess', '') }}" autocomplete="off">
+            <div class="input-group input-group-sm">
+              <input type="password" name="muzpa_sess" id="field-muzpa-sess"
+                     class="form-control form-control-sm font-monospace"
+                     value="{{ current.get('muzpa_sess', '') }}" autocomplete="off">
+              <button class="btn btn-outline-secondary" type="button" onclick="toggleField('field-muzpa-sess')">👁</button>
+            </div>
           </div>
         </div>
 
@@ -175,9 +181,12 @@
           </div>
           <div>
             <label class="form-label text-muted mb-1" style="font-size:0.72rem;">ARL</label>
-            <input type="password" name="deezer_arl"
-                   class="form-control form-control-sm font-monospace"
-                   value="{{ current.get('deezer_arl', '') }}" autocomplete="off">
+            <div class="input-group input-group-sm">
+              <input type="password" name="deezer_arl" id="field-deezer-arl"
+                     class="form-control form-control-sm font-monospace"
+                     value="{{ current.get('deezer_arl', '') }}" autocomplete="off">
+              <button class="btn btn-outline-secondary" type="button" onclick="toggleField('field-deezer-arl')">👁</button>
+            </div>
           </div>
         </div>
 
@@ -317,9 +326,12 @@ async function generateAgentToken() {
     envBlock.textContent = envBlock.textContent.replace(/TM_API_TOKEN=.*/, 'TM_API_TOKEN=' + data.token);
   }
 }
-function toggleAgentToken() {
-  const f = document.getElementById('agent-token-field');
+function toggleField(id) {
+  const f = document.getElementById(id);
   f.type = f.type === 'password' ? 'text' : 'password';
+}
+function toggleAgentToken() {
+  toggleField('agent-token-field');
 }
 function copyAgentToken() {
   navigator.clipboard.writeText(document.getElementById('agent-token-field').value);
