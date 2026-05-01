@@ -57,7 +57,10 @@ def sync_soundcloud(
 
     accept = request.headers.get("accept", "")
     if "text/html" in accept:
-        return RedirectResponse(url="/tracks/pending", status_code=303)
+        return RedirectResponse(
+            url=f"/tracks/pending?synced={result.new_tracks}&source=soundcloud",
+            status_code=303,
+        )
 
     return {
         "status": "ok",
@@ -175,14 +178,19 @@ def spotify_select_playlist(
     us.spotify_playlist_name = playlist_name
     db.commit()
 
+    new_tracks = 0
     try:
         access_token = spotify_auth.get_valid_access_token(db, current_user.id)
         collector = SpotifyCollector(access_token, playlist_id=playlist_id)
-        run_sync(collector, db, user_id=current_user.id)
+        result = run_sync(collector, db, user_id=current_user.id)
+        new_tracks = result.new_tracks
     except Exception:
         logger.exception("Spotify sync after playlist selection failed")
 
-    return RedirectResponse(url="/tracks/pending", status_code=303)
+    return RedirectResponse(
+        url=f"/tracks/pending?synced={new_tracks}&source=spotify",
+        status_code=303,
+    )
 
 
 @router.post("/spotify")
@@ -224,7 +232,10 @@ def sync_spotify(
 
     accept = request.headers.get("accept", "")
     if "text/html" in accept:
-        return RedirectResponse(url="/tracks/pending", status_code=303)
+        return RedirectResponse(
+            url=f"/tracks/pending?synced={result.new_tracks}&source=spotify",
+            status_code=303,
+        )
 
     return {
         "status": "ok",
@@ -342,14 +353,19 @@ def youtube_select_playlist(
     us.youtube_playlist_name = playlist_name
     db.commit()
 
+    new_tracks = 0
     try:
         access_token = youtube_auth.get_valid_access_token(db, current_user.id)
         collector = YouTubeCollector(access_token, playlist_id=playlist_id)
-        run_sync(collector, db, user_id=current_user.id)
+        result = run_sync(collector, db, user_id=current_user.id)
+        new_tracks = result.new_tracks
     except Exception:
         logger.exception("YouTube sync after playlist selection failed")
 
-    return RedirectResponse(url="/tracks/pending", status_code=303)
+    return RedirectResponse(
+        url=f"/tracks/pending?synced={new_tracks}&source=youtube",
+        status_code=303,
+    )
 
 
 @router.post("/youtube")
@@ -391,7 +407,10 @@ def sync_youtube(
 
     accept = request.headers.get("accept", "")
     if "text/html" in accept:
-        return RedirectResponse(url="/tracks/pending", status_code=303)
+        return RedirectResponse(
+            url=f"/tracks/pending?synced={result.new_tracks}&source=youtube",
+            status_code=303,
+        )
 
     return {
         "status": "ok",

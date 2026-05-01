@@ -435,8 +435,7 @@ function dismissSetupBanner(){
     {% endif %}
     {% if active_status == 'pending' %}
       <button type="submit" form="queue-form" formaction="/tracks/bulk-discard"
-              class="btn btn-outline-danger btn-sm"
-              data-toast="Tracks descartados" data-toast-type="warning">
+              class="btn btn-outline-danger btn-sm" id="bulk-discard-btn">
         ✕ Descartar
       </button>
     {% endif %}
@@ -587,9 +586,9 @@ function dismissSetupBanner(){
                     onclick="openEditModal(this)">✎</button>
           {% endif %}
           {% if row.status == "pending" %}
-            <form method="POST" action="/review/{{ row.review_id }}/discard/form">
-              <button class="btn btn-outline-danger btn-sm" title="Descartar"
-                      data-toast="Track descartado" data-toast-type="warning">✕</button>
+            <form method="POST" action="/review/{{ row.review_id }}/discard/form"
+                  onsubmit="if(!confirm('¿Descartar este track?')){return false;} _setToast('Track descartado','warning');">
+              <button class="btn btn-outline-danger btn-sm" title="Descartar">✕</button>
             </form>
           {% elif row.status in ["downloaded", "not_found", "vinyl_only", "bandcamp_only"] %}
             <form method="POST" action="/review/{{ row.review_id }}/retry-queue/form" class="d-inline">
@@ -716,6 +715,24 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.row-check').forEach(cb => {
     cb.addEventListener('change', updateSelCount);
   });
+
+  /* Bulk discard: confirm with count, then set toast */
+  const discardBtn = document.getElementById('bulk-discard-btn');
+  if (discardBtn) {
+    discardBtn.addEventListener('click', function(e) {
+      const n = document.querySelectorAll('.row-check:checked').length;
+      if (n === 0) {
+        e.preventDefault();
+        _showToastNow('Seleccioná al menos un track primero.', 'warning');
+        return;
+      }
+      if (!confirm(`¿Descartar ${n} track${n !== 1 ? 's' : ''}?\nEsta acción no se puede deshacer.`)) {
+        e.preventDefault();
+      } else {
+        _setToast(`${n} track${n !== 1 ? 's' : ''} descartados`, 'warning');
+      }
+    });
+  }
 });
 
 function _showToastNow(msg, type) {
@@ -858,6 +875,28 @@ function selectPlaylist(id, name) {
 function escHtml(str) {
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+</script>
+
+<script>
+/* Show sync result toast when redirected back from a sync with ?synced=N&source=X */
+document.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(window.location.search);
+  const synced = params.get('synced');
+  const source = params.get('source');
+  if (synced === null) return;
+  const labels = { soundcloud: 'SoundCloud', spotify: 'Spotify', youtube: 'YouTube' };
+  const label = labels[source] || source || '';
+  const n = parseInt(synced, 10);
+  const msg = n > 0
+    ? `${n} track${n !== 1 ? 's' : ''} nuevo${n !== 1 ? 's' : ''} importado${n !== 1 ? 's' : ''} desde ${label}.`
+    : `Sincronización completada — no hay tracks nuevos desde ${label}.`;
+  _showToastNow(msg, n > 0 ? 'success' : 'info');
+  /* Clean URL so a manual reload doesn't re-show the toast */
+  const url = new URL(window.location.href);
+  url.searchParams.delete('synced');
+  url.searchParams.delete('source');
+  window.history.replaceState({}, '', url.toString());
+});
 </script>
 
 {% endblock %}
