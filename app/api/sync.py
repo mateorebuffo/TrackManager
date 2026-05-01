@@ -13,10 +13,27 @@ from app.db import get_db
 from app.models.user import User
 from app.services.ingestion import SyncResult, run_sync
 from app.services import spotify_auth, youtube_auth
+from app.utils.rate_limit import UserRateLimiter
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/sync", tags=["sync"])
 templates = Jinja2Templates(directory="app/templates")
+
+_sync_limiter = UserRateLimiter(calls=1, window=60)  # 1 sync per 60s per user
+
+
+def _sync_rate_limited(user_id: int, request: Request):
+    if not _sync_limiter.acquire(user_id):
+        accept = request.headers.get("accept", "")
+        if "text/html" in accept:
+            return HTMLResponse(
+                "<h3>Sincronización en progreso.</h3>"
+                "<p>Esperá 60 segundos antes de volver a sincronizar.</p>"
+                "<p><a href='/tracks/pending'>Volver</a></p>",
+                status_code=429,
+            )
+        return JSONResponse({"status": "error", "detail": "Rate limit: esperá 60s entre sincronizaciones."}, status_code=429)
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -30,6 +47,8 @@ def sync_soundcloud(
     current_user: User = Depends(get_current_user),
 ):
     """Trigger a SoundCloud likes sync."""
+    if (limited := _sync_rate_limited(current_user.id, request)):
+        return limited
     from app.models.user_settings import UserSettings
     us = db.query(UserSettings).filter_by(user_id=current_user.id).first()
     sc_token = (us.soundcloud_oauth_token or "") if us else ""
@@ -172,6 +191,8 @@ def sync_spotify(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if (limited := _sync_rate_limited(current_user.id, request)):
+        return limited
     try:
         access_token = spotify_auth.get_valid_access_token(db, current_user.id)
     except RuntimeError as exc:
@@ -337,6 +358,8 @@ def sync_youtube(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if (limited := _sync_rate_limited(current_user.id, request)):
+        return limited
     try:
         access_token = youtube_auth.get_valid_access_token(db, current_user.id)
     except RuntimeError as exc:

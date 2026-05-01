@@ -134,9 +134,9 @@ def setup(
         return templates.TemplateResponse(
             "setup.html", {"request": request, "error": "Las contraseñas no coinciden."}, status_code=400
         )
-    if len(password) < 6:
+    if len(password) < 8:
         return templates.TemplateResponse(
-            "setup.html", {"request": request, "error": "La contraseña debe tener al menos 6 caracteres."}, status_code=400
+            "setup.html", {"request": request, "error": "La contraseña debe tener al menos 8 caracteres."}, status_code=400
         )
     create_user(username, password, is_admin=True, db=db)
     return RedirectResponse(url="/login", status_code=303)
@@ -172,11 +172,11 @@ def create_user_admin(
              "error": f"El usuario '{username}' ya existe.", "success": None},
             status_code=400,
         )
-    if len(password) < 6:
+    if len(password) < 8:
         return templates.TemplateResponse(
             "admin_users.html",
             {"request": request, "users": users, "current_user": current_user,
-             "error": "La contraseña debe tener al menos 6 caracteres.", "success": None},
+             "error": "La contraseña debe tener al menos 8 caracteres.", "success": None},
             status_code=400,
         )
     create_user(username, password, is_admin=(is_admin == "on"), db=db)
@@ -206,7 +206,7 @@ def reset_password(
     current_user: User = Depends(require_admin),
 ) -> Response:
     user = db.query(User).filter(User.id == user_id).first()
-    if user and len(new_password) >= 6:
+    if user and len(new_password) >= 8:
         user.hashed_password = hash_password(new_password)
         db.commit()
     return RedirectResponse(url="/admin/users?reset=1", status_code=303)

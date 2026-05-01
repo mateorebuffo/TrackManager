@@ -12,6 +12,10 @@ GET  /api/download-agent              — download pre-configured agent zip
 from __future__ import annotations
 
 import secrets
+
+from app.utils.rate_limit import UserRateLimiter
+
+_token_limiter = UserRateLimiter(calls=5, window=3600)  # 5 rotaciones por hora
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
@@ -60,6 +64,8 @@ def generate_token(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
+    if not _token_limiter.acquire(current_user.id):
+        raise HTTPException(status_code=429, detail="Límite de rotaciones alcanzado. Intentá en una hora.")
     current_user.api_token = secrets.token_hex(32)
     db.commit()
     return {"token": current_user.api_token}

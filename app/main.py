@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.responses import Response
 
 from app.api import auth, auto_download, debug, download_jobs, review, settings_page, sync, tracks
@@ -69,6 +70,10 @@ app = FastAPI(
 
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(AuthMiddleware)
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=["trackmanager.app", "*.trackmanager.app", "localhost", "127.0.0.1"],
+)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 # Routers

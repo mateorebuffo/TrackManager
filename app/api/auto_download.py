@@ -16,6 +16,9 @@ from sqlalchemy.orm import Session, contains_eager, joinedload
 
 from app.auth_middleware import get_current_user
 from app.db import get_db
+from app.utils.rate_limit import UserRateLimiter
+
+_enqueue_limiter = UserRateLimiter(calls=1, window=30)  # 1 bulk enqueue per 30s
 from app.models.download_job import DownloadJob, JobStatus
 from app.models.normalized_track import NormalizedTrack
 from app.models.review_item import ReviewItem, TrackStatus
@@ -91,6 +94,8 @@ def auto_download_all_start(
     current_user: User = Depends(get_current_user),
 ) -> RedirectResponse:
     """Enqueue all 'queued' tracks as download jobs."""
+    if not _enqueue_limiter.acquire(current_user.id):
+        return RedirectResponse(url="/auto-download/jobs?rate_limited=1", status_code=303)
     _cancel_stale_jobs(db, current_user.id)
     items = (
         db.query(ReviewItem)
