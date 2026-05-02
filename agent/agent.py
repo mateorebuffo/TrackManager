@@ -80,21 +80,35 @@ log = logging.getLogger("agent")
 
 # ── Config ───────────────────────────────────────────────────────────────────
 
+API_URL = "https://trackmanager.app"
+_USER_KEYS = {"download_dir", "folder_organize_mode", "token"}
+
 def load_config() -> dict:
     cfg: dict = {}
-    for path in [_exe_dir() / "config.json", SAVE_PATH]:
-        if path.exists():
-            try:
-                cfg.update(json.loads(path.read_text(encoding="utf-8")))
-            except Exception:
-                pass
+    # Base config from the zip (api_url, poll_seconds, token default)
+    base = _exe_dir() / "config.json"
+    if base.exists():
+        try:
+            cfg.update(json.loads(base.read_text(encoding="utf-8")))
+        except Exception:
+            pass
+    # User prefs saved in AppData — only override user-specific keys
+    if SAVE_PATH.exists():
+        try:
+            saved = json.loads(SAVE_PATH.read_text(encoding="utf-8"))
+            for k in _USER_KEYS:
+                if k in saved:
+                    cfg[k] = saved[k]
+        except Exception:
+            pass
     return cfg
 
 def save_config(cfg: dict) -> None:
-    SAVE_PATH.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+    user_prefs = {k: cfg[k] for k in _USER_KEYS if k in cfg}
+    SAVE_PATH.write_text(json.dumps(user_prefs, indent=2), encoding="utf-8")
 
 def is_complete(cfg: dict) -> bool:
-    return bool(cfg.get("token") and cfg.get("api_url") and cfg.get("download_dir"))
+    return bool(cfg.get("token") and cfg.get("download_dir"))
 
 # ── Carpeta destino ───────────────────────────────────────────────────────────
 
@@ -133,7 +147,7 @@ def _headers(cfg: dict) -> dict:
 
 def api_reset_stuck(cfg: dict) -> None:
     try:
-        r = httpx.post(f"{cfg['api_url'].rstrip('/')}/api/download-jobs/reset-stuck",
+        r = httpx.post(f"{API_URL}/api/download-jobs/reset-stuck",
                        headers=_headers(cfg), timeout=10)
         data = r.json()
         if data.get("reset", 0) > 0:
@@ -144,7 +158,7 @@ def api_reset_stuck(cfg: dict) -> None:
 
 def api_get_jobs(cfg: dict) -> list[dict]:
     try:
-        r = httpx.get(f"{cfg['api_url'].rstrip('/')}/api/download-jobs",
+        r = httpx.get(f"{API_URL}/api/download-jobs",
                       headers=_headers(cfg), timeout=10)
         r.raise_for_status()
         return r.json()
@@ -154,7 +168,7 @@ def api_get_jobs(cfg: dict) -> list[dict]:
 
 def api_get_stats(cfg: dict) -> dict:
     try:
-        r = httpx.get(f"{cfg['api_url'].rstrip('/')}/api/download-jobs/stats",
+        r = httpx.get(f"{API_URL}/api/download-jobs/stats",
                       headers=_headers(cfg), timeout=10)
         r.raise_for_status()
         return r.json()
@@ -165,7 +179,7 @@ def api_get_stats(cfg: dict) -> dict:
 
 def api_get_settings(cfg: dict) -> dict:
     try:
-        r = httpx.get(f"{cfg['api_url'].rstrip('/')}/api/me/settings",
+        r = httpx.get(f"{API_URL}/api/me/settings",
                       headers=_headers(cfg), timeout=10)
         r.raise_for_status()
         return r.json()
@@ -175,14 +189,14 @@ def api_get_settings(cfg: dict) -> dict:
 
 def api_start(cfg: dict, job_id: int) -> None:
     try:
-        httpx.post(f"{cfg['api_url'].rstrip('/')}/api/download-jobs/{job_id}/start",
+        httpx.post(f"{API_URL}/api/download-jobs/{job_id}/start",
                    headers=_headers(cfg), timeout=10)
     except Exception:
         pass
 
 def api_complete(cfg: dict, job_id: int, status: str) -> None:
     try:
-        httpx.post(f"{cfg['api_url'].rstrip('/')}/api/download-jobs/{job_id}/complete",
+        httpx.post(f"{API_URL}/api/download-jobs/{job_id}/complete",
                    headers=_headers(cfg),
                    json={"status": status},
                    timeout=10)
@@ -234,16 +248,16 @@ class SetupWindow:
         self.root.title("Track Manager — Configuración")
         self.root.configure(bg=BG)
         self.root.resizable(False, False)
-        needs_token = not cfg.get("token")
-        self._center(440, 570 if needs_token else 510)
-        self._build(needs_token)
+        needs_setup = not cfg.get("token")
+        self._center(440, 580 if needs_setup else 510)
+        self._build(needs_setup)
         _app_icon(self.root)
 
     def _center(self, w: int, h: int) -> None:
         sw, sh = self.root.winfo_screenwidth(), self.root.winfo_screenheight()
         self.root.geometry(f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
 
-    def _build(self, needs_token: bool) -> None:
+    def _build(self, needs_setup: bool) -> None:
         r = self.root
         Label(r, text="🎵 Track Manager", font=("Segoe UI", 14, "bold"),
               bg=BG, fg=FG).pack(anchor="w", padx=24, pady=(20, 2))
@@ -268,12 +282,12 @@ class SetupWindow:
                bg="white", cursor="hand2",
                command=self._pick_folder).pack(side="left", padx=(4, 0), ipady=4, ipadx=8)
 
-        if needs_token:
+        if needs_setup:
             Label(body, text="Token de acceso", font=("Segoe UI", 9, "bold"),
                   bg=BG, fg=FG).pack(anchor="w")
-            Label(body, text="Copialo desde Ajustes → Agente de Descarga en la web",
+            Label(body, text="Copialo desde la web → Auto-descarga → Token del agente",
                   font=("Segoe UI", 8), bg=BG, fg=MUTED).pack(anchor="w", pady=(1, 5))
-            self.token_var = StringVar()
+            self.token_var = StringVar(value=self.cfg.get("token", ""))
             Entry(body, textvariable=self.token_var, show="•",
                   font=("Segoe UI", 9), relief="solid", bd=1).pack(fill="x", ipady=4, pady=(0, 14))
         else:
@@ -328,8 +342,8 @@ class SetupWindow:
             return
         self.result = {
             **self.cfg,
-            "token": token,
-            "download_dir": folder,
+            "token":               token,
+            "download_dir":        folder,
             "folder_organize_mode": self.organize_var.get(),
         }
         save_config(self.result)
@@ -464,7 +478,7 @@ class RunningWindow:
         dlg.configure(bg=BG)
         dlg.resizable(False, False)
         dlg.grab_set()
-        w, h = 440, 490
+        w, h = 440, 640
         sw, sh = dlg.winfo_screenwidth(), dlg.winfo_screenheight()
         dlg.geometry(f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
         _app_icon(dlg)
@@ -496,6 +510,22 @@ class RunningWindow:
                bg="white", cursor="hand2",
                command=pick).pack(side="left", padx=(4, 0), ipady=4, ipadx=8)
 
+        Label(body, text="Token de acceso", font=("Segoe UI", 9, "bold"),
+              bg=BG, fg=FG).pack(anchor="w")
+        Label(body, text="Copialo desde la web → Auto-descarga → Token del agente",
+              font=("Segoe UI", 8), bg=BG, fg=MUTED).pack(anchor="w", pady=(1, 5))
+        token_var = StringVar(value=self.cfg.get("token", ""))
+        token_row = Frame(body, bg=BG)
+        token_row.pack(fill="x", pady=(0, 14))
+        token_entry = Entry(token_row, textvariable=token_var, show="•",
+                            font=("Segoe UI", 9), relief="solid", bd=1)
+        token_entry.pack(side="left", fill="x", expand=True, ipady=4)
+        def _toggle_token():
+            token_entry.config(show="" if token_entry.cget("show") == "•" else "•")
+        Button(token_row, text="👁", font=("Segoe UI", 9), relief="solid", bd=1,
+               bg="white", cursor="hand2",
+               command=_toggle_token).pack(side="left", padx=(4, 0), ipady=4, ipadx=8)
+
         Label(body, text="Organización de carpetas", font=("Segoe UI", 9, "bold"),
               bg=BG, fg=FG).pack(anchor="w")
         Label(body, text="Cómo organizar los MP3 dentro de la carpeta de descarga",
@@ -518,11 +548,16 @@ class RunningWindow:
 
         def save():
             folder = folder_var.get().strip()
+            token  = token_var.get().strip()
             if not folder:
                 messagebox.showerror("Error", "Seleccioná una carpeta de descarga.", parent=dlg)
                 return
+            if not token:
+                messagebox.showerror("Error", "El token no puede estar vacío.", parent=dlg)
+                return
             self.cfg["download_dir"] = folder
             self.cfg["folder_organize_mode"] = organize_var.get()
+            self.cfg["token"] = token
             save_config(self.cfg)
             dlg.destroy()
 
@@ -698,6 +733,7 @@ class RunningWindow:
             fresh = api_get_settings(self.cfg)
             if fresh:
                 user_settings = fresh
+                user_settings["_token"] = self.cfg.get("token", "")
 
             if not user_settings.get("muzpa_sess"):
                 self.q.put(("no_creds",))

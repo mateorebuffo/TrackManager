@@ -272,6 +272,42 @@ def start_job(
     return {"ok": True}
 
 
+@router.get("/api/check-bandcamp")
+def check_bandcamp(
+    q: str,
+    authorization: str | None = Header(None),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Proxy Bandcamp presence check via Brave Search API."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Token requerido")
+    token = authorization.removeprefix("Bearer ").strip()
+    if not get_user_by_token(token, db):
+        raise HTTPException(status_code=401, detail="Token inválido")
+
+    from app.config import settings
+    if not settings.brave_api_key:
+        return {"found": False}
+
+    import httpx as _httpx
+    try:
+        resp = _httpx.get(
+            "https://api.search.brave.com/res/v1/web/search",
+            params={"q": f"site:bandcamp.com {q}", "count": 5},
+            headers={
+                "X-Subscription-Token": settings.brave_api_key,
+                "Accept": "application/json",
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
+        results = resp.json().get("web", {}).get("results", [])
+        found = any("bandcamp.com" in r.get("url", "") for r in results)
+        return {"found": found}
+    except Exception:
+        return {"found": False}
+
+
 @router.post("/api/download-jobs/{job_id}/complete")
 def complete_job(
     job_id: int,

@@ -66,12 +66,10 @@ def try_download(query: str, dest: Path, settings: dict) -> str:
         except Exception:
             logger.exception("Deezer error for %r", query)
 
-    if found_low_quality:
-        return "not_found"
-
     # ── 3. Bandcamp presence check ────────────────────────────────────────────
     try:
-        if bandcamp_check.exists(query):
+        token = settings.get("_token", "")
+        if bandcamp_check.exists(query, token):
             logger.info("Bandcamp: found %r — marking as bandcamp_only", query)
             return "bandcamp_only"
     except Exception:
@@ -84,5 +82,8 @@ def try_download(query: str, dest: Path, settings: dict) -> str:
             return "vinyl_only"
     except Exception:
         logger.exception("Discogs check error for %r", query)
+
+    if found_low_quality:
+        return "not_found"
 
     return "not_found"

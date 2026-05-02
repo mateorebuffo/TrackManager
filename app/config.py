@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     # directly from app/static/agent/ (local / self-hosted only).
     agent_download_url: str = ""
 
+    # Brave Search API key for Bandcamp presence checks (https://brave.com/search/api/)
+    # Free tier: $5 credits/month (~1,000 queries). Leave empty to skip Bandcamp detection.
+    brave_api_key: str = ""
+
     # Deduplication thresholds
     dedup_strong_match_score: float = 90.0
     dedup_weak_match_score: float = 75.0

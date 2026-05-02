@@ -1,36 +1,39 @@
 """
-Bandcamp presence check.
+Bandcamp presence check via server-side Brave Search API proxy.
 
-Searches Bandcamp for a track and returns True if at least one result is found.
-Does not download — only used to classify tracks as bandcamp_only.
+The agent sends the query to the server, which calls Brave Search using
+a centrally-managed API key — no per-user configuration required.
 """
 from __future__ import annotations
 
 import logging
-from urllib.parse import quote_plus
 
 import httpx
 
 logger = logging.getLogger(__name__)
 
-_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                  "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    "Accept-Language": "en-US,en;q=0.9",
-}
-_TIMEOUT = 10
+API_URL = "https://trackmanager.app"
+_TIMEOUT = 15
 
 
-def exists(query: str) -> bool:
-    """Return True if Bandcamp has at least one track result for `query`."""
-    url = f"https://bandcamp.com/search?q={quote_plus(query)}&item_type=t"
+def exists(query: str, token: str = "") -> bool:
+    """Return True if the server finds a bandcamp.com result for `query`."""
+    if not token:
+        logger.info("Bandcamp check skipped: no token")
+        return False
     try:
-        resp = httpx.get(url, headers=_HEADERS, timeout=_TIMEOUT, follow_redirects=True)
-        resp.raise_for_status()
-        # Bandcamp embeds result items in <li class="searchresult data-search">
-        found = 'class="result-items"' in resp.text and 'searchresult' in resp.text
-        logger.debug("Bandcamp search %r → %s", query, "found" if found else "not found")
-        return found
+        resp = httpx.get(
+            f"{API_URL}/api/check-bandcamp",
+            params={"q": query},
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=_TIMEOUT,
+        )
+        if resp.status_code != 200:
+            logger.info("Bandcamp check HTTP %s for %r", resp.status_code, query)
+            return False
+        result = resp.json().get("found", False)
+        logger.info("Bandcamp check %r → %s", query, result)
+        return result
     except Exception:
         logger.exception("Bandcamp check failed for %r", query)
         return False
