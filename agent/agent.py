@@ -733,7 +733,6 @@ class RunningWindow:
             fresh = api_get_settings(self.cfg)
             if fresh:
                 user_settings = fresh
-                user_settings["_token"] = self.cfg.get("token", "")
 
             if not user_settings.get("muzpa_sess"):
                 self.q.put(("no_creds",))

@@ -272,69 +272,12 @@ def start_job(
     return {"ok": True}
 
 
-@router.get("/api/check-bandcamp")
-def check_bandcamp(
-    q: str,
-    authorization: str | None = Header(None),
-    db: Session = Depends(get_db),
-) -> dict:
-    """Proxy Bandcamp presence check via Google Custom Search API."""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Token requerido")
-    token = authorization.removeprefix("Bearer ").strip()
-    if not get_user_by_token(token, db):
-        raise HTTPException(status_code=401, detail="Token inválido")
-
-    from app.config import settings
-    if not settings.google_api_key or not settings.google_cse_id:
-        return {"found": False}
-
-    import re as _re
-    import httpx as _httpx
-    try:
-        parts = q.split(" - ", 1)
-        artist = parts[0].strip() if len(parts) == 2 else q
-        title  = parts[1].strip() if len(parts) == 2 else q
-        clean_title = _re.sub(r"\s+(EP|LP|Album|Single)\s*$", "", title, flags=_re.IGNORECASE).strip()
-
-        import logging as _log
-        _logger = _log.getLogger(__name__)
-
-        resp = _httpx.get(
-            "https://www.googleapis.com/customsearch/v1",
-            params={
-                "key": settings.google_api_key,
-                "cx":  settings.google_cse_id,
-                "q":   f"{artist} {clean_title}",
-                "num": 5,
-            },
-            timeout=10,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        results = data.get("items", [])
-        _logger.info("Bandcamp/Google CSE %r → %d results", q, len(results))
-        for r in results:
-            _logger.info("  url=%s title=%s", r.get("link", ""), r.get("title", ""))
-
-        # Words > 3 chars to skip noise like "the", "dj", "by"
-        artist_words = [w for w in _re.sub(r"[^\w\s]", " ", artist).lower().split() if len(w) > 3]
-        title_words  = [w for w in _re.sub(r"[^\w\s]", " ", clean_title).lower().split() if len(w) > 3]
-
-        for r in results:
-            url = r.get("link", "")
-            if "/track/" not in url and "/album/" not in url:
-                continue
-            page_title = r.get("title", "").lower()
-            if (not artist_words or any(w in page_title for w in artist_words)) and \
-               (not title_words  or any(w in page_title for w in title_words)):
-                return {"found": True}
-
-        return {"found": False}
-    except Exception:
-        import logging as _log
-        _log.getLogger(__name__).exception("Bandcamp Google CSE error for %r", q)
-        return {"found": False}
+# Bandcamp detection disabled — no reliable API found yet.
+# To re-enable: uncomment this endpoint and restore bandcamp_check in agent/download/orchestrator.py
+#
+# @router.get("/api/check-bandcamp")
+# def check_bandcamp(q, authorization, db) -> dict:
+#     ... (full implementation in git history)
 
 
 @router.post("/api/download-jobs/{job_id}/complete")

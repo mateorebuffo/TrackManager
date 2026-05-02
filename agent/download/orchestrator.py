@@ -15,7 +15,7 @@ import logging
 import re
 from pathlib import Path
 
-from download import muzpa, bandcamp_check, discogs_check
+from download import muzpa, discogs_check  # bandcamp_check disabled — re-enable when a reliable API is available
 from download.audio_verify import verify_mp3
 
 logger = logging.getLogger(__name__)
@@ -66,14 +66,15 @@ def try_download(query: str, dest: Path, settings: dict) -> str:
         except Exception:
             logger.exception("Deezer error for %r", query)
 
-    # ── 3. Bandcamp presence check ────────────────────────────────────────────
-    try:
-        token = settings.get("_token", "")
-        if bandcamp_check.exists(query, token):
-            logger.info("Bandcamp: found %r — marking as bandcamp_only", query)
-            return "bandcamp_only"
-    except Exception:
-        logger.exception("Bandcamp check error for %r", query)
+    # ── 3. Bandcamp presence check (disabled — no reliable API found yet) ────────
+    # Uncomment to re-enable (also restore bandcamp_check import above):
+    # try:
+    #     token = settings.get("_token", "")
+    #     if bandcamp_check.exists(query, token):
+    #         logger.info("Bandcamp: found %r — marking as bandcamp_only", query)
+    #         return "bandcamp_only"
+    # except Exception:
+    #     logger.exception("Bandcamp check error for %r", query)
 
     # ── 4. Discogs presence check ─────────────────────────────────────────────
     try:
