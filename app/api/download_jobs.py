@@ -289,18 +289,18 @@ def check_bandcamp(
     if not settings.brave_api_key:
         return {"found": False}
 
+    import re as _re
     import httpx as _httpx
     try:
-        # Quote artist/title separately for precise matching
         parts = q.split(" - ", 1)
-        if len(parts) == 2:
-            brave_query = f'site:bandcamp.com "{parts[0].strip()}" "{parts[1].strip()}"'
-        else:
-            brave_query = f'site:bandcamp.com "{q}"'
+        artist = parts[0].strip() if len(parts) == 2 else q
+        title  = parts[1].strip() if len(parts) == 2 else q
+        # Drop trailing EP/LP/Album/Single so "Lucid Interval EP" → "Lucid Interval"
+        clean_title = _re.sub(r"\s+(EP|LP|Album|Single)\s*$", "", title, flags=_re.IGNORECASE).strip()
 
         resp = _httpx.get(
             "https://api.search.brave.com/res/v1/web/search",
-            params={"q": brave_query, "count": 5},
+            params={"q": f"site:bandcamp.com {artist} {clean_title}", "count": 5},
             headers={
                 "X-Subscription-Token": settings.brave_api_key,
                 "Accept": "application/json",
@@ -309,13 +309,22 @@ def check_bandcamp(
         )
         resp.raise_for_status()
         results = resp.json().get("web", {}).get("results", [])
-        # Only count results that are actual track or album pages, not generic pages
-        found = any(
-            ("bandcamp.com" in r.get("url", ""))
-            and ("/track/" in r.get("url", "") or "/album/" in r.get("url", ""))
-            for r in results
-        )
-        return {"found": found}
+
+        # Significant words from artist and title (length > 2 to skip "a", "by", etc.)
+        artist_words = [w for w in _re.sub(r"[^\w\s]", " ", artist).lower().split() if len(w) > 2]
+        title_words  = [w for w in _re.sub(r"[^\w\s]", " ", clean_title).lower().split() if len(w) > 2]
+
+        for r in results:
+            url = r.get("url", "")
+            if "bandcamp.com" not in url or ("/track/" not in url and "/album/" not in url):
+                continue
+            text = (r.get("title", "") + " " + r.get("description", "")).lower()
+            # Require at least one artist word AND one title word in the result text
+            if (not artist_words or any(w in text for w in artist_words)) and \
+               (not title_words  or any(w in text for w in title_words)):
+                return {"found": True}
+
+        return {"found": False}
     except Exception:
         return {"found": False}
 
