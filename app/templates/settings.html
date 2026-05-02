@@ -304,6 +304,10 @@ document.getElementById('settings-form').addEventListener('submit', function() {
   _setToast('Configuración guardada correctamente.', 'success');
 });
 
+{% if request.query_params.get('missing') == 'soundcloud' %}
+_setToast('Configurá el OAuth Token de SoundCloud antes de sincronizar.', 'warning');
+{% endif %}
+
 
 async function generateAgentToken() {
   const res = await fetch('/api/generate-token', {method: 'POST'});

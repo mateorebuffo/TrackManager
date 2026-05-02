@@ -52,7 +52,12 @@ def sync_soundcloud(
     from app.models.user_settings import UserSettings
     us = db.query(UserSettings).filter_by(user_id=current_user.id).first()
     sc_token = (us.soundcloud_oauth_token or "") if us else ""
-    collector = SoundCloudCollector(oauth_token=sc_token or None)
+    if not sc_token:
+        accept = request.headers.get("accept", "")
+        if "text/html" in accept:
+            return RedirectResponse(url="/settings?missing=soundcloud", status_code=303)
+        return {"status": "error", "detail": "SoundCloud OAuth token no configurado."}
+    collector = SoundCloudCollector(oauth_token=sc_token)
     result: SyncResult = run_sync(collector, db, user_id=current_user.id)
 
     accept = request.headers.get("accept", "")
