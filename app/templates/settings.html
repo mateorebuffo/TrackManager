@@ -74,6 +74,14 @@
 <div class="alert alert-warning py-2 mb-3">
   Configurá el <strong>OAuth Token de SoundCloud</strong> antes de sincronizar.
 </div>
+{% elif request.query_params.get('missing') == 'spotify' %}
+<div class="alert alert-warning py-2 mb-3">
+  Conectá tu cuenta de <strong>Spotify</strong> antes de sincronizar.
+</div>
+{% elif request.query_params.get('missing') == 'youtube' %}
+<div class="alert alert-warning py-2 mb-3">
+  Conectá tu cuenta de <strong>YouTube</strong> antes de sincronizar.
+</div>
 {% endif %}
 
 {# Disconnect forms must live OUTSIDE the main settings form to avoid invalid nesting #}
