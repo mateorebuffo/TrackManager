@@ -10,8 +10,12 @@ POST /debug/cleanup                — run log retention cleanup (admin only)
 """
 from __future__ import annotations
 
+import logging
+import os
 from datetime import datetime, timezone
 from typing import Annotated
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -178,13 +182,14 @@ async def submit_report(
 ) -> RedirectResponse:
     if not description.strip():
         return RedirectResponse(url="/debug/reports?error=empty", status_code=303)
-    log_service.create_user_report(
+    report = log_service.create_user_report(
         db,
         user_id=current_user.id,
         category=category,
         description=description.strip(),
         track_id=track_id or None,
     )
+    _send_report_email(report, current_user)
     return RedirectResponse(url="/debug/reports?submitted=1", status_code=303)
 
 
@@ -209,6 +214,34 @@ def update_report_status(
     report.updated_at = datetime.now(timezone.utc)
     db.commit()
     return RedirectResponse(url="/debug/reports", status_code=303)
+
+
+def _send_report_email(report, user: User) -> None:
+    api_key = os.getenv("RESEND_API_KEY", "")
+    if not api_key:
+        logger.debug("RESEND_API_KEY not set, skipping report email")
+        return
+    try:
+        import resend
+        resend.api_key = api_key
+        track_line = f"Track ID: #{report.track_id}" if report.track_id else "Track ID: —"
+        resend.Emails.send({
+            "from": "Track Manager <onboarding@resend.dev>",
+            "to": ["trackmanager.web@gmail.com"],
+            "subject": f"[Reporte] {report.category} — #{report.id}",
+            "text": (
+                f"Nuevo reporte de problema\n"
+                f"{'─' * 40}\n"
+                f"ID:          #{report.id}\n"
+                f"Usuario:     {user.username} (ID {user.id})\n"
+                f"{track_line}\n"
+                f"Categoría:   {report.category}\n\n"
+                f"Descripción:\n{report.description}\n"
+            ),
+        })
+        logger.info("Report email sent for report #%d", report.id)
+    except Exception:
+        logger.exception("Failed to send report email for report #%d", report.id)
 
 
 # ── Cleanup ───────────────────────────────────────────────────────────────────

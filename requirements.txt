@@ -14,6 +14,7 @@ itsdangerous==2.2.0
 passlib==1.7.4
 bcrypt==5.0.0
 mutagen==1.47.0
+resend==2.10.0
 
 # Optional — Deezer downloads (requires valid ARL)
 # deemix==3.6.6
