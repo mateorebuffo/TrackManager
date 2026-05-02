@@ -47,8 +47,6 @@ def sync_soundcloud(
     current_user: User = Depends(get_current_user),
 ):
     """Trigger a SoundCloud likes sync."""
-    if (limited := _sync_rate_limited(current_user.id, request)):
-        return limited
     from app.models.user_settings import UserSettings
     us = db.query(UserSettings).filter_by(user_id=current_user.id).first()
     sc_token = (us.soundcloud_oauth_token or "") if us else ""
@@ -57,6 +55,8 @@ def sync_soundcloud(
         if "text/html" in accept:
             return RedirectResponse(url="/settings?missing=soundcloud", status_code=303)
         return {"status": "error", "detail": "SoundCloud OAuth token no configurado."}
+    if (limited := _sync_rate_limited(current_user.id, request)):
+        return limited
     collector = SoundCloudCollector(oauth_token=sc_token)
     result: SyncResult = run_sync(collector, db, user_id=current_user.id)
 

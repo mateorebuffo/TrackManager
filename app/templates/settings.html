@@ -70,6 +70,12 @@
   }
 </style>
 
+{% if request.query_params.get('missing') == 'soundcloud' %}
+<div class="alert alert-warning py-2 mb-3">
+  Configurá el <strong>OAuth Token de SoundCloud</strong> antes de sincronizar.
+</div>
+{% endif %}
+
 {# Disconnect forms must live OUTSIDE the main settings form to avoid invalid nesting #}
 <form id="spotify-disconnect-form" method="POST" action="/sync/spotify/disconnect" style="display:none"></form>
 <form id="youtube-disconnect-form" method="POST" action="/sync/youtube/disconnect" style="display:none"></form>
@@ -304,9 +310,6 @@ document.getElementById('settings-form').addEventListener('submit', function() {
   _setToast('Configuración guardada correctamente.', 'success');
 });
 
-{% if request.query_params.get('missing') == 'soundcloud' %}
-_setToast('Configurá el OAuth Token de SoundCloud antes de sincronizar.', 'warning');
-{% endif %}
 
 
 async function generateAgentToken() {
