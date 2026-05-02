@@ -125,7 +125,7 @@
     {% if error %}
       <div class="auth-error">{{ error }}</div>
     {% endif %}
-    <form method="POST" action="/login">
+    <form method="POST" action="/login" autocomplete="on">
       <input type="hidden" name="next" value="{{ next }}">
       <div class="mb-form">
         <label class="auth-label">Usuario</label>
