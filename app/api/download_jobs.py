@@ -310,18 +310,19 @@ def check_bandcamp(
         resp.raise_for_status()
         results = resp.json().get("web", {}).get("results", [])
 
-        # Significant words from artist and title (length > 2 to skip "a", "by", etc.)
-        artist_words = [w for w in _re.sub(r"[^\w\s]", " ", artist).lower().split() if len(w) > 2]
-        title_words  = [w for w in _re.sub(r"[^\w\s]", " ", clean_title).lower().split() if len(w) > 2]
+        # Words > 3 chars to skip noise like "the", "dj", "by"
+        artist_words = [w for w in _re.sub(r"[^\w\s]", " ", artist).lower().split() if len(w) > 3]
+        title_words  = [w for w in _re.sub(r"[^\w\s]", " ", clean_title).lower().split() if len(w) > 3]
 
         for r in results:
             url = r.get("url", "")
             if "bandcamp.com" not in url or ("/track/" not in url and "/album/" not in url):
                 continue
-            text = (r.get("title", "") + " " + r.get("description", "")).lower()
-            # Require at least one artist word AND one title word in the result text
-            if (not artist_words or any(w in text for w in artist_words)) and \
-               (not title_words  or any(w in text for w in title_words)):
+            # Check title only — Bandcamp page titles are "Track, by Artist" or "Artist - Track"
+            # Checking description too causes false positives when an artist has other Bandcamp content
+            page_title = r.get("title", "").lower()
+            if (not artist_words or any(w in page_title for w in artist_words)) and \
+               (not title_words  or any(w in page_title for w in title_words)):
                 return {"found": True}
 
         return {"found": False}
