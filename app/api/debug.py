@@ -174,7 +174,7 @@ def debug_reports(
 @router.post("/reports")
 async def submit_report(
     request: Request,
-    track_id: Annotated[int | None, Form()] = None,
+    track_id: Annotated[str | None, Form()] = None,
     category: Annotated[str, Form()] = "other",
     description: Annotated[str, Form()] = "",
     db: Session = Depends(get_db),
@@ -182,12 +182,15 @@ async def submit_report(
 ) -> RedirectResponse:
     if not description.strip():
         return RedirectResponse(url="/debug/reports?error=empty", status_code=303)
+    track_id_int: int | None = None
+    if track_id and track_id.strip().isdigit():
+        track_id_int = int(track_id.strip())
     report = log_service.create_user_report(
         db,
         user_id=current_user.id,
         category=category,
         description=description.strip(),
-        track_id=track_id or None,
+        track_id=track_id_int,
     )
     _send_report_email(report, current_user)
     return RedirectResponse(url="/debug/reports?submitted=1", status_code=303)
