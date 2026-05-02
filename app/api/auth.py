@@ -92,6 +92,12 @@ def login(
             {"request": request, "next": next, "error": "Usuario o contraseña incorrectos."},
             status_code=401,
         )
+    if not getattr(user, "is_active", True):
+        return templates.TemplateResponse(
+            "login.html",
+            {"request": request, "next": next, "error": "Esta cuenta está desactivada."},
+            status_code=403,
+        )
     token = make_session_token(user.id)
     response = RedirectResponse(url=_safe_next(next), status_code=303)
     is_secure = request.headers.get("x-forwarded-proto") == "https"
@@ -213,6 +219,21 @@ def delete_user(
         db.delete(user)
         db.commit()
     return RedirectResponse(url="/admin/users?deleted=1", status_code=303)
+
+
+@router.post("/admin/users/{user_id}/toggle-active", include_in_schema=False)
+def toggle_active(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+) -> Response:
+    if user_id == current_user.id:
+        return RedirectResponse(url="/admin/users?error=self", status_code=303)
+    user = db.query(User).filter(User.id == user_id).first()
+    if user:
+        user.is_active = not getattr(user, "is_active", True)
+        db.commit()
+    return RedirectResponse(url="/admin/users?toggled=1", status_code=303)
 
 
 @router.post("/admin/users/{user_id}/reset-password", include_in_schema=False)

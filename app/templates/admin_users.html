@@ -14,6 +14,10 @@
   <div class="alert alert-success alert-dismissible fade show py-2 mb-3">
     Usuario eliminado. <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
   </div>
+{% elif request.query_params.get('toggled') %}
+  <div class="alert alert-success alert-dismissible fade show py-2 mb-3">
+    Estado del usuario actualizado. <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
 {% elif request.query_params.get('reset') %}
   <div class="alert alert-success alert-dismissible fade show py-2 mb-3">
     Contraseña actualizada. <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
@@ -48,12 +52,15 @@
           {% if u.id == current_user.id %}
             <span class="badge s-queued ms-1" style="font-size:0.65rem;">tú</span>
           {% endif %}
+          {% if not u.is_active %}
+            <span class="badge bg-secondary ms-1" style="font-size:0.65rem;">Inactivo</span>
+          {% endif %}
         </td>
         <td>
           {% if u.is_admin %}
             <span class="badge" style="background:#fef3c7;color:#92400e;">Admin</span>
           {% else %}
-            <span class="badge s-pending">DJ</span>
+            <span class="badge s-pending">Usuario</span>
           {% endif %}
         </td>
         <td class="text-muted small">
@@ -68,9 +75,15 @@
               🔑 Reset
             </button>
             {% if u.id != current_user.id %}
+            <form method="POST" action="/admin/users/{{ u.id }}/toggle-active"
+                  onsubmit="return confirm('{% if u.is_active %}¿Desactivar usuario {{ u.username }}?{% else %}¿Reactivar usuario {{ u.username }}?{% endif %}')">
+              <button class="btn btn-sm {% if u.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %}">
+                {% if u.is_active %}Desactivar{% else %}Reactivar{% endif %}
+              </button>
+            </form>
             <form method="POST" action="/admin/users/{{ u.id }}/delete"
-                  onsubmit="return confirm('¿Eliminar usuario {{ u.username }}?')">
-              <button class="btn btn-outline-danger btn-sm">✕</button>
+                  onsubmit="return confirm('¿Eliminar permanentemente a {{ u.username }}? Esta acción no se puede deshacer.')">
+              <button class="btn btn-outline-danger btn-sm">Eliminar</button>
             </form>
             {% endif %}
           </div>
