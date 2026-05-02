@@ -43,8 +43,7 @@
       <th>#</th>
       <th>Track</th>
       <th>Estado</th>
-      <th>Buscar</th>
-      <th>Marcar como</th>
+      <th></th>
     </tr>
   </thead>
   <tbody>
@@ -65,11 +64,11 @@
           {% endif %}
           {% if row.source_url and row.source_url != "#" %}
             <a href="{{ row.source_url }}" target="_blank" rel="noopener"
-               style="font-size:0.855rem;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;">
+               style="font-size:0.855rem;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;">
               {{ row.label }}
             </a>
           {% else %}
-            <span style="font-size:0.855rem;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;">
+            <span style="font-size:0.855rem;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;">
               {{ row.label }}
             </span>
           {% endif %}
@@ -88,56 +87,12 @@
           <span class="badge s-bandcamp">Solo Bandcamp</span>
         {% endif %}
       </td>
-      <td class="action-btns">
-        <div class="d-flex flex-wrap gap-1">
-          <form method="POST" action="/auto-download/{{ row.review_id }}/form" class="d-inline">
-            <button class="btn btn-primary btn-sm" title="Buscar y descargar automáticamente">⬇ Auto</button>
-          </form>
-          <a href="{{ row.url_muzpa }}" target="_blank" rel="noopener"
-             class="btn btn-outline-secondary btn-sm search-btn"
-             data-key="muzpa-{{ row.review_id }}" onclick="markSearched(this)">Muzpa</a>
-          <a href="{{ row.url_deemix }}" target="_blank" rel="noopener"
-             class="btn btn-outline-secondary btn-sm search-btn"
-             data-key="deemix-{{ row.review_id }}" onclick="markSearched(this)">Deemix</a>
-          <a href="{{ row.url_bandcamp }}" target="_blank" rel="noopener"
-             class="btn btn-outline-secondary btn-sm search-btn"
-             data-key="bandcamp-{{ row.review_id }}" onclick="markSearched(this)">Bandcamp</a>
-          <a href="{{ row.url_discogs }}" target="_blank" rel="noopener"
-             class="btn btn-outline-secondary btn-sm search-btn"
-             data-key="discogs-{{ row.review_id }}" onclick="markSearched(this)">Discogs</a>
-          <button type="button" class="btn btn-outline-secondary btn-sm search-btn"
-                  data-query="{{ row.search_query }}"
-                  data-key="soulseek-{{ row.review_id }}"
-                  onclick="copySoulseek(this)" title="Copiar para Soulseek">⧉ SS</button>
-        </div>
-      </td>
-      <td class="action-btns">
-        <div class="d-flex flex-wrap gap-1">
-          <form method="POST" action="/review/{{ row.review_id }}/downloaded/form">
-            <button class="btn btn-success btn-sm"
-                    data-toast="✓ Descargado" data-toast-type="success">✓</button>
-          </form>
-          <form method="POST" action="/review/{{ row.review_id }}/not-found/form">
-            <button class="btn btn-outline-secondary btn-sm"
-                    data-toast="Marcado como no encontrado" data-toast-type="info"
-                    title="No se encuentra">✕</button>
-          </form>
-          <form method="POST" action="/review/{{ row.review_id }}/vinyl-only/form">
-            <button class="btn btn-outline-secondary btn-sm" style="background:#fef3c7;border-color:#fde68a;color:#92400e;"
-                    data-toast="Marcado como solo vinilo" data-toast-type="warning"
-                    title="Solo vinilo">💿</button>
-          </form>
-          <form method="POST" action="/review/{{ row.review_id }}/bandcamp-only/form">
-            <button class="btn btn-outline-secondary btn-sm" style="background:#dbeafe;border-color:#bfdbfe;color:#1e40af;"
-                    data-toast="Marcado como solo Bandcamp" data-toast-type="info"
-                    title="Solo Bandcamp">BC</button>
-          </form>
-          <form method="POST" action="/review/{{ row.review_id }}/requeue/form">
-            <button class="btn btn-outline-secondary btn-sm"
-                    data-toast="Vuelto a pendiente" data-toast-type="info"
-                    title="Quitar de la cola">↩</button>
-          </form>
-        </div>
+      <td style="white-space:nowrap;">
+        <form method="POST" action="/review/{{ row.review_id }}/requeue/form">
+          <button class="btn btn-outline-secondary btn-sm"
+                  data-toast="Vuelto a pendiente" data-toast-type="info"
+                  title="Quitar de la cola">↩</button>
+        </form>
       </td>
     </tr>
     {% endfor %}
