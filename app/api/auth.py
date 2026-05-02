@@ -193,6 +193,23 @@ def delete_user(
         return RedirectResponse(url="/admin/users?error=self", status_code=303)
     user = db.query(User).filter(User.id == user_id).first()
     if user:
+        from app.models.source_track import SourceTrack
+        from app.models.normalized_track import NormalizedTrack
+        from app.models.review_item import ReviewItem
+        from app.models.user_settings import UserSettings
+        from app.models.user_report import UserReport
+
+        # Delete in dependency order to avoid FK violations
+        source_ids = [r[0] for r in db.query(SourceTrack.id).filter_by(user_id=user_id).all()]
+        if source_ids:
+            nt_ids = [r[0] for r in db.query(NormalizedTrack.id).filter(NormalizedTrack.source_track_id.in_(source_ids)).all()]
+            if nt_ids:
+                db.query(ReviewItem).filter(ReviewItem.normalized_track_id.in_(nt_ids)).delete(synchronize_session=False)
+            db.query(NormalizedTrack).filter(NormalizedTrack.source_track_id.in_(source_ids)).delete(synchronize_session=False)
+            db.query(SourceTrack).filter(SourceTrack.user_id == user_id).delete(synchronize_session=False)
+
+        db.query(UserSettings).filter_by(user_id=user_id).delete(synchronize_session=False)
+        db.query(UserReport).filter_by(user_id=user_id).delete(synchronize_session=False)
         db.delete(user)
         db.commit()
     return RedirectResponse(url="/admin/users?deleted=1", status_code=303)
