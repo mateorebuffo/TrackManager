@@ -128,7 +128,8 @@ function dismissSetupBanner(){
       <button type="submit" form="soundcloud-sync-form"
               class="btn btn-sm d-inline-flex align-items-center gap-1"
               style="background:#fff3e0;color:#c84b00;border:1px solid #fed7aa;font-weight:600;"
-              title="Importar likes de SoundCloud">
+              title="Importar likes de SoundCloud"
+              onclick="showLoading('Importando tracks de SoundCloud…')">
         <span class="pi" style="font-size:14px;"><img src="/static/icons/soundcloud.svg" alt="" style="filter:invert(33%) sepia(77%) saturate(1200%) hue-rotate(1deg) brightness(90%);"></span>
         ↻
       </button>
@@ -142,7 +143,8 @@ function dismissSetupBanner(){
         <button type="submit" form="spotify-sync-form"
                 class="btn btn-sm src-btn d-inline-flex align-items-center gap-1"
                 style="background:#d1fae5;color:#065f46;border:1px solid #a7f3d0;"
-                title="{% if spotify_playlist_name %}Sincronizar desde « {{ spotify_playlist_name }} »{% else %}Importar desde Spotify{% endif %}">
+                title="{% if spotify_playlist_name %}Sincronizar desde « {{ spotify_playlist_name }} »{% else %}Importar desde Spotify{% endif %}"
+                onclick="showLoading('Importando tracks de Spotify…')">
           <span class="pi" style="font-size:14px;"><img src="/static/icons/spotify.svg" alt="" style="filter:invert(26%) sepia(60%) saturate(600%) hue-rotate(120deg) brightness(80%);"></span>
           ↻
         </button>
@@ -188,7 +190,8 @@ function dismissSetupBanner(){
         <button type="submit" form="youtube-sync-form"
                 class="btn btn-sm src-btn d-inline-flex align-items-center gap-1"
                 style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;"
-                title="Sincronizar desde « {{ youtube_playlist_name }} »">
+                title="Sincronizar desde « {{ youtube_playlist_name }} »"
+                onclick="showLoading('Importando tracks de YouTube…')">
           <span class="pi" style="font-size:14px;"><img src="/static/icons/youtube.svg" alt="" style="filter:invert(14%) sepia(80%) saturate(800%) hue-rotate(340deg) brightness(85%);"></span>
           ↻
         </button>
@@ -692,7 +695,7 @@ document.addEventListener('DOMContentLoaded', () => {
     form.addEventListener('submit', () => sessionStorage.setItem('pending_scroll', window.scrollY));
   });
 
-  /* Bulk form: block submission when nothing is selected */
+  /* Bulk form: block submission when nothing is selected; show loading for queue action */
   const queueForm = document.getElementById('queue-form');
   if (queueForm) {
     queueForm.addEventListener('submit', e => {
@@ -700,6 +703,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (checked === 0) {
         e.preventDefault();
         _showToastNow('Seleccioná al menos un track primero.', 'warning');
+        return;
+      }
+      /* Only show loading for the main queue action (no formaction = default form target) */
+      if (!e.submitter || !e.submitter.getAttribute('formaction')) {
+        showLoading('Preparando cola de descarga…');
       }
     });
   }
@@ -869,6 +877,8 @@ function selectPlaylist(id, name) {
   document.getElementById('playlistPickerNameInput').value = name;
   const form = document.getElementById('playlistPickerForm');
   form.action = '/sync/' + _pickerPlatform + '/select-playlist';
+  const label = _pickerPlatform === 'spotify' ? 'Spotify' : 'YouTube';
+  showLoading('Importando tracks de ' + label + '…');
   form.submit();
 }
 
