@@ -297,18 +297,25 @@ def check_bandcamp(
         title  = parts[1].strip() if len(parts) == 2 else q
         clean_title = _re.sub(r"\s+(EP|LP|Album|Single)\s*$", "", title, flags=_re.IGNORECASE).strip()
 
+        import logging as _log
+        _logger = _log.getLogger(__name__)
+
         resp = _httpx.get(
             "https://www.googleapis.com/customsearch/v1",
             params={
                 "key": settings.google_api_key,
                 "cx":  settings.google_cse_id,
-                "q":   f"{artist} {clean_title}",
+                "q":   f"site:bandcamp.com {artist} {clean_title}",
                 "num": 5,
             },
             timeout=10,
         )
         resp.raise_for_status()
-        results = resp.json().get("items", [])
+        data = resp.json()
+        results = data.get("items", [])
+        _logger.info("Bandcamp/Google CSE %r → %d results", q, len(results))
+        for r in results:
+            _logger.info("  url=%s title=%s", r.get("link", ""), r.get("title", ""))
 
         # Words > 3 chars to skip noise like "the", "dj", "by"
         artist_words = [w for w in _re.sub(r"[^\w\s]", " ", artist).lower().split() if len(w) > 3]
@@ -318,7 +325,6 @@ def check_bandcamp(
             url = r.get("link", "")
             if "/track/" not in url and "/album/" not in url:
                 continue
-            # Bandcamp page titles are "Track Name, by Artist" — check title only to avoid false positives
             page_title = r.get("title", "").lower()
             if (not artist_words or any(w in page_title for w in artist_words)) and \
                (not title_words  or any(w in page_title for w in title_words)):
@@ -326,6 +332,8 @@ def check_bandcamp(
 
         return {"found": False}
     except Exception:
+        import logging as _log
+        _log.getLogger(__name__).exception("Bandcamp Google CSE error for %r", q)
         return {"found": False}
 
 
