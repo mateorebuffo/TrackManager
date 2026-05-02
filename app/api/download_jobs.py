@@ -305,7 +305,7 @@ def check_bandcamp(
             params={
                 "key": settings.google_api_key,
                 "cx":  settings.google_cse_id,
-                "q":   f"site:bandcamp.com {artist} {clean_title}",
+                "q":   f"{artist} {clean_title}",
                 "num": 5,
             },
             timeout=10,
