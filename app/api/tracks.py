@@ -195,6 +195,7 @@ def pending_tracks_page(
             "counts": counts,
             "queued_count": counts.get("queued", 0),
             "source": source or "",
+            "sc_configured": bool(us and us.soundcloud_oauth_token),
             "spotify_connected": spotify_ok,
             "youtube_connected": youtube_ok,
             "spotify_playlist_name": _user_playlist_name(db, current_user.id, "spotify"),

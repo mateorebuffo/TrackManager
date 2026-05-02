@@ -129,7 +129,7 @@ function dismissSetupBanner(){
               class="btn btn-sm d-inline-flex align-items-center gap-1"
               style="background:#fff3e0;color:#c84b00;border:1px solid #fed7aa;font-weight:600;"
               title="Importar likes de SoundCloud"
-              onclick="showLoading('Importando tracks de SoundCloud…')">
+              {% if sc_configured %}onclick="showLoading('Importando tracks de SoundCloud…')"{% endif %}>
         <span class="pi" style="font-size:14px;"><img src="/static/icons/soundcloud.svg" alt="" style="filter:invert(33%) sepia(77%) saturate(1200%) hue-rotate(1deg) brightness(90%);"></span>
         ↻
       </button>
