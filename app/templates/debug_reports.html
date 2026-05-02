@@ -44,8 +44,8 @@
 <form method="GET" action="/debug/reports" class="d-flex gap-2 mb-3">
   <select name="status" class="form-select form-select-sm" style="width:auto">
     <option value="">Todos los estados</option>
-    {% for s in ["open", "reviewed", "resolved"] %}
-      <option value="{{ s }}" {% if active_status == s %}selected{% endif %}>{{ s }}</option>
+    {% for s, label in [("open", "Abierto"), ("reviewed", "Revisado"), ("resolved", "Resuelto")] %}
+      <option value="{{ s }}" {% if active_status == s %}selected{% endif %}>{{ label }}</option>
     {% endfor %}
   </select>
   <button type="submit" class="btn btn-sm btn-outline-secondary">Filtrar</button>
@@ -70,6 +70,8 @@
         </tr>
       </thead>
       <tbody>
+        {% set cat_labels = {"metadata_incorrect": "Metadata incorrecta", "wrong_file_downloaded": "Archivo incorrecto", "wrong_folder": "Carpeta incorrecta", "track_not_found": "Track no encontrado", "duplicate_problem": "Duplicado", "other": "Otro"} %}
+        {% set st_labels  = {"open": "Abierto", "reviewed": "Revisado", "resolved": "Resuelto"} %}
         {% for r in reports %}
         {% set st_badge = {"open": "badge bg-danger", "reviewed": "badge bg-warning text-dark", "resolved": "badge bg-success"}.get(r.status.value, "badge bg-secondary") %}
         <tr>
@@ -85,9 +87,9 @@
               <a href="/debug/track/{{ r.track_id }}" class="text-decoration-none">#{{ r.track_id }}</a>
             {% else %}—{% endif %}
           </td>
-          <td style="font-size:0.78rem">{{ r.category }}</td>
+          <td style="font-size:0.78rem">{{ cat_labels.get(r.category, r.category) }}</td>
           <td style="font-size:0.82rem;max-width:260px">{{ r.description }}</td>
-          <td><span class="{{ st_badge }}" style="font-size:0.67rem">{{ r.status.value }}</span></td>
+          <td><span class="{{ st_badge }}" style="font-size:0.67rem">{{ st_labels.get(r.status.value, r.status.value) }}</span></td>
           <td style="font-size:0.78rem;color:var(--tm-muted);max-width:160px">
             {{ r.resolution_notes or "—" }}
           </td>
@@ -100,8 +102,8 @@
               <form method="POST" action="/debug/reports/{{ r.id }}/status" class="mt-2 p-2 border rounded"
                     style="min-width:220px;background:#f8fafc">
                 <select name="status" class="form-select form-select-sm mb-2">
-                  {% for s in ["open", "reviewed", "resolved"] %}
-                    <option value="{{ s }}" {% if r.status.value == s %}selected{% endif %}>{{ s }}</option>
+                  {% for s, label in [("open", "Abierto"), ("reviewed", "Revisado"), ("resolved", "Resuelto")] %}
+                    <option value="{{ s }}" {% if r.status.value == s %}selected{% endif %}>{{ label }}</option>
                   {% endfor %}
                 </select>
                 <textarea name="resolution_notes" class="form-control form-control-sm mb-2" rows="2"
