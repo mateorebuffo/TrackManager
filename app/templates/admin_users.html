@@ -93,7 +93,10 @@
         </div>
         <div class="col-sm-5">
           <label class="form-label">Contraseña</label>
-          <input type="password" name="password" class="form-control form-control-sm" required minlength="6">
+          <div class="input-group input-group-sm">
+            <input type="password" name="password" id="new-password" class="form-control form-control-sm" required minlength="6">
+            <button type="button" class="btn btn-outline-secondary" onclick="toggleField('new-password')">👁</button>
+          </div>
         </div>
         <div class="col-sm-2 d-flex flex-column justify-content-end">
           <div class="form-check mb-2">
@@ -121,8 +124,11 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <input type="password" name="new_password" class="form-control form-control-sm"
-                 placeholder="Nueva contraseña (mín. 6 chars)" required minlength="6">
+          <div class="input-group input-group-sm">
+            <input type="password" name="new_password" id="reset-password" class="form-control form-control-sm"
+                   placeholder="Nueva contraseña (mín. 6 chars)" required minlength="6">
+            <button type="button" class="btn btn-outline-secondary" onclick="toggleField('reset-password')">👁</button>
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
