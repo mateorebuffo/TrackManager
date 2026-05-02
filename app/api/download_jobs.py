@@ -291,9 +291,16 @@ def check_bandcamp(
 
     import httpx as _httpx
     try:
+        # Quote artist/title separately for precise matching
+        parts = q.split(" - ", 1)
+        if len(parts) == 2:
+            brave_query = f'site:bandcamp.com "{parts[0].strip()}" "{parts[1].strip()}"'
+        else:
+            brave_query = f'site:bandcamp.com "{q}"'
+
         resp = _httpx.get(
             "https://api.search.brave.com/res/v1/web/search",
-            params={"q": f"site:bandcamp.com {q}", "count": 5},
+            params={"q": brave_query, "count": 5},
             headers={
                 "X-Subscription-Token": settings.brave_api_key,
                 "Accept": "application/json",
@@ -302,7 +309,12 @@ def check_bandcamp(
         )
         resp.raise_for_status()
         results = resp.json().get("web", {}).get("results", [])
-        found = any("bandcamp.com" in r.get("url", "") for r in results)
+        # Only count results that are actual track or album pages, not generic pages
+        found = any(
+            ("bandcamp.com" in r.get("url", ""))
+            and ("/track/" in r.get("url", "") or "/album/" in r.get("url", ""))
+            for r in results
+        )
         return {"found": found}
     except Exception:
         return {"found": False}
