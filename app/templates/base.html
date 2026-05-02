@@ -371,6 +371,11 @@ function showLoading(msg) {
   if (msg && msgEl) msgEl.textContent = msg;
   overlay.style.display = 'flex';
 }
+
+function toggleField(id) {
+  const f = document.getElementById(id);
+  if (f) f.type = f.type === 'password' ? 'text' : 'password';
+}
 </script>
 </body>
 </html>

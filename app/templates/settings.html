@@ -317,10 +317,6 @@ async function generateAgentToken() {
     envBlock.textContent = envBlock.textContent.replace(/TM_API_TOKEN=.*/, 'TM_API_TOKEN=' + data.token);
   }
 }
-function toggleField(id) {
-  const f = document.getElementById(id);
-  f.type = f.type === 'password' ? 'text' : 'password';
-}
 function toggleAgentToken() {
   toggleField('agent-token-field');
 }
