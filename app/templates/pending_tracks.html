@@ -439,7 +439,7 @@ function dismissSetupBanner(){
         ✕ Descartar
       </button>
     {% endif %}
-    {% if active_status in ['downloaded', 'not_found', 'vinyl_only', 'bandcamp_only'] %}
+    {% if active_status == 'downloaded' %}
       <button type="submit" form="queue-form" formaction="/tracks/bulk-to-queue"
               class="btn btn-outline-primary btn-sm"
               data-toast="Tracks enviados a la cola" data-toast-type="success">
