@@ -37,9 +37,10 @@ class Settings(BaseSettings):
     # directly from app/static/agent/ (local / self-hosted only).
     agent_download_url: str = ""
 
-    # Brave Search API key for Bandcamp presence checks (https://brave.com/search/api/)
-    # Free tier: $5 credits/month (~1,000 queries). Leave empty to skip Bandcamp detection.
-    brave_api_key: str = ""
+    # Google Custom Search API for Bandcamp presence checks.
+    # Free tier: 100 queries/day. Set both vars in Railway to enable.
+    google_api_key: str = ""
+    google_cse_id: str = ""
 
     # Deduplication thresholds
     dedup_strong_match_score: float = 90.0
