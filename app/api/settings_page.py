@@ -3,10 +3,14 @@ Settings page — per-user configuration stored in UserSettings table.
 """
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
+import httpx
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+
+logger = logging.getLogger(__name__)
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from typing import Annotated
@@ -109,3 +113,62 @@ async def save_settings(
     )
 
     return RedirectResponse(url="/settings?saved=1", status_code=303)
+
+
+@router.get("/verify/muzpa")
+def verify_muzpa(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> JSONResponse:
+    us = db.query(UserSettings).filter_by(user_id=current_user.id).first()
+    sess = us.muzpa_sess if us else ""
+    if not sess:
+        return JSONResponse({"ok": False, "msg": "No hay SESS configurado."})
+    try:
+        resp = httpx.get(
+            "https://srv.muzpa.com/a/ms/media/search",
+            params={"q": "test", "limit": "1"},
+            cookies={"SESS": sess},
+            headers={"User-Agent": "TrackManager/1.0"},
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            return JSONResponse({"ok": True, "msg": "Credencial válida."})
+        elif resp.status_code in (401, 403):
+            return JSONResponse({"ok": False, "msg": "Sesión expirada o inválida. Actualizá el token."})
+        else:
+            return JSONResponse({"ok": False, "msg": f"Respuesta inesperada: {resp.status_code}."})
+    except Exception as e:
+        logger.exception("Muzpa verify error")
+        return JSONResponse({"ok": False, "msg": f"Error de conexión: {e}"})
+
+
+@router.get("/verify/deezer")
+def verify_deezer(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> JSONResponse:
+    us = db.query(UserSettings).filter_by(user_id=current_user.id).first()
+    arl = us.deezer_arl if us else ""
+    if not arl:
+        return JSONResponse({"ok": False, "msg": "No hay ARL configurado."})
+    try:
+        resp = httpx.get(
+            "https://www.deezer.com/ajax/gw-light.php",
+            params={"method": "deezer.getUserData", "input": "3",
+                    "api_version": "1.0", "api_token": "null"},
+            cookies={"arl": arl},
+            headers={"User-Agent": "TrackManager/1.0"},
+            timeout=10,
+        )
+        data = resp.json()
+        user_id = data.get("results", {}).get("USER", {}).get("USER_ID", 0)
+        if user_id and int(user_id) > 0:
+            email = data.get("results", {}).get("USER", {}).get("EMAIL", "")
+            msg = f"Credencial válida.{' (' + email + ')' if email else ''}"
+            return JSONResponse({"ok": True, "msg": msg})
+        else:
+            return JSONResponse({"ok": False, "msg": "ARL expirado o inválido. Actualizá el ARL desde tu navegador."})
+    except Exception as e:
+        logger.exception("Deezer verify error")
+        return JSONResponse({"ok": False, "msg": f"Error de conexión: {e}"})

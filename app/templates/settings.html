@@ -179,7 +179,9 @@
                      class="form-control form-control-sm font-monospace"
                      value="{{ current.get('muzpa_sess', '') }}" autocomplete="off">
               <button class="btn btn-outline-secondary" type="button" onclick="toggleField('field-muzpa-sess')">👁</button>
+              <button class="btn btn-outline-secondary" type="button" onclick="verifyCredential('muzpa')">Verificar</button>
             </div>
+            <div id="muzpa-verify-result" class="mt-1" style="font-size:0.75rem;display:none;"></div>
           </div>
         </div>
 
@@ -200,7 +202,9 @@
                      class="form-control form-control-sm font-monospace"
                      value="{{ current.get('deezer_arl', '') }}" autocomplete="off">
               <button class="btn btn-outline-secondary" type="button" onclick="toggleField('field-deezer-arl')">👁</button>
+              <button class="btn btn-outline-secondary" type="button" onclick="verifyCredential('deezer')">Verificar</button>
             </div>
+            <div id="deezer-verify-result" class="mt-1" style="font-size:0.75rem;display:none;"></div>
           </div>
         </div>
 
@@ -314,6 +318,22 @@
 </form>
 
 <script>
+async function verifyCredential(service) {
+  const el = document.getElementById(service + '-verify-result');
+  el.style.display = 'block';
+  el.className = 'mt-1 text-muted';
+  el.textContent = 'Verificando…';
+  try {
+    const res = await fetch('/settings/verify/' + service);
+    const data = await res.json();
+    el.className = 'mt-1 fw-semibold ' + (data.ok ? 'text-success' : 'text-danger');
+    el.textContent = (data.ok ? '✓ ' : '✗ ') + data.msg;
+  } catch {
+    el.className = 'mt-1 text-danger';
+    el.textContent = '✗ Error al conectar con el servidor.';
+  }
+}
+
 document.getElementById('settings-form').addEventListener('submit', function() {
   _setToast('Configuración guardada correctamente.', 'success');
 });
