@@ -432,7 +432,8 @@ function dismissSetupBanner(){
   <div class="ms-auto d-flex gap-1 flex-wrap">
     {% if active_status in ['pending', 'not_found', 'vinyl_only', 'bandcamp_only', 'all'] %}
       <button type="submit" form="queue-form" class="btn btn-success btn-sm"
-              data-toast="Cola armada" data-toast-type="success">
+              data-toast="Cola armada" data-toast-type="success"
+              onclick="if(document.querySelectorAll('.row-check:checked').length > 0) showLoading('Preparando cola de descarga…')">
         ↗ Armar cola de descarga
       </button>
     {% endif %}
@@ -695,7 +696,7 @@ document.addEventListener('DOMContentLoaded', () => {
     form.addEventListener('submit', () => sessionStorage.setItem('pending_scroll', window.scrollY));
   });
 
-  /* Bulk form: block submission when nothing is selected; show loading for queue action */
+  /* Bulk form: block submission when nothing is selected */
   const queueForm = document.getElementById('queue-form');
   if (queueForm) {
     queueForm.addEventListener('submit', e => {
@@ -703,11 +704,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (checked === 0) {
         e.preventDefault();
         _showToastNow('Seleccioná al menos un track primero.', 'warning');
-        return;
-      }
-      /* Only show loading for the main queue action (no formaction = default form target) */
-      if (!e.submitter || !e.submitter.getAttribute('formaction')) {
-        showLoading('Preparando cola de descarga…');
       }
     });
   }
