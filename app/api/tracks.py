@@ -416,6 +416,11 @@ def download_queue_get(
 
 
 def _render_queue(request: Request, db: Session, user_id: int) -> HTMLResponse:
+    from app.models.user_settings import UserSettings
+    us = db.query(UserSettings).filter_by(user_id=user_id).first()
+    has_muzpa  = bool(us and us.muzpa_sess)
+    has_deezer = bool(us and us.deezer_arl)
+
     items = (
         db.query(ReviewItem)
         .join(ReviewItem.normalized_track)
@@ -435,7 +440,8 @@ def _render_queue(request: Request, db: Session, user_id: int) -> HTMLResponse:
     queued_count = sum(1 for r in rows if r["status"] == "queued")
     return templates.TemplateResponse(
         "download_queue.html",
-        {"request": request, "rows": rows, "queued_count": queued_count},
+        {"request": request, "rows": rows, "queued_count": queued_count,
+         "has_muzpa": has_muzpa, "has_deezer": has_deezer},
     )
 
 

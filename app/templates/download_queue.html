@@ -14,7 +14,10 @@
     <a href="/tracks/pending" class="btn btn-outline-secondary btn-sm">← Volver</a>
     <form method="POST" action="/auto-download/all/form"
           onsubmit="return confirm('¿Auto-descargar todos los tracks en cola? Puede tardar varios minutos.')">
-      <button class="btn btn-primary btn-sm" {% if queued_count == 0 %}disabled title="No hay tracks en cola"{% endif %}>
+      <button class="btn btn-primary btn-sm"
+        {% if queued_count == 0 %}disabled title="No hay tracks en cola"
+        {% elif not has_muzpa and not has_deezer %}disabled title="Configurá Muzpa o Deezer primero"
+        {% endif %}>
         ⬇ Auto-descargar todo
       </button>
     </form>
@@ -29,6 +32,26 @@
 <div class="alert alert-warning alert-dismissible fade show mb-3 py-2" role="alert">
   No hay tracks en cola para descargar.
   <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
+{% if not has_muzpa and not has_deezer %}
+<div class="alert alert-danger mb-3" role="alert">
+  <strong>No podés auto-descargar todavía.</strong>
+  No tenés configurado ni Muzpa ni Deezer/Deemix. El sistema necesita al menos uno de los dos para poder descargar tracks.
+  <a href="/settings" class="alert-link ms-1">Ir a Configuración →</a>
+</div>
+{% elif not has_muzpa %}
+<div class="alert alert-warning mb-3" role="alert">
+  <strong>Solo tenés Deezer configurado.</strong>
+  Podés descargar, pero algunos tracks que están en Muzpa y no en Deezer se van a perder. Sumando Muzpa obtenés mejores resultados de descarga ya que ambas plataformas tienen catálogos distintos y se complementan.
+  <a href="/settings" class="alert-link ms-1">Configurar Muzpa →</a>
+</div>
+{% elif not has_deezer %}
+<div class="alert alert-warning mb-3" role="alert">
+  <strong>Solo tenés Muzpa configurado.</strong>
+  Podés descargar, pero algunos tracks que están en Deezer y no en Muzpa se van a perder. Sumando Deezer/Deemix obtenés mejores resultados de descarga ya que ambas plataformas tienen catálogos distintos y se complementan.
+  <a href="/settings" class="alert-link ms-1">Configurar Deezer →</a>
 </div>
 {% endif %}
 
