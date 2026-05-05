@@ -275,10 +275,19 @@
 <script>
 async function cancelAllPending() {
   if (!confirm('¿Cancelar todos los jobs pendientes y en progreso?')) return;
-  const res = await fetch('/api/download-jobs/cancel-all-pending', {method: 'POST'});
-  const data = await res.json();
-  _setToast(`${data.cancelled} jobs cancelados.`, 'success');
-  setTimeout(() => location.reload(), 800);
+  try {
+    const res = await fetch('/api/download-jobs/cancel-all-pending', {method: 'POST'});
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      showError('Error al cancelar la cola', data.detail || `Error ${res.status}`);
+      return;
+    }
+    const data = await res.json();
+    _setToast(`${data.cancelled} jobs cancelados.`, 'success');
+    setTimeout(() => location.reload(), 800);
+  } catch (err) {
+    showError('Error al cancelar la cola', err.message || 'No se pudo conectar con el servidor.');
+  }
 }
 
 function toggleToken() {

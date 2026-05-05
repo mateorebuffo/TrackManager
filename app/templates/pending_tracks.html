@@ -889,16 +889,30 @@ document.addEventListener('DOMContentLoaded', () => {
   const params = new URLSearchParams(window.location.search);
   const synced = params.get('synced');
   const source = params.get('source');
-  if (synced === null) return;
+  const syncErr = params.get('sync_error');
   const labels = { soundcloud: 'SoundCloud', spotify: 'Spotify', youtube: 'YouTube' };
   const label = labels[source] || source || '';
+
+  const url = new URL(window.location.href);
+
+  if (syncErr) {
+    showError(
+      `Error al sincronizar ${label}`,
+      'Ocurrió un error durante la sincronización. Revisá tu conexión y configuración, y volvé a intentarlo.'
+    );
+    url.searchParams.delete('sync_error');
+    url.searchParams.delete('source');
+    window.history.replaceState({}, '', url.toString());
+    return;
+  }
+
+  if (synced === null) return;
   const n = parseInt(synced, 10);
   const msg = n > 0
     ? `${n} track${n !== 1 ? 's' : ''} nuevo${n !== 1 ? 's' : ''} importado${n !== 1 ? 's' : ''} desde ${label}.`
     : `Sincronización completada — no hay tracks nuevos desde ${label}.`;
   _showToastNow(msg, n > 0 ? 'success' : 'info');
   /* Clean URL so a manual reload doesn't re-show the toast */
-  const url = new URL(window.location.href);
   url.searchParams.delete('synced');
   url.searchParams.delete('source');
   window.history.replaceState({}, '', url.toString());

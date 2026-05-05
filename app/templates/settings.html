@@ -321,15 +321,24 @@ document.getElementById('settings-form').addEventListener('submit', function() {
 
 
 async function generateAgentToken() {
-  const res = await fetch('/api/generate-token', {method: 'POST'});
-  const data = await res.json();
-  document.getElementById('agent-token-field').value = data.token;
-  document.getElementById('agent-token-display').classList.remove('d-none');
-  const emptyDiv = document.getElementById('agent-token-empty');
-  if (emptyDiv) emptyDiv.classList.add('d-none');
-  const envBlock = document.getElementById('agent-env-block');
-  if (envBlock) {
-    envBlock.textContent = envBlock.textContent.replace(/TM_API_TOKEN=.*/, 'TM_API_TOKEN=' + data.token);
+  try {
+    const res = await fetch('/api/generate-token', {method: 'POST'});
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      showError('Error al generar token', data.detail || `Error ${res.status}`);
+      return;
+    }
+    const data = await res.json();
+    document.getElementById('agent-token-field').value = data.token;
+    document.getElementById('agent-token-display').classList.remove('d-none');
+    const emptyDiv = document.getElementById('agent-token-empty');
+    if (emptyDiv) emptyDiv.classList.add('d-none');
+    const envBlock = document.getElementById('agent-env-block');
+    if (envBlock) {
+      envBlock.textContent = envBlock.textContent.replace(/TM_API_TOKEN=.*/, 'TM_API_TOKEN=' + data.token);
+    }
+  } catch (err) {
+    showError('Error al generar token', err.message || 'No se pudo conectar con el servidor.');
   }
 }
 function toggleAgentToken() {

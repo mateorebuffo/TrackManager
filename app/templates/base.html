@@ -327,6 +327,24 @@
   </div>
 </div>
 
+<!-- ── Error modal ───────────────────────────────────────────────── -->
+<div class="modal fade" id="tm-error-modal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header" style="border-bottom:1px solid #fecaca;">
+        <h5 class="modal-title" style="color:var(--tm-danger);">⚠ <span id="tm-error-title">Error</span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p id="tm-error-msg" style="font-size:0.875rem;margin:0;white-space:pre-wrap;"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100;">
   <div id="global-toast" class="toast align-items-center border-0 shadow-sm" role="alert" aria-live="assertive">
     <div class="d-flex">
@@ -375,6 +393,14 @@ function showLoading(msg) {
 function toggleField(id) {
   const f = document.getElementById(id);
   if (f) f.type = f.type === 'password' ? 'text' : 'password';
+}
+
+function showError(title, msg) {
+  const overlay = document.getElementById('tm-loading-overlay');
+  if (overlay) overlay.style.display = 'none';
+  document.getElementById('tm-error-title').textContent = title || 'Error';
+  document.getElementById('tm-error-msg').textContent = msg || 'Ocurrió un error inesperado.';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('tm-error-modal')).show();
 }
 </script>
 </body>

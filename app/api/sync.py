@@ -184,6 +184,7 @@ def spotify_select_playlist(
     db.commit()
 
     new_tracks = 0
+    sync_error = False
     try:
         access_token = spotify_auth.get_valid_access_token(db, current_user.id)
         collector = SpotifyCollector(access_token, playlist_id=playlist_id)
@@ -191,7 +192,13 @@ def spotify_select_playlist(
         new_tracks = result.new_tracks
     except Exception:
         logger.exception("Spotify sync after playlist selection failed")
+        sync_error = True
 
+    if sync_error:
+        return RedirectResponse(
+            url="/tracks/pending?sync_error=1&source=spotify",
+            status_code=303,
+        )
     return RedirectResponse(
         url=f"/tracks/pending?synced={new_tracks}&source=spotify",
         status_code=303,
@@ -359,6 +366,7 @@ def youtube_select_playlist(
     db.commit()
 
     new_tracks = 0
+    sync_error = False
     try:
         access_token = youtube_auth.get_valid_access_token(db, current_user.id)
         collector = YouTubeCollector(access_token, playlist_id=playlist_id)
@@ -366,7 +374,13 @@ def youtube_select_playlist(
         new_tracks = result.new_tracks
     except Exception:
         logger.exception("YouTube sync after playlist selection failed")
+        sync_error = True
 
+    if sync_error:
+        return RedirectResponse(
+            url="/tracks/pending?sync_error=1&source=youtube",
+            status_code=303,
+        )
     return RedirectResponse(
         url=f"/tracks/pending?synced={new_tracks}&source=youtube",
         status_code=303,
