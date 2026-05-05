@@ -9,6 +9,11 @@ from pathlib import Path
 import httpx
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from pydantic import BaseModel
+
+
+class _VerifyPayload(BaseModel):
+    value: str = ""
 
 logger = logging.getLogger(__name__)
 from fastapi.templating import Jinja2Templates
@@ -115,13 +120,12 @@ async def save_settings(
     return RedirectResponse(url="/settings?saved=1", status_code=303)
 
 
-@router.get("/verify/muzpa")
+@router.post("/verify/muzpa")
 def verify_muzpa(
-    db: Session = Depends(get_db),
+    payload: _VerifyPayload,
     current_user: User = Depends(get_current_user),
 ) -> JSONResponse:
-    us = db.query(UserSettings).filter_by(user_id=current_user.id).first()
-    sess = us.muzpa_sess if us else ""
+    sess = payload.value.strip()
     if not sess:
         return JSONResponse({"ok": False, "msg": "No hay SESS configurado."})
     try:
@@ -143,13 +147,12 @@ def verify_muzpa(
         return JSONResponse({"ok": False, "msg": f"Error de conexión: {e}"})
 
 
-@router.get("/verify/deezer")
+@router.post("/verify/deezer")
 def verify_deezer(
-    db: Session = Depends(get_db),
+    payload: _VerifyPayload,
     current_user: User = Depends(get_current_user),
 ) -> JSONResponse:
-    us = db.query(UserSettings).filter_by(user_id=current_user.id).first()
-    arl = us.deezer_arl if us else ""
+    arl = payload.value.strip()
     if not arl:
         return JSONResponse({"ok": False, "msg": "No hay ARL configurado."})
     try:

@@ -319,12 +319,18 @@
 
 <script>
 async function verifyCredential(service) {
+  const fieldMap = {muzpa: 'field-muzpa-sess', deezer: 'field-deezer-arl'};
+  const value = document.getElementById(fieldMap[service])?.value || '';
   const el = document.getElementById(service + '-verify-result');
   el.style.display = 'block';
   el.className = 'mt-1 text-muted';
   el.textContent = 'Verificando…';
   try {
-    const res = await fetch('/settings/verify/' + service);
+    const res = await fetch('/settings/verify/' + service, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({value}),
+    });
     const data = await res.json();
     el.className = 'mt-1 fw-semibold ' + (data.ok ? 'text-success' : 'text-danger');
     el.textContent = (data.ok ? '✓ ' : '✗ ') + data.msg;
