@@ -124,11 +124,16 @@
             <div class="svc-name">
               <span class="svc-dot dot-youtube"></span>YouTube
             </div>
-            {% if youtube_connected %}
-              <span class="badge s-downloaded" style="font-size:0.67rem;">Conectado</span>
-            {% else %}
-              <span class="badge s-not_found" style="font-size:0.67rem;">No conectado</span>
-            {% endif %}
+            <div class="d-flex align-items-center gap-2">
+              <a href="/static/Manual-YouTube.pdf" target="_blank"
+                 class="btn btn-link btn-sm p-0 text-muted"
+                 style="font-size:0.78rem;">¿Cómo configuro esto?</a>
+              {% if youtube_connected %}
+                <span class="badge s-downloaded" style="font-size:0.67rem;">Conectado</span>
+              {% else %}
+                <span class="badge s-not_found" style="font-size:0.67rem;">No conectado</span>
+              {% endif %}
+            </div>
           </div>
           {% if youtube_connected %}
             <button type="submit" form="youtube-disconnect-form" class="btn btn-outline-danger btn-sm w-100">Desconectar</button>
