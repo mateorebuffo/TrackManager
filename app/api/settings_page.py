@@ -31,6 +31,8 @@ templates = Jinja2Templates(directory="app/templates")
 
 _FIELDS = [
     ("soundcloud_oauth_token", "SoundCloud OAuth Token",           "password", False),
+    ("spotify_client_id",      "Spotify Client ID",                "password", False),
+    ("spotify_client_secret",  "Spotify Client Secret",            "password", False),
     ("muzpa_sess",             "Muzpa Session (SESS=...)",          "password", False),
     ("deezer_arl",             "Deezer ARL",                        "password", False),
     ("download_dir",           "Carpeta de descarga",               "text",     False),
@@ -66,6 +68,8 @@ def settings_page(
     us = _get_or_create_settings(db, current_user.id)
     current = {
         "soundcloud_oauth_token": us.soundcloud_oauth_token or "",
+        "spotify_client_id":      us.spotify_client_id or "",
+        "spotify_client_secret":  us.spotify_client_secret or "",
         "muzpa_sess":             us.muzpa_sess or "",
         "deezer_arl":             us.deezer_arl or "",
         "download_dir":           us.download_dir or "",

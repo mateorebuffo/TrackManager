@@ -1,5 +1,6 @@
 """
 Spotify OAuth token management — per-user, stored in UserSettings.spotify_token_json.
+Each user provides their own Spotify Developer app credentials (client_id + client_secret).
 """
 from __future__ import annotations
 
@@ -17,11 +18,22 @@ _TOKEN_URL = "https://accounts.spotify.com/api/token"
 _SCOPES = "user-library-read playlist-read-private playlist-read-collaborative"
 
 
-def get_auth_url(user_id: int) -> str:
+def get_credentials(db: Session, user_id: int) -> tuple[str, str]:
+    """Return (client_id, client_secret) for this user, raising if not configured."""
+    us = _get_user_settings(db, user_id)
+    client_id = (us.spotify_client_id or "").strip()
+    client_secret = (us.spotify_client_secret or "").strip()
+    if not client_id or not client_secret:
+        raise RuntimeError("Spotify Client ID y Client Secret no configurados.")
+    return client_id, client_secret
+
+
+def get_auth_url(user_id: int, db: Session) -> str:
     from itsdangerous import URLSafeSerializer
+    client_id, _ = get_credentials(db, user_id)
     state = URLSafeSerializer(settings.secret_key, salt="oauth-state").dumps({"uid": user_id})
     params = {
-        "client_id": settings.spotify_client_id,
+        "client_id": client_id,
         "response_type": "code",
         "redirect_uri": settings.spotify_redirect_uri,
         "scope": _SCOPES,
@@ -40,6 +52,7 @@ def verify_state(state: str, user_id: int) -> bool:
 
 
 def exchange_code(code: str, db: Session, user_id: int) -> None:
+    client_id, client_secret = get_credentials(db, user_id)
     resp = httpx.post(
         _TOKEN_URL,
         data={
@@ -47,7 +60,7 @@ def exchange_code(code: str, db: Session, user_id: int) -> None:
             "code": code,
             "redirect_uri": settings.spotify_redirect_uri,
         },
-        auth=(settings.spotify_client_id, settings.spotify_client_secret),
+        auth=(client_id, client_secret),
         timeout=15,
     )
     resp.raise_for_status()
@@ -113,13 +126,14 @@ def _refresh(token_data: dict, db: Session, user_id: int) -> dict:
     refresh_token = token_data.get("refresh_token")
     if not refresh_token:
         raise RuntimeError("No hay refresh token. Reconectá Spotify.")
+    client_id, client_secret = get_credentials(db, user_id)
     resp = httpx.post(
         _TOKEN_URL,
         data={
             "grant_type": "refresh_token",
             "refresh_token": refresh_token,
         },
-        auth=(settings.spotify_client_id, settings.spotify_client_secret),
+        auth=(client_id, client_secret),
         timeout=15,
     )
     resp.raise_for_status()

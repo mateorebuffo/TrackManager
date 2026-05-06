@@ -83,15 +83,11 @@ def sync_soundcloud(
 # ---------------------------------------------------------------------------
 
 @router.get("/spotify/connect")
-def spotify_connect(current_user: User = Depends(get_current_user)):
+def spotify_connect(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     from app.config import settings
-    if not settings.spotify_client_id:
-        return HTMLResponse(
-            "<h3>Error: SPOTIFY_CLIENT_ID no configurado.</h3>"
-            "<p>Añadí <code>SPOTIFY_CLIENT_ID</code> y <code>SPOTIFY_CLIENT_SECRET</code> "
-            "en las variables de entorno.</p>",
-            status_code=500,
-        )
     if not settings.spotify_redirect_uri:
         return HTMLResponse(
             "<h3>Error: SPOTIFY_REDIRECT_URI no configurado.</h3>"
@@ -99,7 +95,11 @@ def spotify_connect(current_user: User = Depends(get_current_user)):
             "en las variables de entorno y registralo en el Spotify Developer Console.</p>",
             status_code=500,
         )
-    return RedirectResponse(url=spotify_auth.get_auth_url(current_user.id))
+    try:
+        url = spotify_auth.get_auth_url(current_user.id, db)
+    except RuntimeError:
+        return RedirectResponse(url="/settings?missing=spotify_credentials", status_code=303)
+    return RedirectResponse(url=url)
 
 
 @router.get("/spotify/callback")

@@ -82,6 +82,10 @@
 <div class="alert alert-warning py-2 mb-3">
   Conectá tu cuenta de <strong>YouTube</strong> antes de sincronizar.
 </div>
+{% elif request.query_params.get('missing') == 'spotify_credentials' %}
+<div class="alert alert-warning py-2 mb-3">
+  Configurá tu <strong>Spotify Client ID y Client Secret</strong> antes de conectar.
+</div>
 {% endif %}
 
 {# Disconnect forms must live OUTSIDE the main settings form to avoid invalid nesting #}
@@ -108,6 +112,24 @@
             {% else %}
               <span class="badge s-not_found" style="font-size:0.67rem;">No conectado</span>
             {% endif %}
+          </div>
+          <div>
+            <label class="form-label text-muted mb-1" style="font-size:0.72rem;">Client ID</label>
+            <div class="input-group input-group-sm mb-2">
+              <input type="password" name="spotify_client_id" id="field-spotify-client-id"
+                     class="form-control form-control-sm font-monospace"
+                     value="{{ current.get('spotify_client_id', '') }}" autocomplete="off"
+                     placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+              <button class="btn btn-outline-secondary" type="button" onclick="toggleField('field-spotify-client-id')">👁</button>
+            </div>
+            <label class="form-label text-muted mb-1" style="font-size:0.72rem;">Client Secret</label>
+            <div class="input-group input-group-sm">
+              <input type="password" name="spotify_client_secret" id="field-spotify-client-secret"
+                     class="form-control form-control-sm font-monospace"
+                     value="{{ current.get('spotify_client_secret', '') }}" autocomplete="off"
+                     placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+              <button class="btn btn-outline-secondary" type="button" onclick="toggleField('field-spotify-client-secret')">👁</button>
+            </div>
           </div>
           {% if spotify_connected %}
             <button type="submit" form="spotify-disconnect-form" class="btn btn-outline-danger btn-sm w-100">Desconectar</button>
