@@ -845,12 +845,17 @@ function openPlaylistPicker(platform) {
       }
       data.forEach(pl => {
         const count = pl.tracks !== undefined ? pl.tracks : pl.videos;
+        const isSpotify = _pickerPlatform === 'spotify';
+        const notOwned = isSpotify && pl.owned === false;
         const li = document.createElement('li');
         li.className = 'list-group-item d-flex align-items-center justify-content-between py-2 px-3';
         li.style.fontSize = '0.85rem';
+        const badge = notOwned
+          ? `<span class="badge bg-warning text-dark ms-2" style="font-size:0.7rem;" title="Esta playlist es de otro usuario. Puede fallar al importar.">No es tuya</span>`
+          : '';
         li.innerHTML = `
           <div>
-            <span class="fw-semibold">${escHtml(pl.name)}</span>
+            <span class="fw-semibold">${escHtml(pl.name)}</span>${badge}
             <span class="text-muted ms-2" style="font-size:0.75rem;">${count} items</span>
           </div>
           <button type="button" class="btn btn-sm btn-outline-primary" style="font-size:0.75rem;padding:.2rem .6rem;"
@@ -896,9 +901,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const url = new URL(window.location.href);
 
   if (syncErr) {
+    const spotifyHint = source === 'spotify'
+      ? ' Si elegiste una playlist de otro usuario (badge "No es tuya"), seleccioná una playlist propia.'
+      : '';
     showError(
       `Error al sincronizar ${label}`,
-      'Ocurrió un error durante la sincronización. Revisá tu conexión y configuración, y volvé a intentarlo.'
+      'Ocurrió un error durante la sincronización. Revisá tu conexión y configuración, y volvé a intentarlo.' + spotifyHint
     );
     url.searchParams.delete('sync_error');
     url.searchParams.delete('source');

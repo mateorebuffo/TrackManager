@@ -121,7 +121,10 @@ async def save_settings(
         user_id=current_user.id, commit=True,
     )
 
-    return RedirectResponse(url="/settings?saved=1", status_code=303)
+    next_url = str(form.get("_next", "")).strip()
+    allowed = {"/sync/spotify/connect", "/sync/youtube/connect"}
+    redirect_to = next_url if next_url in allowed else "/settings?saved=1"
+    return RedirectResponse(url=redirect_to, status_code=303)
 
 
 @router.post("/verify/muzpa")

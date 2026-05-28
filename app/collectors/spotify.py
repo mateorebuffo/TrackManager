@@ -42,15 +42,20 @@ class SpotifyCollector(BaseCollector):
 
     def list_playlists(self) -> list[dict]:
         """Return all user playlists as [{"id": ..., "name": ...}]."""
-        me = self._get(f"{_BASE}/me")
-        user_id = me["id"]
+        try:
+            me = self._get(f"{_BASE}/me")
+            user_id = me.get("id")
+        except Exception:
+            logger.warning("No se pudo obtener /v1/me; ownership flag omitido")
+            user_id = None
         playlists: list[dict] = []
         url = f"{_BASE}/me/playlists"
         while url:
             data = self._get(url, limit=50)
             for pl in data.get("items", []):
                 if pl and pl.get("id") and pl.get("name"):
-                    owned = pl.get("owner", {}).get("id") == user_id
+                    owner_id = pl.get("owner", {}).get("id")
+                    owned = (owner_id == user_id) if user_id else None
                     playlists.append({
                         "id": pl["id"],
                         "name": pl["name"],
@@ -110,6 +115,12 @@ class SpotifyCollector(BaseCollector):
             params=params or None,
             timeout=15,
         )
+        if resp.status_code == 403:
+            raise ValueError(
+                "Spotify devolvió 403 Forbidden. "
+                "Elegí una playlist que sea tuya (no de otro usuario). "
+                "Las playlists seguidas de otras cuentas no son accesibles."
+            )
         resp.raise_for_status()
         return resp.json()
 
@@ -122,8 +133,12 @@ class SpotifyCollector(BaseCollector):
         - Multiple matches → prefer playlist owned by the current user;
           if still ambiguous, use the first one and log a warning
         """
-        me = self._get(f"{_BASE}/me")
-        user_id = me["id"]
+        try:
+            me = self._get(f"{_BASE}/me")
+            user_id = me.get("id")
+        except Exception:
+            logger.warning("No se pudo obtener /v1/me; se omite preferencia por playlist propia")
+            user_id = None
 
         matches: list[dict] = []
         url = f"{_BASE}/me/playlists"
@@ -141,7 +156,7 @@ class SpotifyCollector(BaseCollector):
             return matches[0]
 
         # Multiple matches — prefer ones owned by the current user
-        owned = [pl for pl in matches if pl.get("owner", {}).get("id") == user_id]
+        owned = [pl for pl in matches if user_id and pl.get("owner", {}).get("id") == user_id]
         if len(owned) == 1:
             return owned[0]
 

@@ -114,6 +114,11 @@
             {% endif %}
           </div>
           <div>
+            <p class="text-muted mb-2" style="font-size:0.72rem;">
+              Necesitás tu propia app en
+              <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">developer.spotify.com/dashboard</a>.
+              Al crearla, asegurate de marcar <strong>Web API</strong> en "Which API/SDKs are you planning to use?" — sin eso las llamadas devuelven 403.
+            </p>
             <label class="form-label text-muted mb-1" style="font-size:0.72rem;">Client ID</label>
             <div class="input-group input-group-sm mb-2">
               <input type="password" name="spotify_client_id" id="field-spotify-client-id"
@@ -134,9 +139,10 @@
           {% if spotify_connected %}
             <button type="submit" form="spotify-disconnect-form" class="btn btn-outline-danger btn-sm w-100">Desconectar</button>
           {% else %}
-            <a href="/sync/spotify/connect" class="btn btn-outline-secondary btn-sm w-100">
+            <button type="button" class="btn btn-outline-secondary btn-sm w-100"
+                    onclick="saveAndRedirect('/sync/spotify/connect')">
               Conectar con Spotify →
-            </a>
+            </button>
           {% endif %}
         </div>
 
@@ -394,6 +400,19 @@ async function generateAgentToken() {
     showError('Error al generar token', err.message || 'No se pudo conectar con el servidor.');
   }
 }
+function saveAndRedirect(url) {
+  const form = document.getElementById('settings-form');
+  let hidden = form.querySelector('input[name="_next"]');
+  if (!hidden) {
+    hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    hidden.name = '_next';
+    form.appendChild(hidden);
+  }
+  hidden.value = url;
+  form.submit();
+}
+
 function toggleAgentToken() {
   toggleField('agent-token-field');
 }

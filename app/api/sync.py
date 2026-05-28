@@ -232,13 +232,12 @@ def sync_spotify(
     try:
         collector = SpotifyCollector(access_token, playlist_id=playlist_id)
         result: SyncResult = run_sync(collector, db, user_id=current_user.id)
-    except ValueError as exc:
+    except Exception as exc:
         accept = request.headers.get("accept", "")
         if "text/html" in accept:
-            return HTMLResponse(
-                f"<h3>Error de sincronización</h3><p>{exc}</p>"
-                "<p><a href='/tracks/pending'>Volver</a></p>",
-                status_code=404,
+            return RedirectResponse(
+                url="/tracks/pending?sync_error=1&source=spotify",
+                status_code=303,
             )
         return {"status": "error", "detail": str(exc)}
 
