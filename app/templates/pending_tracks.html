@@ -135,7 +135,8 @@ function dismissSetupBanner(){
       </button>
     </div>
 
-    {# ── Spotify sync ── #}
+    {# ── Spotify sync — solo admin ── #}
+    {% if is_admin %}
     {% if spotify_connected %}
       <form id="spotify-sync-form" method="POST" action="/sync/spotify" style="display:none;"></form>
       <form id="spotify-disconnect-form" method="POST" action="/sync/spotify/disconnect" onsubmit="return confirm('¿Desconectar Spotify?')" style="display:none;"></form>
@@ -174,11 +175,12 @@ function dismissSetupBanner(){
         </ul>
       </div>
     {% else %}
-      <a href="/settings?missing=spotify" class="btn btn-sm src-btn d-inline-flex align-items-center gap-1"
+      <a href="/settings" class="btn btn-sm src-btn d-inline-flex align-items-center gap-1"
          style="background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;" title="Conectar Spotify">
         <span class="pi" style="font-size:14px;"><img src="/static/icons/spotify.svg" alt="" style="filter:invert(26%) sepia(60%) saturate(600%) hue-rotate(120deg) brightness(80%);"></span>
         +
       </a>
+    {% endif %}
     {% endif %}
 
     {# ── YouTube sync ── #}

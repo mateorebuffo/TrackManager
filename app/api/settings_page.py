@@ -82,11 +82,12 @@ def settings_page(
             "request": request,
             "fields": _FIELDS,
             "current": current,
-            "spotify_connected": spotify_auth.is_connected(db, current_user.id),
+            "spotify_connected": current_user.is_admin and spotify_auth.is_connected(db, current_user.id),
             "youtube_connected": youtube_auth.is_connected(db, current_user.id),
             "api_token": current_user.api_token,
             "base_url": str(request.base_url).rstrip("/"),
             "agent_available": _agent_is_available(),
+            "is_admin": current_user.is_admin,
         },
     )
 
@@ -189,6 +190,8 @@ def verify_spotify(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> JSONResponse:
+    if not current_user.is_admin:
+        return JSONResponse({"ok": False, "msg": "Solo administradores."}, status_code=403)
     from app.services import spotify_auth as sa
     lines: list[str] = []
 

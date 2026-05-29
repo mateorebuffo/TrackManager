@@ -101,7 +101,8 @@
       <div class="cfg-card-head">Autorizaciones</div>
       <div class="cfg-card-body">
 
-        {# Spotify #}
+        {# Spotify — solo admin #}
+        {% if is_admin %}
         <div class="svc-row svc-spotify">
           <div class="d-flex align-items-center justify-content-between">
             <div class="svc-name">
@@ -114,11 +115,6 @@
             {% endif %}
           </div>
           <div>
-            <p class="text-muted mb-2" style="font-size:0.72rem;">
-              Necesitás tu propia app en
-              <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">developer.spotify.com/dashboard</a>.
-              Al crearla, asegurate de marcar <strong>Web API</strong> en "Which API/SDKs are you planning to use?" — sin eso las llamadas devuelven 403.
-            </p>
             <label class="form-label text-muted mb-1" style="font-size:0.72rem;">Client ID</label>
             <div class="input-group input-group-sm mb-2">
               <input type="password" name="spotify_client_id" id="field-spotify-client-id"
@@ -150,6 +146,7 @@
           <div id="spotify-verify-result" class="mt-1" style="font-size:0.75rem;display:none;white-space:pre-wrap;"></div>
           {% endif %}
         </div>
+        {% endif %}
 
         {# YouTube #}
         <div class="svc-row svc-youtube">

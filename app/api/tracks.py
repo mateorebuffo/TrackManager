@@ -172,7 +172,7 @@ def pending_tracks_page(
     counts = _status_counts(db, current_user.id)
 
     us = db.query(UserSettings).filter_by(user_id=current_user.id).first()
-    spotify_ok  = spotify_auth.is_connected(db, current_user.id)
+    spotify_ok  = current_user.is_admin and spotify_auth.is_connected(db, current_user.id)
     youtube_ok  = youtube_auth.is_connected(db, current_user.id)
     has_source  = bool((us and us.soundcloud_oauth_token) or spotify_ok or youtube_ok)
     has_dl      = bool(us and (us.muzpa_sess or us.deezer_arl))
@@ -202,6 +202,7 @@ def pending_tracks_page(
             "youtube_playlist_name": _user_playlist_name(db, current_user.id, "youtube"),
             "compare_mode": bool(compare_ids),
             "needs_setup": needs_setup,
+            "is_admin": current_user.is_admin,
         },
     )
 

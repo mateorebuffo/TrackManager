@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -14,6 +14,11 @@ from app.models.user import User
 from app.services.ingestion import SyncResult, run_sync
 from app.services import spotify_auth, youtube_auth
 from app.utils.rate_limit import UserRateLimiter
+
+
+def _require_admin(current_user: User) -> None:
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Solo administradores pueden usar Spotify.")
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/sync", tags=["sync"])
@@ -87,6 +92,7 @@ def spotify_connect(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    _require_admin(current_user)
     from app.config import settings
     if not settings.spotify_redirect_uri:
         return HTMLResponse(
@@ -111,6 +117,7 @@ def spotify_callback(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    _require_admin(current_user)
     if not spotify_auth.verify_state(state, current_user.id):
         return HTMLResponse(
             "<h3>Error de seguridad: estado OAuth inválido.</h3>"
@@ -145,6 +152,7 @@ def spotify_disconnect(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    _require_admin(current_user)
     spotify_auth.disconnect(db, current_user.id)
     return RedirectResponse(url="/tracks/pending", status_code=303)
 
@@ -154,7 +162,7 @@ def spotify_playlists(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Return the user's Spotify playlists as JSON."""
+    _require_admin(current_user)
     try:
         access_token = spotify_auth.get_valid_access_token(db, current_user.id)
     except RuntimeError as exc:
@@ -174,6 +182,7 @@ def spotify_select_playlist(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    _require_admin(current_user)
     from app.models.user_settings import UserSettings
     us = db.query(UserSettings).filter_by(user_id=current_user.id).first()
     if not us:
@@ -211,6 +220,7 @@ def sync_spotify(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    _require_admin(current_user)
     if (limited := _sync_rate_limited(current_user.id, request)):
         return limited
     try:
