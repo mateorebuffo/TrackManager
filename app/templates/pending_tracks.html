@@ -919,7 +919,7 @@ async function _runClientSideSpotifySync(playlistId, playlistName) {
   showLoading('Cargando tracks de Spotify…');
   const tracks = [];
   try {
-    let url = `https://api.spotify.com/v1/playlists/${encodeURIComponent(playlistId)}/tracks?limit=100&fields=items(added_at,track(id,name,artists,external_urls,duration_ms,album(id,name))),next`;
+    let url = `https://api.spotify.com/v1/playlists/${encodeURIComponent(playlistId)}/tracks?limit=100`;
     while (url) {
       const resp = await fetch(url, {headers: {'Authorization': `Bearer ${token}`}});
       if (!resp.ok) {
