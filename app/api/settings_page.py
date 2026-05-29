@@ -221,13 +221,19 @@ def verify_spotify(
         lines.append(f"✗ /v1/me → excepción: {e}")
         return JSONResponse({"ok": False, "msg": "\n".join(lines)})
 
-    # 4. GET /v1/me/playlists
+    # 4. GET /v1/me/playlists — tomamos el primero para testear tracks
+    first_playlist_id = None
+    first_playlist_name = None
     try:
         r = httpx.get("https://api.spotify.com/v1/me/playlists", headers=headers,
                       params={"limit": 5}, timeout=10)
         if r.status_code == 200:
             items = r.json().get("items", [])
             lines.append(f"✓ /v1/me/playlists OK — primeras {len(items)}: {[p['name'] for p in items if p]}")
+            first_pl = next((p for p in items if p), None)
+            if first_pl:
+                first_playlist_id = first_pl["id"]
+                first_playlist_name = first_pl["name"]
         else:
             lines.append(f"✗ /v1/me/playlists → {r.status_code}: {r.text[:200]}")
             return JSONResponse({"ok": False, "msg": "\n".join(lines)})
@@ -235,26 +241,44 @@ def verify_spotify(
         lines.append(f"✗ /v1/me/playlists → excepción: {e}")
         return JSONResponse({"ok": False, "msg": "\n".join(lines)})
 
-    # 5. GET tracks de la playlist seleccionada (si hay)
-    from app.models.user_settings import UserSettings
-    us = db.query(UserSettings).filter_by(user_id=current_user.id).first()
-    playlist_id = us.spotify_playlist_id if us else None
-    if playlist_id:
+    # 5. GET tracks de la primera playlist de la lista (sin fields, request simple)
+    if first_playlist_id:
         try:
             r = httpx.get(
-                f"https://api.spotify.com/v1/playlists/{playlist_id}/tracks",
+                f"https://api.spotify.com/v1/playlists/{first_playlist_id}/tracks",
                 headers=headers, params={"limit": 1}, timeout=10,
             )
             if r.status_code == 200:
                 total = r.json().get("total", "?")
-                lines.append(f"✓ /v1/playlists/{playlist_id}/tracks OK — total: {total}")
+                lines.append(f"✓ tracks de '{first_playlist_name}' ({first_playlist_id}) — total: {total}")
             else:
-                lines.append(f"✗ /v1/playlists/{playlist_id}/tracks → {r.status_code}: {r.text[:200]}")
-                return JSONResponse({"ok": False, "msg": "\n".join(lines)})
+                lines.append(f"✗ tracks de '{first_playlist_name}' ({first_playlist_id}) → {r.status_code}: {r.text[:300]}")
         except Exception as e:
-            lines.append(f"✗ /v1/playlists/{playlist_id}/tracks → excepción: {e}")
-            return JSONResponse({"ok": False, "msg": "\n".join(lines)})
-    else:
-        lines.append("— Ninguna playlist seleccionada todavía")
+            lines.append(f"✗ tracks de '{first_playlist_name}' → excepción: {e}")
+
+    # 6. GET tracks de playlist conocida pública (para comparar)
+    test_public_id = "2lsR6oi8AyGYH4M6jDXBnG"
+    try:
+        r = httpx.get(
+            f"https://api.spotify.com/v1/playlists/{test_public_id}/tracks",
+            headers=headers, params={"limit": 1}, timeout=10,
+        )
+        if r.status_code == 200:
+            total = r.json().get("total", "?")
+            lines.append(f"✓ tracks de playlist pública de prueba ({test_public_id}) — total: {total}")
+        else:
+            lines.append(f"✗ tracks de playlist pública de prueba ({test_public_id}) → {r.status_code}: {r.text[:300]}")
+    except Exception as e:
+        lines.append(f"✗ tracks playlist pública de prueba → excepción: {e}")
+
+    # 7. GET playlist sin token (acceso anónimo, para ver si es problema del app)
+    try:
+        r = httpx.get(
+            f"https://api.spotify.com/v1/playlists/{test_public_id}",
+            headers=headers, timeout=10,
+        )
+        lines.append(f"— GET /v1/playlists/{test_public_id} (metadata) → {r.status_code}")
+    except Exception as e:
+        lines.append(f"✗ metadata playlist → excepción: {e}")
 
     return JSONResponse({"ok": True, "msg": "\n".join(lines)})
