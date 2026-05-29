@@ -886,9 +886,31 @@ async function startSpotifySyncFlow() {
 }
 
 async function _getSpotifyAccessToken() {
+  // Primary: browser calls Spotify directly using the user's native session cookies.
+  // Works without server exchange, no user limits, bypasses server IP restrictions.
+  // Requires the user to be logged into Spotify in this browser.
+  try {
+    const spotResp = await fetch(
+      'https://open.spotify.com/get_access_token?reason=transport&productType=web_player',
+      { credentials: 'include' }
+    );
+    if (spotResp.ok) {
+      const ct = spotResp.headers.get('content-type') || '';
+      if (ct.includes('json')) {
+        const spotData = await spotResp.json();
+        if (!spotData.isAnonymous && spotData.accessToken) {
+          return spotData.accessToken;
+        }
+      }
+    }
+  } catch (e) {
+    // CORS blocked or network error — fall through to server OAuth token
+    console.log('[Spotify] browser-direct blocked, trying server token:', e.message);
+  }
+
+  // Fallback: server-side OAuth token (requires connecting Spotify in Settings)
   const resp = await fetch('/sync/spotify/access-token', { credentials: 'same-origin' });
 
-  // Redirect = auth middleware sent us a /login page (session expired)
   if (resp.redirected || (resp.url && resp.url.includes('/login'))) {
     window.location.reload();
     throw new Error('Sesión expirada. Recargando…');
@@ -896,14 +918,13 @@ async function _getSpotifyAccessToken() {
 
   const ct = resp.headers.get('content-type') || '';
   if (!ct.includes('json')) {
-    // Railway HTML error page or unexpected response — log details
     const body = await resp.text().catch(() => '');
     console.error('[Spotify] /access-token devolvió HTML (HTTP ' + resp.status + '):', body.slice(0, 200));
     throw new Error('El servidor devolvió una respuesta inesperada (HTTP ' + resp.status + '). Revisá el deploy en Railway o recargá la página.');
   }
 
   const data = await resp.json();
-  if (data.error) throw new Error(data.error);
+  if (data.error) throw new Error(data.error + '\n\nSi el problema persiste, conectá Spotify desde Ajustes.');
   if (!data.access_token) throw new Error('No se recibió token de Spotify.');
   return data.access_token;
 }
