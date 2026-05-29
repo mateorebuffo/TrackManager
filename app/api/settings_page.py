@@ -33,7 +33,6 @@ _FIELDS = [
     ("soundcloud_oauth_token", "SoundCloud OAuth Token",           "password", False),
     ("spotify_client_id",      "Spotify Client ID",                "password", False),
     ("spotify_client_secret",  "Spotify Client Secret",            "password", False),
-    ("spotify_sp_dc",          "Spotify Cookie (sp_dc)",           "password", False),
     ("muzpa_sess",             "Muzpa Session (SESS=...)",          "password", False),
     ("deezer_arl",             "Deezer ARL",                        "password", False),
     ("download_dir",           "Carpeta de descarga",               "text",     False),
@@ -71,7 +70,6 @@ def settings_page(
         "soundcloud_oauth_token": us.soundcloud_oauth_token or "",
         "spotify_client_id":      us.spotify_client_id or "",
         "spotify_client_secret":  us.spotify_client_secret or "",
-        "spotify_sp_dc":          us.spotify_sp_dc or "",
         "muzpa_sess":             us.muzpa_sess or "",
         "deezer_arl":             us.deezer_arl or "",
         "download_dir":           us.download_dir or "",
@@ -84,7 +82,7 @@ def settings_page(
             "request": request,
             "fields": _FIELDS,
             "current": current,
-            "spotify_connected": spotify_auth.is_connected(db, current_user.id),
+            "spotify_connected": current_user.is_admin and spotify_auth.is_connected(db, current_user.id),
             "youtube_connected": youtube_auth.is_connected(db, current_user.id),
             "api_token": current_user.api_token,
             "base_url": str(request.base_url).rstrip("/"),
@@ -287,63 +285,3 @@ def verify_spotify(
         lines.append(f"✗ metadata playlist → excepción: {e}")
 
     return JSONResponse({"ok": True, "msg": "\n".join(lines)})
-
-
-@router.post("/verify/spotify-cookie")
-def verify_spotify_cookie(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-) -> JSONResponse:
-    """Verify the sp_dc cookie by exchanging it for a Spotify access token."""
-    if current_user.is_admin:
-        return JSONResponse({"ok": False, "msg": "Los administradores usan OAuth, no sp_dc."})
-    from app.models.user_settings import UserSettings
-    us = db.query(UserSettings).filter_by(user_id=current_user.id).first()
-    sp_dc = (us.spotify_sp_dc or "").strip() if us else ""
-    if not sp_dc:
-        return JSONResponse({"ok": False, "msg": "No hay cookie sp_dc guardada."})
-    _headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/124.0.0.0 Safari/537.36"
-        ),
-        "Accept": "application/json",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Referer": "https://open.spotify.com/",
-        "Origin": "https://open.spotify.com",
-        "sec-fetch-dest": "empty",
-        "sec-fetch-mode": "cors",
-        "sec-fetch-site": "same-origin",
-    }
-    try:
-        resp = httpx.get(
-            "https://open.spotify.com/get_access_token",
-            params={"reason": "transport", "productType": "web_player"},
-            cookies={"sp_dc": sp_dc},
-            headers=_headers,
-            timeout=10,
-            follow_redirects=True,
-        )
-        try:
-            data = resp.json()
-        except Exception:
-            return JSONResponse({"ok": False, "msg": f"Respuesta inesperada de Spotify (HTTP {resp.status_code}). La cookie puede ser inválida."})
-        if data.get("isAnonymous") is True:
-            return JSONResponse({"ok": False, "msg": "Cookie sp_dc inválida o expirada. Copiala de nuevo desde tu browser."})
-        token = data.get("accessToken")
-        if not token:
-            return JSONResponse({"ok": False, "msg": f"Respuesta inesperada de Spotify: {resp.text[:200]}"})
-        # Quick validation: fetch user profile
-        me = httpx.get(
-            "https://api.spotify.com/v1/me",
-            headers={"Authorization": f"Bearer {token}"},
-            timeout=10,
-        )
-        if me.status_code == 200:
-            user_id = me.json().get("id", "?")
-            return JSONResponse({"ok": True, "msg": f"Cookie válida — cuenta: {user_id}"})
-        return JSONResponse({"ok": True, "msg": "Cookie válida (token obtenido correctamente)"})
-    except Exception as e:
-        logger.exception("Error verifying sp_dc cookie")
-        return JSONResponse({"ok": False, "msg": f"Error de conexión: {e}"})

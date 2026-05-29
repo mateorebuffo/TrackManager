@@ -101,28 +101,6 @@
       <div class="cfg-card-head">Autorizaciones</div>
       <div class="cfg-card-body">
 
-        {# Spotify — no-admin: OAuth via admin's app #}
-        {% if not is_admin %}
-        <div class="svc-row svc-spotify">
-          <div class="d-flex align-items-center justify-content-between">
-            <div class="svc-name"><span class="svc-dot dot-spotify"></span>Spotify</div>
-            {% if spotify_connected %}
-              <span class="badge s-downloaded" style="font-size:0.67rem;">Conectado</span>
-            {% else %}
-              <span class="badge s-not_found" style="font-size:0.67rem;">No conectado</span>
-            {% endif %}
-          </div>
-          {% if spotify_connected %}
-            <button type="submit" form="spotify-disconnect-form" class="btn btn-outline-danger btn-sm w-100">Desconectar</button>
-          {% else %}
-            <button type="button" class="btn btn-outline-secondary btn-sm w-100"
-                    onclick="window.location='/sync/spotify/connect'">
-              Conectar con Spotify →
-            </button>
-          {% endif %}
-        </div>
-        {% endif %}
-
         {# Spotify — solo admin #}
         {% if is_admin %}
         <div class="svc-row svc-spotify">
@@ -424,22 +402,6 @@ async function generateAgentToken() {
     showError('Error al generar token', err.message || 'No se pudo conectar con el servidor.');
   }
 }
-async function verifySpotifyCookie() {
-  const el = document.getElementById('spotify-cookie-verify-result');
-  el.style.display = 'block';
-  el.className = 'mt-1 text-muted';
-  el.textContent = 'Verificando…';
-  try {
-    const res = await fetch('/settings/verify/spotify-cookie', {method: 'POST'});
-    const data = await res.json();
-    el.className = 'mt-1 fw-semibold ' + (data.ok ? 'text-success' : 'text-danger');
-    el.textContent = (data.ok ? '✓ ' : '✗ ') + data.msg;
-  } catch (err) {
-    el.className = 'mt-1 text-danger';
-    el.textContent = '✗ Error al conectar con el servidor.';
-  }
-}
-
 async function verifySpotify() {
   const el = document.getElementById('spotify-verify-result');
   el.style.display = 'block';

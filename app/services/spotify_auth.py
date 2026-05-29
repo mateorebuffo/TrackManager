@@ -19,24 +19,13 @@ _SCOPES = "user-library-read playlist-read-private playlist-read-collaborative"
 
 
 def get_credentials(db: Session, user_id: int) -> tuple[str, str]:
-    """Return (client_id, client_secret) — own credentials, or admin's if not set."""
+    """Return (client_id, client_secret) for this user, raising if not configured."""
     us = _get_user_settings(db, user_id)
     client_id = (us.spotify_client_id or "").strip()
     client_secret = (us.spotify_client_secret or "").strip()
-    if client_id and client_secret:
-        return client_id, client_secret
-    # Non-admin: fall back to admin's app credentials
-    from app.models.user import User
-    from app.models.user_settings import UserSettings
-    admin = db.query(User).filter_by(is_admin=True).first()
-    if admin and admin.id != user_id:
-        admin_us = db.query(UserSettings).filter_by(user_id=admin.id).first()
-        if admin_us:
-            cid = (admin_us.spotify_client_id or "").strip()
-            cs = (admin_us.spotify_client_secret or "").strip()
-            if cid and cs:
-                return cid, cs
-    raise RuntimeError("Spotify Client ID y Client Secret no configurados en el administrador.")
+    if not client_id or not client_secret:
+        raise RuntimeError("Spotify Client ID y Client Secret no configurados.")
+    return client_id, client_secret
 
 
 def get_auth_url(user_id: int, db: Session) -> str:

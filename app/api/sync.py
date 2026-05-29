@@ -20,61 +20,6 @@ def _require_admin(current_user: User) -> None:
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Solo administradores pueden usar Spotify.")
 
-
-_SP_DC_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/124.0.0.0 Safari/537.36"
-    ),
-    "Accept": "application/json",
-    "Accept-Language": "en-US,en;q=0.9",
-    "Referer": "https://open.spotify.com/",
-    "Origin": "https://open.spotify.com",
-    "sec-fetch-dest": "empty",
-    "sec-fetch-mode": "cors",
-    "sec-fetch-site": "same-origin",
-}
-
-
-def _get_sp_dc_access_token(db: Session, user_id: int) -> str | JSONResponse:
-    """Exchange the stored sp_dc cookie for a short-lived Spotify access token.
-    Returns the token string on success, or a JSONResponse with error on failure.
-    """
-    import httpx as _httpx
-    from app.models.user_settings import UserSettings as _US
-    us = db.query(_US).filter_by(user_id=user_id).first()
-    sp_dc = (us.spotify_sp_dc or "").strip() if us else ""
-    if not sp_dc:
-        return JSONResponse({"error": "No hay cookie sp_dc configurada. Configurala en Ajustes."}, status_code=400)
-    try:
-        resp = _httpx.get(
-            "https://open.spotify.com/get_access_token",
-            params={"reason": "transport", "productType": "web_player"},
-            cookies={"sp_dc": sp_dc},
-            headers=_SP_DC_HEADERS,
-            timeout=10,
-            follow_redirects=True,
-        )
-        try:
-            data = resp.json()
-        except Exception:
-            logger.error("Spotify devolvió respuesta no-JSON (HTTP %s): %s", resp.status_code, resp.text[:300])
-            return JSONResponse(
-                {"error": f"Spotify devolvió una respuesta inesperada (HTTP {resp.status_code}). "
-                          "Verificá que tu cookie sp_dc sea válida y esté actualizada."},
-                status_code=502,
-            )
-        if data.get("isAnonymous") is True:
-            return JSONResponse({"error": "Cookie sp_dc inválida o expirada. Actualizala en Ajustes."}, status_code=401)
-        token = data.get("accessToken")
-        if not token:
-            return JSONResponse({"error": "No se pudo obtener el token de Spotify."}, status_code=502)
-        return token
-    except Exception as exc:
-        logger.exception("Error exchanging sp_dc for access token")
-        return JSONResponse({"error": f"Error conectando con Spotify: {exc}"}, status_code=502)
-
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/sync", tags=["sync"])
 templates = Jinja2Templates(directory="app/templates")
@@ -147,6 +92,7 @@ def spotify_connect(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    _require_admin(current_user)
     from app.config import settings
     if not settings.spotify_redirect_uri:
         return HTMLResponse(
@@ -171,6 +117,7 @@ def spotify_callback(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    _require_admin(current_user)
     if not spotify_auth.verify_state(state, current_user.id):
         return HTMLResponse(
             "<h3>Error de seguridad: estado OAuth inválido.</h3>"
@@ -205,6 +152,7 @@ def spotify_disconnect(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    _require_admin(current_user)
     spotify_auth.disconnect(db, current_user.id)
     return RedirectResponse(url="/tracks/pending", status_code=303)
 
@@ -214,6 +162,7 @@ def spotify_playlists(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    _require_admin(current_user)
     try:
         access_token = spotify_auth.get_valid_access_token(db, current_user.id)
     except RuntimeError as exc:
@@ -224,23 +173,6 @@ def spotify_playlists(
     except Exception as exc:
         logger.exception("Error listing Spotify playlists")
         return JSONResponse({"error": str(exc)}, status_code=500)
-
-
-@router.get("/spotify/access-token")
-def spotify_access_token(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Return a Spotify access token to the browser so it can call the Spotify API directly."""
-    try:
-        import json as _json
-        from app.models.user_settings import UserSettings as _US
-        token = spotify_auth.get_valid_access_token(db, current_user.id)
-        us = db.query(_US).filter_by(user_id=current_user.id).first()
-        token_data = _json.loads(us.spotify_token_json) if us and us.spotify_token_json else {}
-        return JSONResponse({"access_token": token, "scope": token_data.get("scope", "")})
-    except RuntimeError as exc:
-        return JSONResponse({"error": str(exc)}, status_code=400)
 
 
 @router.post("/spotify/select-playlist")
@@ -288,6 +220,7 @@ def sync_spotify(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    _require_admin(current_user)
     if (limited := _sync_rate_limited(current_user.id, request)):
         return limited
     try:
@@ -340,89 +273,6 @@ def sync_spotify(
         "weak_duplicates_flagged": result.weak_duplicates_flagged,
         "errors": result.errors,
     }
-
-
-@router.post("/spotify/import")
-async def import_spotify_tracks(
-    request: Request,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Receive pre-fetched Spotify tracks from the browser and run them through ingestion.
-    Only for non-admin users (who fetch tracks client-side to avoid server IP exposure).
-    """
-    if current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Admin usa el flujo OAuth.")
-
-    body = await request.json()
-    raw_tracks: list[dict] = body.get("tracks", [])
-    playlist_id: str = body.get("playlist_id", "")
-    playlist_name: str = body.get("playlist_name", "")
-
-    if not raw_tracks:
-        return JSONResponse({"error": "No se recibieron tracks."}, status_code=400)
-
-    # Save playlist selection
-    from app.models.user_settings import UserSettings
-    us = db.query(UserSettings).filter_by(user_id=current_user.id).first()
-    if not us:
-        us = UserSettings(user_id=current_user.id)
-        db.add(us)
-    if playlist_id:
-        us.spotify_playlist_id = playlist_id
-        us.spotify_playlist_name = playlist_name
-        db.commit()
-
-    from app.collectors.base import RawTrack
-    from datetime import datetime
-
-    def _build_raw_tracks(tracks: list[dict]):
-        for t in tracks:
-            track_id = t.get("id")
-            if not track_id:
-                continue
-            artists = t.get("artists") or []
-            raw_artist = ", ".join(a["name"] for a in artists if a.get("name")) or None
-            duration_ms = t.get("duration_ms")
-            liked_at = None
-            if t.get("added_at"):
-                try:
-                    liked_at = datetime.fromisoformat(t["added_at"].replace("Z", "+00:00"))
-                except ValueError:
-                    pass
-            album = t.get("album") or {}
-            yield RawTrack(
-                source="spotify",
-                source_track_id=track_id,
-                source_url=t.get("url") or f"https://open.spotify.com/track/{track_id}",
-                raw_title=t.get("name") or "",
-                raw_artist=raw_artist,
-                duration_seconds=duration_ms / 1000.0 if duration_ms else None,
-                liked_at=liked_at,
-                raw_metadata={
-                    "artists": [{"id": a.get("id"), "name": a.get("name")} for a in artists],
-                    "album_id": album.get("id"),
-                    "album_name": album.get("name"),
-                },
-            )
-
-    class _StaticCollector:
-        source_name = "spotify"
-        def __init__(self, tracks): self._tracks = tracks
-        def fetch_liked_tracks(self): return _build_raw_tracks(self._tracks)
-
-    try:
-        result: SyncResult = run_sync(_StaticCollector(raw_tracks), db, user_id=current_user.id)
-    except Exception as exc:
-        logger.exception("Spotify client-side import failed")
-        return JSONResponse({"error": str(exc)}, status_code=500)
-
-    return JSONResponse({
-        "new_tracks": result.new_tracks,
-        "skipped_existing": result.skipped_existing,
-        "total_fetched": result.total_fetched,
-        "errors": result.errors,
-    })
 
 
 # ---------------------------------------------------------------------------
