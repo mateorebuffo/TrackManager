@@ -144,6 +144,11 @@
               Conectar con Spotify →
             </button>
           {% endif %}
+          {% if spotify_connected %}
+          <button type="button" class="btn btn-outline-secondary btn-sm w-100 mt-1"
+                  onclick="verifySpotify()">Diagnosticar conexión</button>
+          <div id="spotify-verify-result" class="mt-1" style="font-size:0.75rem;display:none;white-space:pre-wrap;"></div>
+          {% endif %}
         </div>
 
         {# YouTube #}
@@ -400,6 +405,22 @@ async function generateAgentToken() {
     showError('Error al generar token', err.message || 'No se pudo conectar con el servidor.');
   }
 }
+async function verifySpotify() {
+  const el = document.getElementById('spotify-verify-result');
+  el.style.display = 'block';
+  el.className = 'mt-1 text-muted';
+  el.textContent = 'Diagnosticando…';
+  try {
+    const res = await fetch('/settings/verify/spotify', {method: 'POST'});
+    const data = await res.json();
+    el.className = 'mt-1 fw-semibold ' + (data.ok ? 'text-success' : 'text-danger');
+    el.textContent = data.msg;
+  } catch (err) {
+    el.className = 'mt-1 text-danger';
+    el.textContent = '✗ Error al conectar con el servidor: ' + err;
+  }
+}
+
 function saveAndRedirect(url) {
   const form = document.getElementById('settings-form');
   let hidden = form.querySelector('input[name="_next"]');

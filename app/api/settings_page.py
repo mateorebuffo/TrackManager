@@ -182,3 +182,79 @@ def verify_deezer(
     except Exception as e:
         logger.exception("Deezer verify error")
         return JSONResponse({"ok": False, "msg": f"Error de conexión: {e}"})
+
+
+@router.post("/verify/spotify")
+def verify_spotify(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> JSONResponse:
+    from app.services import spotify_auth as sa
+    lines: list[str] = []
+
+    # 1. Credenciales configuradas
+    try:
+        client_id, _ = sa.get_credentials(db, current_user.id)
+        lines.append(f"✓ Client ID configurado: {client_id[:8]}…")
+    except RuntimeError as e:
+        return JSONResponse({"ok": False, "msg": f"✗ Credenciales: {e}"})
+
+    # 2. Token en DB
+    try:
+        access_token = sa.get_valid_access_token(db, current_user.id)
+        lines.append("✓ Token OAuth válido")
+    except RuntimeError as e:
+        return JSONResponse({"ok": False, "msg": "\n".join(lines) + f"\n✗ Token: {e}"})
+
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    # 3. GET /v1/me
+    try:
+        r = httpx.get("https://api.spotify.com/v1/me", headers=headers, timeout=10)
+        if r.status_code == 200:
+            me = r.json()
+            lines.append(f"✓ /v1/me OK — user: {me.get('id')}, plan: {me.get('product', '?')}")
+        else:
+            lines.append(f"✗ /v1/me → {r.status_code}: {r.text[:200]}")
+            return JSONResponse({"ok": False, "msg": "\n".join(lines)})
+    except Exception as e:
+        lines.append(f"✗ /v1/me → excepción: {e}")
+        return JSONResponse({"ok": False, "msg": "\n".join(lines)})
+
+    # 4. GET /v1/me/playlists
+    try:
+        r = httpx.get("https://api.spotify.com/v1/me/playlists", headers=headers,
+                      params={"limit": 5}, timeout=10)
+        if r.status_code == 200:
+            items = r.json().get("items", [])
+            lines.append(f"✓ /v1/me/playlists OK — primeras {len(items)}: {[p['name'] for p in items if p]}")
+        else:
+            lines.append(f"✗ /v1/me/playlists → {r.status_code}: {r.text[:200]}")
+            return JSONResponse({"ok": False, "msg": "\n".join(lines)})
+    except Exception as e:
+        lines.append(f"✗ /v1/me/playlists → excepción: {e}")
+        return JSONResponse({"ok": False, "msg": "\n".join(lines)})
+
+    # 5. GET tracks de la playlist seleccionada (si hay)
+    from app.models.user_settings import UserSettings
+    us = db.query(UserSettings).filter_by(user_id=current_user.id).first()
+    playlist_id = us.spotify_playlist_id if us else None
+    if playlist_id:
+        try:
+            r = httpx.get(
+                f"https://api.spotify.com/v1/playlists/{playlist_id}/tracks",
+                headers=headers, params={"limit": 1}, timeout=10,
+            )
+            if r.status_code == 200:
+                total = r.json().get("total", "?")
+                lines.append(f"✓ /v1/playlists/{playlist_id}/tracks OK — total: {total}")
+            else:
+                lines.append(f"✗ /v1/playlists/{playlist_id}/tracks → {r.status_code}: {r.text[:200]}")
+                return JSONResponse({"ok": False, "msg": "\n".join(lines)})
+        except Exception as e:
+            lines.append(f"✗ /v1/playlists/{playlist_id}/tracks → excepción: {e}")
+            return JSONResponse({"ok": False, "msg": "\n".join(lines)})
+    else:
+        lines.append("— Ninguna playlist seleccionada todavía")
+
+    return JSONResponse({"ok": True, "msg": "\n".join(lines)})
