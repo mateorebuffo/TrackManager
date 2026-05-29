@@ -84,7 +84,7 @@ def settings_page(
             "request": request,
             "fields": _FIELDS,
             "current": current,
-            "spotify_connected": current_user.is_admin and spotify_auth.is_connected(db, current_user.id),
+            "spotify_connected": spotify_auth.is_connected(db, current_user.id),
             "youtube_connected": youtube_auth.is_connected(db, current_user.id),
             "api_token": current_user.api_token,
             "base_url": str(request.base_url).rstrip("/"),

@@ -101,32 +101,25 @@
       <div class="cfg-card-head">Autorizaciones</div>
       <div class="cfg-card-body">
 
-        {# Spotify — no-admin: cookie sp_dc #}
+        {# Spotify — no-admin: OAuth via admin's app #}
         {% if not is_admin %}
         <div class="svc-row svc-spotify">
           <div class="d-flex align-items-center justify-content-between">
             <div class="svc-name"><span class="svc-dot dot-spotify"></span>Spotify</div>
-            {% if current.get('spotify_sp_dc') %}
-              <span class="badge s-downloaded" style="font-size:0.67rem;">Configurado</span>
+            {% if spotify_connected %}
+              <span class="badge s-downloaded" style="font-size:0.67rem;">Conectado</span>
             {% else %}
-              <span class="badge s-not_found" style="font-size:0.67rem;">No configurado</span>
+              <span class="badge s-not_found" style="font-size:0.67rem;">No conectado</span>
             {% endif %}
           </div>
-          <div>
-            <p class="text-muted mb-2" style="font-size:0.72rem;">
-              Pegá tu cookie <strong>sp_dc</strong> de Spotify.<br>
-              Cómo obtenerla: abrí <strong>open.spotify.com</strong> en tu browser → F12 → Application → Cookies → <code>open.spotify.com</code> → copiá el valor de <strong>sp_dc</strong>.
-            </p>
-            <div class="input-group input-group-sm">
-              <input type="password" name="spotify_sp_dc" id="field-spotify-sp-dc"
-                     class="form-control form-control-sm font-monospace"
-                     value="{{ current.get('spotify_sp_dc', '') }}" autocomplete="off"
-                     placeholder="AQD...">
-              <button class="btn btn-outline-secondary" type="button" onclick="toggleField('field-spotify-sp-dc')">👁</button>
-              <button class="btn btn-outline-secondary" type="button" onclick="verifySpotifyCookie()">Verificar</button>
-            </div>
-            <div id="spotify-cookie-verify-result" class="mt-1" style="font-size:0.75rem;display:none;"></div>
-          </div>
+          {% if spotify_connected %}
+            <button type="submit" form="spotify-disconnect-form" class="btn btn-outline-danger btn-sm w-100">Desconectar</button>
+          {% else %}
+            <button type="button" class="btn btn-outline-secondary btn-sm w-100"
+                    onclick="window.location='/sync/spotify/connect'">
+              Conectar con Spotify →
+            </button>
+          {% endif %}
         </div>
         {% endif %}
 

@@ -147,7 +147,6 @@ def spotify_connect(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    _require_admin(current_user)
     from app.config import settings
     if not settings.spotify_redirect_uri:
         return HTMLResponse(
@@ -172,7 +171,6 @@ def spotify_callback(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    _require_admin(current_user)
     if not spotify_auth.verify_state(state, current_user.id):
         return HTMLResponse(
             "<h3>Error de seguridad: estado OAuth inválido.</h3>"
@@ -207,7 +205,6 @@ def spotify_disconnect(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    _require_admin(current_user)
     spotify_auth.disconnect(db, current_user.id)
     return RedirectResponse(url="/tracks/pending", status_code=303)
 
@@ -217,16 +214,10 @@ def spotify_playlists(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.is_admin:
-        try:
-            access_token = spotify_auth.get_valid_access_token(db, current_user.id)
-        except RuntimeError as exc:
-            return JSONResponse({"error": str(exc)}, status_code=400)
-    else:
-        result = _get_sp_dc_access_token(db, current_user.id)
-        if isinstance(result, JSONResponse):
-            return result
-        access_token = result
+    try:
+        access_token = spotify_auth.get_valid_access_token(db, current_user.id)
+    except RuntimeError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
     try:
         collector = SpotifyCollector(access_token)
         return JSONResponse(collector.list_playlists())
@@ -240,15 +231,12 @@ def spotify_access_token(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Return a short-lived Spotify access token to the browser (non-admin only).
-    The browser uses it to call the Spotify API directly from the user's IP.
-    """
-    if current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Admin usa OAuth, no sp_dc.")
-    result = _get_sp_dc_access_token(db, current_user.id)
-    if isinstance(result, JSONResponse):
-        return result
-    return JSONResponse({"access_token": result})
+    """Return a Spotify access token to the browser so it can call the Spotify API directly."""
+    try:
+        token = spotify_auth.get_valid_access_token(db, current_user.id)
+        return JSONResponse({"access_token": token})
+    except RuntimeError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
 
 
 @router.post("/spotify/select-playlist")
@@ -296,7 +284,6 @@ def sync_spotify(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    _require_admin(current_user)
     if (limited := _sync_rate_limited(current_user.id, request)):
         return limited
     try:
