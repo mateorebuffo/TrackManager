@@ -886,9 +886,25 @@ async function startSpotifySyncFlow() {
 }
 
 async function _getSpotifyAccessToken() {
-  const resp = await fetch('/sync/spotify/access-token');
+  const resp = await fetch('/sync/spotify/access-token', { credentials: 'same-origin' });
+
+  // Redirect = auth middleware sent us a /login page (session expired)
+  if (resp.redirected || (resp.url && resp.url.includes('/login'))) {
+    window.location.reload();
+    throw new Error('Sesión expirada. Recargando…');
+  }
+
+  const ct = resp.headers.get('content-type') || '';
+  if (!ct.includes('json')) {
+    // Railway HTML error page or unexpected response — log details
+    const body = await resp.text().catch(() => '');
+    console.error('[Spotify] /access-token devolvió HTML (HTTP ' + resp.status + '):', body.slice(0, 200));
+    throw new Error('El servidor devolvió una respuesta inesperada (HTTP ' + resp.status + '). Revisá el deploy en Railway o recargá la página.');
+  }
+
   const data = await resp.json();
   if (data.error) throw new Error(data.error);
+  if (!data.access_token) throw new Error('No se recibió token de Spotify.');
   return data.access_token;
 }
 
