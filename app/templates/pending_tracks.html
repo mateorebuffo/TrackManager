@@ -886,29 +886,6 @@ async function startSpotifySyncFlow() {
 }
 
 async function _getSpotifyAccessToken() {
-  // Primary: browser calls Spotify directly using the user's native session cookies.
-  // Works without server exchange, no user limits, bypasses server IP restrictions.
-  // Requires the user to be logged into Spotify in this browser.
-  try {
-    const spotResp = await fetch(
-      'https://open.spotify.com/get_access_token?reason=transport&productType=web_player',
-      { credentials: 'include' }
-    );
-    if (spotResp.ok) {
-      const ct = spotResp.headers.get('content-type') || '';
-      if (ct.includes('json')) {
-        const spotData = await spotResp.json();
-        if (!spotData.isAnonymous && spotData.accessToken) {
-          return spotData.accessToken;
-        }
-      }
-    }
-  } catch (e) {
-    // CORS blocked or network error — fall through to server OAuth token
-    console.log('[Spotify] browser-direct blocked, trying server token:', e.message);
-  }
-
-  // Fallback: server-side OAuth token (requires connecting Spotify in Settings)
   const resp = await fetch('/sync/spotify/access-token', { credentials: 'same-origin' });
 
   if (resp.redirected || (resp.url && resp.url.includes('/login'))) {
@@ -920,11 +897,11 @@ async function _getSpotifyAccessToken() {
   if (!ct.includes('json')) {
     const body = await resp.text().catch(() => '');
     console.error('[Spotify] /access-token devolvió HTML (HTTP ' + resp.status + '):', body.slice(0, 200));
-    throw new Error('El servidor devolvió una respuesta inesperada (HTTP ' + resp.status + '). Revisá el deploy en Railway o recargá la página.');
+    throw new Error('El servidor devolvió una respuesta inesperada (HTTP ' + resp.status + '). Recargá la página.');
   }
 
   const data = await resp.json();
-  if (data.error) throw new Error(data.error + '\n\nSi el problema persiste, conectá Spotify desde Ajustes.');
+  if (data.error) throw new Error(data.error);
   if (!data.access_token) throw new Error('No se recibió token de Spotify.');
   return data.access_token;
 }
@@ -935,7 +912,7 @@ async function _runClientSideSpotifySync(playlistId, playlistName) {
   try {
     token = await _getSpotifyAccessToken();
   } catch (err) {
-    showError('Error de Spotify', 'No se pudo obtener el token. Verificá tu cookie sp_dc en Ajustes. (' + err.message + ')');
+    showError('Error de Spotify', 'No se pudo obtener el token de Spotify. (' + err.message + ')');
     return;
   }
 
@@ -950,6 +927,7 @@ async function _runClientSideSpotifySync(playlistId, playlistName) {
         throw new Error(`Spotify ${resp.status}: ${errBody?.error?.message || resp.statusText}`);
       }
       const data = await resp.json();
+      console.log('[Spotify] tracks page →', (data.items || []).length, 'items, next:', !!data.next);
       for (const item of (data.items || [])) {
         const track = item?.track;
         if (!track?.id) continue;
@@ -965,6 +943,7 @@ async function _runClientSideSpotifySync(playlistId, playlistName) {
       }
       url = data.next || null;
     }
+    console.log('[Spotify] total tracks recolectados:', tracks.length);
   } catch (err) {
     showError('Error cargando tracks', err.message);
     return;
