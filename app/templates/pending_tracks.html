@@ -135,6 +135,45 @@ function dismissSetupBanner(){
       </button>
     </div>
 
+    {# ── Spotify sync — no-admin (sp_dc cookie flow) ── #}
+    {% if not is_admin %}
+    {% if spotify_sp_dc_configured %}
+      <div class="btn-group btn-group-sm">
+        <button type="button" class="btn btn-sm src-btn d-inline-flex align-items-center gap-1"
+                style="background:#d1fae5;color:#065f46;border:1px solid #a7f3d0;"
+                title="{% if spotify_playlist_name %}Sincronizar desde « {{ spotify_playlist_name }} »{% else %}Importar desde Spotify{% endif %}"
+                onclick="startSpotifySyncFlow()">
+          <span class="pi" style="font-size:14px;"><img src="/static/icons/spotify.svg" alt="" style="filter:invert(26%) sepia(60%) saturate(600%) hue-rotate(120deg) brightness(80%);"></span>
+          ↻
+        </button>
+        <button type="button" class="btn btn-sm dropdown-toggle dropdown-toggle-split"
+                style="background:#d1fae5;color:#065f46;border:1px solid #a7f3d0;"
+                data-bs-toggle="dropdown"></button>
+        <ul class="dropdown-menu dropdown-menu-end" style="font-size:0.82rem;min-width:200px;">
+          {% if spotify_playlist_name %}
+          <li>
+            <span class="dropdown-item-text text-muted" style="font-size:0.75rem;">
+              Playlist: <strong>{{ spotify_playlist_name }}</strong>
+            </span>
+          </li>
+          <li><hr class="dropdown-divider my-1"></li>
+          {% endif %}
+          <li>
+            <button type="button" class="dropdown-item" onclick="openPlaylistPicker('spotify')">
+              ☰ Elegir playlist…
+            </button>
+          </li>
+        </ul>
+      </div>
+    {% else %}
+      <a href="/settings" class="btn btn-sm src-btn d-inline-flex align-items-center gap-1"
+         style="background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;" title="Configurar Spotify">
+        <span class="pi" style="font-size:14px;"><img src="/static/icons/spotify.svg" alt="" style="filter:invert(26%) sepia(60%) saturate(600%) hue-rotate(120deg) brightness(80%);"></span>
+        +
+      </a>
+    {% endif %}
+    {% endif %}
+
     {# ── Spotify sync — solo admin ── #}
     {% if is_admin %}
     {% if spotify_connected %}
@@ -818,7 +857,83 @@ document.addEventListener('DOMContentLoaded', () => {
 </div>
 
 <script>
+const IS_ADMIN = {{ 'true' if is_admin else 'false' }};
 let _pickerPlatform = null;
+
+// ── Client-side Spotify sync (non-admin, sp_dc flow) ──────────────────────
+
+async function startSpotifySyncFlow() {
+  const savedPlaylistId = {{ ('"' ~ spotify_playlist_id ~ '"') | safe if spotify_playlist_id else 'null' }};
+  const savedPlaylistName = {{ ('"' ~ (spotify_playlist_name or '') ~ '"') | safe if spotify_playlist_id else 'null' }};
+  if (savedPlaylistId) {
+    await _runClientSideSpotifySync(savedPlaylistId, savedPlaylistName);
+  } else {
+    openPlaylistPicker('spotify');
+  }
+}
+
+async function _getSpotifyAccessToken() {
+  const resp = await fetch('/sync/spotify/access-token');
+  const data = await resp.json();
+  if (data.error) throw new Error(data.error);
+  return data.access_token;
+}
+
+async function _runClientSideSpotifySync(playlistId, playlistName) {
+  showLoading('Conectando con Spotify…');
+  let token;
+  try {
+    token = await _getSpotifyAccessToken();
+  } catch (err) {
+    showError('Error de Spotify', 'No se pudo obtener el token. Verificá tu cookie sp_dc en Ajustes. (' + err.message + ')');
+    return;
+  }
+
+  showLoading('Cargando tracks de Spotify…');
+  const tracks = [];
+  try {
+    let url = `https://api.spotify.com/v1/playlists/${encodeURIComponent(playlistId)}/tracks?limit=100&fields=items(added_at,track(id,name,artists,external_urls,duration_ms,album(id,name))),next`;
+    while (url) {
+      const resp = await fetch(url, {headers: {'Authorization': `Bearer ${token}`}});
+      if (!resp.ok) {
+        const errBody = await resp.json().catch(() => ({}));
+        throw new Error(`Spotify ${resp.status}: ${errBody?.error?.message || resp.statusText}`);
+      }
+      const data = await resp.json();
+      for (const item of (data.items || [])) {
+        const track = item?.track;
+        if (!track?.id) continue;
+        tracks.push({
+          id: track.id,
+          name: track.name,
+          artists: (track.artists || []).map(a => ({id: a.id, name: a.name})),
+          url: track.external_urls?.spotify || `https://open.spotify.com/track/${track.id}`,
+          duration_ms: track.duration_ms || null,
+          album: {id: track.album?.id || null, name: track.album?.name || null},
+          added_at: item.added_at || null,
+        });
+      }
+      url = data.next || null;
+    }
+  } catch (err) {
+    showError('Error cargando tracks', err.message);
+    return;
+  }
+
+  showLoading(`Importando ${tracks.length} tracks…`);
+  try {
+    const resp = await fetch('/sync/spotify/import', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({playlist_id: playlistId, playlist_name: playlistName, tracks}),
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    window.location.href = `/tracks/pending?synced=${data.new_tracks}&source=spotify`;
+  } catch (err) {
+    showError('Error importando tracks', err.message);
+  }
+}
 
 function openPlaylistPicker(platform) {
   _pickerPlatform = platform;
@@ -876,6 +991,11 @@ function openPlaylistPicker(platform) {
 }
 
 function selectPlaylist(id, name) {
+  if (_pickerPlatform === 'spotify' && !IS_ADMIN) {
+    bootstrap.Modal.getInstance(document.getElementById('playlistPickerModal'))?.hide();
+    _runClientSideSpotifySync(id, name);
+    return;
+  }
   document.getElementById('playlistPickerIdInput').value = id;
   document.getElementById('playlistPickerNameInput').value = name;
   const form = document.getElementById('playlistPickerForm');

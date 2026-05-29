@@ -101,6 +101,35 @@
       <div class="cfg-card-head">Autorizaciones</div>
       <div class="cfg-card-body">
 
+        {# Spotify — no-admin: cookie sp_dc #}
+        {% if not is_admin %}
+        <div class="svc-row svc-spotify">
+          <div class="d-flex align-items-center justify-content-between">
+            <div class="svc-name"><span class="svc-dot dot-spotify"></span>Spotify</div>
+            {% if current.get('spotify_sp_dc') %}
+              <span class="badge s-downloaded" style="font-size:0.67rem;">Configurado</span>
+            {% else %}
+              <span class="badge s-not_found" style="font-size:0.67rem;">No configurado</span>
+            {% endif %}
+          </div>
+          <div>
+            <p class="text-muted mb-2" style="font-size:0.72rem;">
+              Pegá tu cookie <strong>sp_dc</strong> de Spotify.<br>
+              Cómo obtenerla: abrí <strong>open.spotify.com</strong> en tu browser → F12 → Application → Cookies → <code>open.spotify.com</code> → copiá el valor de <strong>sp_dc</strong>.
+            </p>
+            <div class="input-group input-group-sm">
+              <input type="password" name="spotify_sp_dc" id="field-spotify-sp-dc"
+                     class="form-control form-control-sm font-monospace"
+                     value="{{ current.get('spotify_sp_dc', '') }}" autocomplete="off"
+                     placeholder="AQD...">
+              <button class="btn btn-outline-secondary" type="button" onclick="toggleField('field-spotify-sp-dc')">👁</button>
+              <button class="btn btn-outline-secondary" type="button" onclick="verifySpotifyCookie()">Verificar</button>
+            </div>
+            <div id="spotify-cookie-verify-result" class="mt-1" style="font-size:0.75rem;display:none;"></div>
+          </div>
+        </div>
+        {% endif %}
+
         {# Spotify — solo admin #}
         {% if is_admin %}
         <div class="svc-row svc-spotify">
@@ -402,6 +431,22 @@ async function generateAgentToken() {
     showError('Error al generar token', err.message || 'No se pudo conectar con el servidor.');
   }
 }
+async function verifySpotifyCookie() {
+  const el = document.getElementById('spotify-cookie-verify-result');
+  el.style.display = 'block';
+  el.className = 'mt-1 text-muted';
+  el.textContent = 'Verificando…';
+  try {
+    const res = await fetch('/settings/verify/spotify-cookie', {method: 'POST'});
+    const data = await res.json();
+    el.className = 'mt-1 fw-semibold ' + (data.ok ? 'text-success' : 'text-danger');
+    el.textContent = (data.ok ? '✓ ' : '✗ ') + data.msg;
+  } catch (err) {
+    el.className = 'mt-1 text-danger';
+    el.textContent = '✗ Error al conectar con el servidor.';
+  }
+}
+
 async function verifySpotify() {
   const el = document.getElementById('spotify-verify-result');
   el.style.display = 'block';

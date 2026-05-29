@@ -17,9 +17,12 @@ class UserSettings(Base):
     organize_by_like_date = Column(Boolean, nullable=False, default=False)  # legacy, kept for DB compat
     folder_organize_mode = Column(Text, nullable=False, default="none")  # none | like_date | import_date
 
-    # Per-user Spotify Developer app credentials
+    # Per-user Spotify Developer app credentials (admin only)
     spotify_client_id     = Column(Text, nullable=True)
     spotify_client_secret = Column(Text, nullable=True)
+
+    # sp_dc browser cookie — used by non-admin users for client-side Spotify sync
+    spotify_sp_dc = Column(Text, nullable=True)
 
     # OAuth token blobs stored as JSON strings
     spotify_token_json = Column(Text, nullable=True)
