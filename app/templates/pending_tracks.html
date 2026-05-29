@@ -903,6 +903,7 @@ async function _getSpotifyAccessToken() {
   const data = await resp.json();
   if (data.error) throw new Error(data.error);
   if (!data.access_token) throw new Error('No se recibió token de Spotify.');
+  console.log('[Spotify] token scopes:', data.scope || '(no scope info)');
   return data.access_token;
 }
 
@@ -923,8 +924,12 @@ async function _runClientSideSpotifySync(playlistId, playlistName) {
     while (url) {
       const resp = await fetch(url, {headers: {'Authorization': `Bearer ${token}`}});
       if (!resp.ok) {
-        const errBody = await resp.json().catch(() => ({}));
-        throw new Error(`Spotify ${resp.status}: ${errBody?.error?.message || resp.statusText}`);
+        const errText = await resp.text().catch(() => '');
+        console.error('[Spotify] tracks 403 body:', errText.slice(0, 500));
+        console.error('[Spotify] token prefix:', token.slice(0, 20));
+        let errMsg = resp.statusText;
+        try { errMsg = JSON.parse(errText)?.error?.message || errMsg; } catch(e) {}
+        throw new Error(`Spotify ${resp.status}: ${errMsg}`);
       }
       const data = await resp.json();
       console.log('[Spotify] tracks page →', (data.items || []).length, 'items, next:', !!data.next);

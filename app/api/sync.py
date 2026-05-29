@@ -233,8 +233,12 @@ def spotify_access_token(
 ):
     """Return a Spotify access token to the browser so it can call the Spotify API directly."""
     try:
+        import json as _json
+        from app.models.user_settings import UserSettings as _US
         token = spotify_auth.get_valid_access_token(db, current_user.id)
-        return JSONResponse({"access_token": token})
+        us = db.query(_US).filter_by(user_id=current_user.id).first()
+        token_data = _json.loads(us.spotify_token_json) if us and us.spotify_token_json else {}
+        return JSONResponse({"access_token": token, "scope": token_data.get("scope", "")})
     except RuntimeError as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
 
