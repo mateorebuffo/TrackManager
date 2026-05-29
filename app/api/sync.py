@@ -233,10 +233,16 @@ def sync_spotify(
         collector = SpotifyCollector(access_token, playlist_id=playlist_id)
         result: SyncResult = run_sync(collector, db, user_id=current_user.id)
     except Exception as exc:
+        # If the saved playlist is inaccessible, clear it so the user is prompted to reselect
+        if playlist_id and us and ("403" in str(exc) or "Forbidden" in str(exc)):
+            us.spotify_playlist_id = None
+            us.spotify_playlist_name = None
+            db.commit()
         accept = request.headers.get("accept", "")
         if "text/html" in accept:
+            error_param = "spotify_playlist_forbidden" if playlist_id and ("403" in str(exc) or "Forbidden" in str(exc)) else "1"
             return RedirectResponse(
-                url="/tracks/pending?sync_error=1&source=spotify",
+                url=f"/tracks/pending?sync_error={error_param}&source=spotify",
                 status_code=303,
             )
         return {"status": "error", "detail": str(exc)}

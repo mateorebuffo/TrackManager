@@ -901,13 +901,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const url = new URL(window.location.href);
 
   if (syncErr) {
-    const spotifyHint = source === 'spotify'
-      ? ' Si elegiste una playlist de otro usuario (badge "No es tuya"), seleccioná una playlist propia.'
-      : '';
-    showError(
-      `Error al sincronizar ${label}`,
-      'Ocurrió un error durante la sincronización. Revisá tu conexión y configuración, y volvé a intentarlo.' + spotifyHint
-    );
+    let errMsg = 'Ocurrió un error durante la sincronización. Revisá tu conexión y configuración, y volvé a intentarlo.';
+    if (syncErr === 'spotify_playlist_forbidden') {
+      errMsg = 'La playlist seleccionada no es accesible (puede ser privada o de otro usuario). Se limpió la selección — elegí una playlist propia desde el menú de Spotify.';
+    }
+    showError(`Error al sincronizar ${label}`, errMsg);
     url.searchParams.delete('sync_error');
     url.searchParams.delete('source');
     window.history.replaceState({}, '', url.toString());
