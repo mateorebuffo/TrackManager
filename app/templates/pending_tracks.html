@@ -842,6 +842,19 @@ document.addEventListener('DOMContentLoaded', () => {
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body p-0">
+        <div id="playlistPickerUrlSection" class="px-3 pt-3 pb-2" style="display:none;">
+          <label class="form-label fw-semibold" style="font-size:0.82rem;">Pegar URL de playlist</label>
+          <div class="input-group input-group-sm">
+            <input type="text" class="form-control" id="playlistPickerUrlInput"
+                   placeholder="https://open.spotify.com/playlist/…"
+                   style="font-size:0.8rem;">
+            <button class="btn btn-outline-primary" type="button" onclick="_pickPlaylistByUrl()" style="font-size:0.8rem;">
+              Usar
+            </button>
+          </div>
+          <div class="text-muted mt-1" style="font-size:0.73rem;">O elegí de la lista de abajo si cargó correctamente.</div>
+          <hr class="my-2">
+        </div>
         <div class="text-center py-4 text-muted" id="playlistPickerLoading">
           <div class="spinner-border spinner-border-sm me-2"></div>Cargando playlists…
         </div>
@@ -942,8 +955,16 @@ function openPlaylistPicker(platform) {
   document.getElementById('playlistPickerLoading').style.display = 'block';
   document.getElementById('playlistPickerError').style.display = 'none';
   document.getElementById('playlistPickerList').innerHTML = '';
+  document.getElementById('playlistPickerUrlSection').style.display = 'none';
+  document.getElementById('playlistPickerUrlInput').value = '';
 
   new bootstrap.Modal(document.getElementById('playlistPickerModal')).show();
+
+  // Non-admin Spotify: load playlists client-side using sp_dc token (avoids server IP restrictions)
+  if (platform === 'spotify' && !IS_ADMIN) {
+    _loadSpotifyPlaylistsClientSide();
+    return;
+  }
 
   fetch('/sync/' + platform + '/playlists', { headers: { 'Accept': 'application/json' } })
     .then(r => r.json())
@@ -955,32 +976,7 @@ function openPlaylistPicker(platform) {
         el.style.display = 'block';
         return;
       }
-      const list = document.getElementById('playlistPickerList');
-      if (!data.length) {
-        list.innerHTML = '<li class="list-group-item text-muted text-center py-3">No se encontraron playlists.</li>';
-        return;
-      }
-      data.forEach(pl => {
-        const count = pl.tracks !== undefined ? pl.tracks : pl.videos;
-        const isSpotify = _pickerPlatform === 'spotify';
-        const notOwned = isSpotify && pl.owned === false;
-        const li = document.createElement('li');
-        li.className = 'list-group-item d-flex align-items-center justify-content-between py-2 px-3';
-        li.style.fontSize = '0.85rem';
-        const badge = notOwned
-          ? `<span class="badge bg-warning text-dark ms-2" style="font-size:0.7rem;" title="Esta playlist es de otro usuario. Puede fallar al importar.">No es tuya</span>`
-          : '';
-        li.innerHTML = `
-          <div>
-            <span class="fw-semibold">${escHtml(pl.name)}</span>${badge}
-            <span class="text-muted ms-2" style="font-size:0.75rem;">${count} items</span>
-          </div>
-          <button type="button" class="btn btn-sm btn-outline-primary" style="font-size:0.75rem;padding:.2rem .6rem;"
-                  onclick='selectPlaylist(${JSON.stringify(pl.id)}, ${JSON.stringify(pl.name)})'>
-            Seleccionar
-          </button>`;
-        list.appendChild(li);
-      });
+      _renderPlaylistPickerItems(data);
     })
     .catch(err => {
       document.getElementById('playlistPickerLoading').style.display = 'none';
@@ -988,6 +984,103 @@ function openPlaylistPicker(platform) {
       el.textContent = 'Error al cargar playlists: ' + err;
       el.style.display = 'block';
     });
+}
+
+async function _loadSpotifyPlaylistsClientSide() {
+  // Always show the URL input section for Spotify non-admin
+  document.getElementById('playlistPickerUrlSection').style.display = 'block';
+
+  let token;
+  try {
+    token = await _getSpotifyAccessToken();
+  } catch (err) {
+    document.getElementById('playlistPickerLoading').style.display = 'none';
+    const el = document.getElementById('playlistPickerError');
+    el.textContent = 'No se pudo obtener el token de Spotify. Verificá tu cookie sp_dc en Ajustes. (' + err.message + ')';
+    el.style.display = 'block';
+    return;
+  }
+
+  const playlists = [];
+  try {
+    let url = 'https://api.spotify.com/v1/me/playlists?limit=50';
+    while (url) {
+      const resp = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
+      if (!resp.ok) {
+        const errBody = await resp.json().catch(() => ({}));
+        throw new Error('Spotify ' + resp.status + ': ' + (errBody?.error?.message || resp.statusText));
+      }
+      const data = await resp.json();
+      console.log('[Spotify] /v1/me/playlists →', data.total, 'total,', (data.items || []).length, 'en esta página');
+      for (const pl of (data.items || [])) {
+        if (pl && pl.id) {
+          playlists.push({ id: pl.id, name: pl.name || pl.id, tracks: pl.tracks?.total ?? 0, owned: null });
+        }
+      }
+      url = data.next || null;
+    }
+  } catch (err) {
+    console.error('[Spotify] Error cargando playlists:', err);
+    document.getElementById('playlistPickerLoading').style.display = 'none';
+    const el = document.getElementById('playlistPickerError');
+    el.textContent = 'Error cargando playlists: ' + err.message;
+    el.style.display = 'block';
+    return;
+  }
+
+  console.log('[Spotify] Playlists encontradas:', playlists.length);
+  document.getElementById('playlistPickerLoading').style.display = 'none';
+  if (playlists.length === 0) {
+    const list = document.getElementById('playlistPickerList');
+    list.innerHTML = '<li class="list-group-item text-muted text-center py-3" style="font-size:0.82rem;">No se encontraron playlists vía API.<br>Usá el campo de arriba para pegar la URL.</li>';
+    return;
+  }
+  _renderPlaylistPickerItems(playlists);
+}
+
+function _pickPlaylistByUrl() {
+  const raw = (document.getElementById('playlistPickerUrlInput').value || '').trim();
+  if (!raw) return;
+  // Accept full URL or bare ID
+  let id = raw;
+  const match = raw.match(/playlist\/([A-Za-z0-9]+)/);
+  if (match) id = match[1];
+  if (!id || id.length < 10) {
+    alert('URL de playlist inválida. Copiá el link completo de Spotify.');
+    return;
+  }
+  // Use ID as name until the sync overwrites it
+  bootstrap.Modal.getInstance(document.getElementById('playlistPickerModal'))?.hide();
+  _runClientSideSpotifySync(id, id);
+}
+
+function _renderPlaylistPickerItems(data) {
+  const list = document.getElementById('playlistPickerList');
+  if (!data.length) {
+    list.innerHTML = '<li class="list-group-item text-muted text-center py-3">No se encontraron playlists.</li>';
+    return;
+  }
+  data.forEach(pl => {
+    const count = pl.tracks !== undefined ? pl.tracks : pl.videos;
+    const isSpotify = _pickerPlatform === 'spotify';
+    const notOwned = isSpotify && pl.owned === false;
+    const li = document.createElement('li');
+    li.className = 'list-group-item d-flex align-items-center justify-content-between py-2 px-3';
+    li.style.fontSize = '0.85rem';
+    const badge = notOwned
+      ? `<span class="badge bg-warning text-dark ms-2" style="font-size:0.7rem;" title="Esta playlist es de otro usuario. Puede fallar al importar.">No es tuya</span>`
+      : '';
+    li.innerHTML = `
+      <div>
+        <span class="fw-semibold">${escHtml(pl.name)}</span>${badge}
+        <span class="text-muted ms-2" style="font-size:0.75rem;">${count} items</span>
+      </div>
+      <button type="button" class="btn btn-sm btn-outline-primary" style="font-size:0.75rem;padding:.2rem .6rem;"
+              onclick='selectPlaylist(${JSON.stringify(pl.id)}, ${JSON.stringify(pl.name)})'>
+        Seleccionar
+      </button>`;
+    list.appendChild(li);
+  });
 }
 
 function selectPlaylist(id, name) {

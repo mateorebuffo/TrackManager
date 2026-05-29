@@ -302,15 +302,33 @@ def verify_spotify_cookie(
     sp_dc = (us.spotify_sp_dc or "").strip() if us else ""
     if not sp_dc:
         return JSONResponse({"ok": False, "msg": "No hay cookie sp_dc guardada."})
+    _headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.0.0 Safari/537.36"
+        ),
+        "Accept": "application/json",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://open.spotify.com/",
+        "Origin": "https://open.spotify.com",
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-origin",
+    }
     try:
         resp = httpx.get(
             "https://open.spotify.com/get_access_token",
             params={"reason": "transport", "productType": "web_player"},
             cookies={"sp_dc": sp_dc},
-            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
+            headers=_headers,
             timeout=10,
+            follow_redirects=True,
         )
-        data = resp.json()
+        try:
+            data = resp.json()
+        except Exception:
+            return JSONResponse({"ok": False, "msg": f"Respuesta inesperada de Spotify (HTTP {resp.status_code}). La cookie puede ser inválida."})
         if data.get("isAnonymous") is True:
             return JSONResponse({"ok": False, "msg": "Cookie sp_dc inválida o expirada. Copiala de nuevo desde tu browser."})
         token = data.get("accessToken")

@@ -21,6 +21,22 @@ def _require_admin(current_user: User) -> None:
         raise HTTPException(status_code=403, detail="Solo administradores pueden usar Spotify.")
 
 
+_SP_DC_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/json",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Referer": "https://open.spotify.com/",
+    "Origin": "https://open.spotify.com",
+    "sec-fetch-dest": "empty",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-site": "same-origin",
+}
+
+
 def _get_sp_dc_access_token(db: Session, user_id: int) -> str | JSONResponse:
     """Exchange the stored sp_dc cookie for a short-lived Spotify access token.
     Returns the token string on success, or a JSONResponse with error on failure.
@@ -36,10 +52,19 @@ def _get_sp_dc_access_token(db: Session, user_id: int) -> str | JSONResponse:
             "https://open.spotify.com/get_access_token",
             params={"reason": "transport", "productType": "web_player"},
             cookies={"sp_dc": sp_dc},
-            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
+            headers=_SP_DC_HEADERS,
             timeout=10,
+            follow_redirects=True,
         )
-        data = resp.json()
+        try:
+            data = resp.json()
+        except Exception:
+            logger.error("Spotify devolvió respuesta no-JSON (HTTP %s): %s", resp.status_code, resp.text[:300])
+            return JSONResponse(
+                {"error": f"Spotify devolvió una respuesta inesperada (HTTP {resp.status_code}). "
+                          "Verificá que tu cookie sp_dc sea válida y esté actualizada."},
+                status_code=502,
+            )
         if data.get("isAnonymous") is True:
             return JSONResponse({"error": "Cookie sp_dc inválida o expirada. Actualizala en Ajustes."}, status_code=401)
         token = data.get("accessToken")
