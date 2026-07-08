@@ -1,7 +1,7 @@
 import logging
 import re
 from datetime import date, datetime
-from urllib.parse import quote, quote_plus
+from urllib.parse import quote, quote_plus, urlparse
 from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
@@ -303,7 +303,8 @@ def edit_metadata(
                 commit=True,
             )
     referer = request.headers.get("referer", "")
-    url = referer if referer.startswith("/") and not referer.startswith("//") else "/tracks/pending"
+    parsed = urlparse(referer)
+    url = (parsed.path + ("?" + parsed.query if parsed.query else "")) if parsed.path else "/tracks/pending"
     return RedirectResponse(url=url, status_code=303)
 
 
@@ -345,7 +346,8 @@ def bulk_to_pending(
         _cancel_jobs(db, valid)
         db.commit()
     referer = request.headers.get("referer", "")
-    url = referer if referer.startswith("/") and not referer.startswith("//") else "/tracks/pending"
+    parsed = urlparse(referer)
+    url = (parsed.path + ("?" + parsed.query if parsed.query else "")) if parsed.path else "/tracks/pending"
     return RedirectResponse(url=url, status_code=303)
 
 
