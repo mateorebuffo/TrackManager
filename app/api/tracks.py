@@ -422,6 +422,8 @@ def download_queue_get(
 
 def _render_queue(request: Request, db: Session, user_id: int) -> HTMLResponse:
     from app.models.user_settings import UserSettings
+    from app.models.download_job import DownloadJob, JobStatus
+    from sqlalchemy import func
     us = db.query(UserSettings).filter_by(user_id=user_id).first()
     has_muzpa  = bool(us and us.muzpa_sess)
     has_deezer = bool(us and us.deezer_arl)
@@ -443,10 +445,48 @@ def _render_queue(request: Request, db: Session, user_id: int) -> HTMLResponse:
     )
     rows = _build_queue_rows(items)
     queued_count = sum(1 for r in rows if r["status"] == "queued")
+
+    # Build batch history — one entry per distinct batch_id, ordered newest first
+    batch_rows = (
+        db.query(
+            DownloadJob.batch_id,
+            func.min(DownloadJob.created_at).label("started_at"),
+            func.count().label("total"),
+        )
+        .filter(
+            DownloadJob.user_id == user_id,
+            DownloadJob.batch_id.isnot(None),
+        )
+        .group_by(DownloadJob.batch_id)
+        .order_by(DownloadJob.batch_id.desc())
+        .all()
+    )
+
+    batches = []
+    for br in batch_rows:
+        status_counts = dict(
+            db.query(DownloadJob.status, func.count())
+            .filter(DownloadJob.user_id == user_id, DownloadJob.batch_id == br.batch_id)
+            .group_by(DownloadJob.status)
+            .all()
+        )
+        batches.append({
+            "batch_id":      br.batch_id,
+            "started_at":    br.started_at,
+            "total":         br.total,
+            "completed":     status_counts.get(JobStatus.completed,     0),
+            "not_found":     status_counts.get(JobStatus.not_found,     0),
+            "vinyl_only":    status_counts.get(JobStatus.vinyl_only,    0),
+            "bandcamp_only": status_counts.get(JobStatus.bandcamp_only, 0),
+            "failed":        status_counts.get(JobStatus.failed,        0),
+            "pending":       status_counts.get(JobStatus.pending,       0),
+            "in_progress":   status_counts.get(JobStatus.in_progress,   0),
+        })
+
     return templates.TemplateResponse(
         "download_queue.html",
         {"request": request, "rows": rows, "queued_count": queued_count,
-         "has_muzpa": has_muzpa, "has_deezer": has_deezer},
+         "has_muzpa": has_muzpa, "has_deezer": has_deezer, "batches": batches},
     )
 
 

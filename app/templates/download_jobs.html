@@ -4,12 +4,18 @@
 <div class="container-fluid py-4" style="max-width:1200px;">
 
   <div class="d-flex justify-content-between align-items-center mb-4">
-    <h4 class="mb-0">Auto-descarga</h4>
+    <div class="d-flex align-items-center gap-3">
+      <h4 class="mb-0">Auto-descarga</h4>
+      {% if batch_id and batch_id != latest_batch_id %}
+      <span class="badge bg-secondary">Cola #{{ batch_id }}</span>
+      <a href="/auto-download/jobs" class="btn btn-outline-secondary btn-sm">Ver última</a>
+      {% endif %}
+    </div>
     <div class="d-flex gap-2">
       <button id="btn-cancel-queue" class="btn btn-outline-danger btn-sm d-none" onclick="cancelAllPending()">
         Cancelar cola (<span id="cancel-queue-count">0</span>)
       </button>
-      <a href="/tracks/pending" class="btn btn-outline-secondary btn-sm">← Tracks</a>
+      <a href="/tracks/download-queue" class="btn btn-outline-secondary btn-sm">← Cola</a>
     </div>
   </div>
 
@@ -38,7 +44,7 @@
         </div>
 
         <div class="col" id="col-not_found" {% if not not_found_count %}style="display:none"{% endif %}>
-          <a href="?status_filter=not_found" class="text-decoration-none d-block
+          <a href="?batch_id={{ batch_id }}&status_filter=not_found" class="text-decoration-none d-block
             {% if active_filter == 'not_found' %}rounded p-2 border border-secondary bg-light{% endif %}">
             <div class="fs-4 fw-bold text-secondary" id="n-not_found">{{ not_found_count }}</div>
             <div class="small text-muted">No encontrados</div>
@@ -46,21 +52,21 @@
         </div>
 
         <div class="col" id="col-vinyl_only" {% if not vinyl_only_count %}style="display:none"{% endif %}>
-          <a href="?status_filter=vinyl_only" class="text-decoration-none d-block">
+          <a href="?batch_id={{ batch_id }}&status_filter=vinyl_only" class="text-decoration-none d-block">
             <div class="fs-4 fw-bold" style="color:#7c3aed;" id="n-vinyl_only">{{ vinyl_only_count }}</div>
             <div class="small text-muted">Solo vinilo</div>
           </a>
         </div>
 
         <div class="col" id="col-bandcamp_only" {% if not bandcamp_only_count %}style="display:none"{% endif %}>
-          <a href="?status_filter=bandcamp_only" class="text-decoration-none d-block">
+          <a href="?batch_id={{ batch_id }}&status_filter=bandcamp_only" class="text-decoration-none d-block">
             <div class="fs-4 fw-bold text-primary" id="n-bandcamp_only">{{ bandcamp_only_count }}</div>
             <div class="small text-muted">Solo Bandcamp</div>
           </a>
         </div>
 
         <div class="col" id="col-failed" {% if not failed_count %}style="display:none"{% endif %}>
-          <a href="?status_filter=failed" class="text-decoration-none d-block">
+          <a href="?batch_id={{ batch_id }}&status_filter=failed" class="text-decoration-none d-block">
             <div class="fs-4 fw-bold text-danger" id="n-failed">{{ failed_count }}</div>
             <div class="small text-muted">Errores</div>
           </a>
@@ -73,6 +79,7 @@
   {# ── Vista filtrada — misma tabla que la cola ──────────────────── #}
   {% if active_filter %}
   {% set filter_label = {
+    "completed":     "Descargados",
     "not_found":     "No encontrados",
     "vinyl_only":    "Solo vinilo",
     "bandcamp_only": "Solo Bandcamp",
@@ -80,7 +87,7 @@
   } %}
   <div class="d-flex justify-content-between align-items-center mb-3">
     <span class="fw-semibold">{{ filter_label.get(active_filter, active_filter) }} — {{ filter_rows | length }} tracks</span>
-    <a href="?" class="btn btn-outline-secondary btn-sm">✕ Limpiar filtro</a>
+    <a href="?batch_id={{ batch_id }}" class="btn btn-outline-secondary btn-sm">✕ Limpiar filtro</a>
   </div>
 
   <div class="table-responsive mb-4">
@@ -410,8 +417,11 @@ document.addEventListener('DOMContentLoaded', () => {
     col.style.display = val > 0 ? '' : 'none';
   }
 
+  const BATCH_ID = {{ batch_id or 'null' }};
+
   function poll() {
-    fetch('/auto-download/jobs/live')
+    const url = BATCH_ID ? `/auto-download/jobs/live?batch_id=${BATCH_ID}` : '/auto-download/jobs/live';
+    fetch(url)
       .then(r => r.json())
       .then(d => {
         // Alert banner

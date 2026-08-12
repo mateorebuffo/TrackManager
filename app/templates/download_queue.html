@@ -231,4 +231,72 @@ function openEditModal(btn) {
 </div>
 {% endif %}
 
+{# ── Colas anteriores ──────────────────────────────────────────── #}
+{% if batches %}
+<div class="card mt-4">
+  <div class="card-header fw-semibold">Colas anteriores</div>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover mb-0 align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>Fecha</th>
+          <th class="text-center">Total</th>
+          <th class="text-center text-success">↓ OK</th>
+          <th class="text-center text-secondary">✕ No enc.</th>
+          <th class="text-center" style="color:#7c3aed;">💿 Vinilo</th>
+          <th class="text-center text-primary">BC</th>
+          <th class="text-center text-danger">Error</th>
+          <th class="text-center text-muted">Pendiente</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in batches %}
+        <tr>
+          <td class="text-muted small">
+            <a href="/auto-download/jobs?batch_id={{ b.batch_id }}" class="text-decoration-none text-reset fw-semibold">
+              {{ b.started_at.strftime('%d/%m/%Y %H:%M') if b.started_at else '—' }}
+            </a>
+          </td>
+          <td class="text-center small">{{ b.total }}</td>
+          <td class="text-center">
+            {% if b.completed %}
+            <a href="/auto-download/jobs?batch_id={{ b.batch_id }}&status_filter=completed"
+               class="fw-bold text-success text-decoration-none">{{ b.completed }}</a>
+            {% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+          <td class="text-center">
+            {% if b.not_found %}
+            <a href="/auto-download/jobs?batch_id={{ b.batch_id }}&status_filter=not_found"
+               class="fw-bold text-secondary text-decoration-none">{{ b.not_found }}</a>
+            {% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+          <td class="text-center">
+            {% if b.vinyl_only %}
+            <a href="/auto-download/jobs?batch_id={{ b.batch_id }}&status_filter=vinyl_only"
+               class="fw-bold text-decoration-none" style="color:#7c3aed;">{{ b.vinyl_only }}</a>
+            {% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+          <td class="text-center">
+            {% if b.bandcamp_only %}
+            <a href="/auto-download/jobs?batch_id={{ b.batch_id }}&status_filter=bandcamp_only"
+               class="fw-bold text-primary text-decoration-none">{{ b.bandcamp_only }}</a>
+            {% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+          <td class="text-center">
+            {% if b.failed %}
+            <a href="/auto-download/jobs?batch_id={{ b.batch_id }}&status_filter=failed"
+               class="fw-bold text-danger text-decoration-none">{{ b.failed }}</a>
+            {% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+          <td class="text-center small text-muted">
+            {% if b.pending or b.in_progress %}{{ b.pending + b.in_progress }}{% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
 {% endblock %}

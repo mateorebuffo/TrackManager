@@ -64,7 +64,15 @@ def _cancel_stale_jobs(db: Session, user_id: int) -> None:
         db.commit()
 
 
-def _enqueue(db: Session, review_id: int, query: str, user_id: int) -> DownloadJob:
+def _next_batch_id(db: Session, user_id: int) -> int:
+    from sqlalchemy import func
+    max_id = db.query(func.max(DownloadJob.batch_id)).filter(
+        DownloadJob.user_id == user_id
+    ).scalar()
+    return (max_id or 0) + 1
+
+
+def _enqueue(db: Session, review_id: int, query: str, user_id: int, batch_id: int | None = None) -> DownloadJob:
     """Create a pending download job (idempotent — skip if one already exists)."""
     existing = db.query(DownloadJob).filter(
         DownloadJob.review_id == review_id,
@@ -73,7 +81,7 @@ def _enqueue(db: Session, review_id: int, query: str, user_id: int) -> DownloadJ
     if existing:
         return existing
 
-    job = DownloadJob(user_id=user_id, review_id=review_id, query=query)
+    job = DownloadJob(user_id=user_id, review_id=review_id, query=query, batch_id=batch_id)
     db.add(job)
     db.commit()
     db.refresh(job)
@@ -115,10 +123,11 @@ def auto_download_all_start(
     if not items:
         return RedirectResponse(url="/tracks/download-queue?empty=1", status_code=303)
 
+    batch_id = _next_batch_id(db, current_user.id)
     count = 0
     for item in items:
         if item.normalized_track:
-            _enqueue(db, item.id, _make_query(item.normalized_track), current_user.id)
+            _enqueue(db, item.id, _make_query(item.normalized_track), current_user.id, batch_id=batch_id)
             count += 1
 
     return RedirectResponse(url=f"/auto-download/jobs?enqueued={count}", status_code=303)
@@ -156,12 +165,12 @@ def auto_download_one(
 
 @router.get("/jobs/live")
 def jobs_live(
+    batch_id: int | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
     from app.models.download_job import JobStatus as JS
     from sqlalchemy import func
-    from datetime import timedelta
 
     counts = dict(
         db.query(DownloadJob.status, func.count())
@@ -170,17 +179,19 @@ def jobs_live(
         .all()
     )
 
-    latest_created = db.query(func.max(DownloadJob.created_at)).filter(
-        DownloadJob.user_id == current_user.id
-    ).scalar()
+    # Resolve which batch to show — default to latest
+    if batch_id is None:
+        batch_id = db.query(func.max(DownloadJob.batch_id)).filter(
+            DownloadJob.user_id == current_user.id
+        ).scalar()
+
     batch_counts: dict = {}
-    if latest_created:
-        batch_start = latest_created - timedelta(seconds=60)
+    if batch_id is not None:
         batch_counts = dict(
             db.query(DownloadJob.status, func.count())
             .filter(
                 DownloadJob.user_id == current_user.id,
-                DownloadJob.created_at >= batch_start,
+                DownloadJob.batch_id == batch_id,
             )
             .group_by(DownloadJob.status)
             .all()
@@ -188,16 +199,19 @@ def jobs_live(
 
     jobs = (
         db.query(DownloadJob)
-        .filter(DownloadJob.user_id == current_user.id)
+        .filter(
+            DownloadJob.user_id == current_user.id,
+            DownloadJob.batch_id == batch_id,
+        )
         .order_by(DownloadJob.created_at.desc())
         .all()
-    )
-    total_jobs = len(jobs)
+    ) if batch_id is not None else []
 
     return {
         "pending":       counts.get(JS.pending, 0),
         "in_progress":   counts.get(JS.in_progress, 0),
-        "total_jobs":    total_jobs,
+        "total_jobs":    len(jobs),
+        "batch_id":      batch_id,
         "batch": {
             "completed":     batch_counts.get(JS.completed, 0),
             "not_found":     batch_counts.get(JS.not_found, 0),
@@ -223,16 +237,16 @@ def jobs_status(
     request: Request,
     enqueued: int = 0,
     status_filter: str | None = None,
+    batch_id: int | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> HTMLResponse:
     from app.models.download_job import JobStatus as JS
     from sqlalchemy import func
-    from datetime import timedelta
 
     _cancel_stale_jobs(db, current_user.id)
 
-    # All-time counts — used for pending/in_progress banners only
+    # All-time pending/in_progress counts — for banners only
     counts = dict(
         db.query(DownloadJob.status, func.count())
         .filter(DownloadJob.user_id == current_user.id)
@@ -242,28 +256,30 @@ def jobs_status(
     pending_count  = counts.get(JS.pending,     0)
     progress_count = counts.get(JS.in_progress, 0)
 
-    # Latest batch — jobs created within 60s of the most recent job
-    latest_created = db.query(func.max(DownloadJob.created_at)).filter(
+    # Resolve batch — default to latest
+    latest_batch_id = db.query(func.max(DownloadJob.batch_id)).filter(
         DownloadJob.user_id == current_user.id
     ).scalar()
+    if batch_id is None:
+        batch_id = latest_batch_id
+
     batch_counts: dict = {}
-    if latest_created:
-        batch_start = latest_created - timedelta(seconds=60)
+    if batch_id is not None:
         batch_counts = dict(
             db.query(DownloadJob.status, func.count())
             .filter(
                 DownloadJob.user_id == current_user.id,
-                DownloadJob.created_at >= batch_start,
+                DownloadJob.batch_id == batch_id,
             )
             .group_by(DownloadJob.status)
             .all()
         )
 
-    FILTERABLE = {"not_found", "vinyl_only", "bandcamp_only", "failed"}
+    FILTERABLE = {"completed", "not_found", "vinyl_only", "bandcamp_only", "failed"}
     active_filter = status_filter if status_filter in FILTERABLE else None
 
     filter_rows: list[dict] = []
-    if active_filter:
+    if active_filter and batch_id is not None:
         from urllib.parse import quote, quote_plus
         items = (
             db.query(ReviewItem)
@@ -273,6 +289,7 @@ def jobs_status(
             )
             .filter(
                 DownloadJob.user_id == current_user.id,
+                DownloadJob.batch_id == batch_id,
                 DownloadJob.status == JS(active_filter),
             )
             .order_by(DownloadJob.updated_at.desc())
@@ -308,19 +325,21 @@ def jobs_status(
 
     jobs = (
         db.query(DownloadJob)
-        .filter(DownloadJob.user_id == current_user.id)
+        .filter(
+            DownloadJob.user_id == current_user.id,
+            DownloadJob.batch_id == batch_id,
+        )
         .order_by(DownloadJob.created_at.desc())
-        .limit(100)
         .all()
-    )
+    ) if batch_id is not None else []
 
     return templates.TemplateResponse(
         "download_jobs.html",
         {
-            "request": request,
-            "jobs": jobs,
-            "enqueued": enqueued,
-            "token": current_user.api_token,
+            "request":             request,
+            "jobs":                jobs,
+            "enqueued":            enqueued,
+            "token":               current_user.api_token,
             "pending_count":       pending_count,
             "progress_count":      progress_count,
             "completed_count":     batch_counts.get(JS.completed,     0),
@@ -330,5 +349,7 @@ def jobs_status(
             "failed_count":        batch_counts.get(JS.failed,        0),
             "active_filter":       active_filter,
             "filter_rows":         filter_rows,
+            "batch_id":            batch_id,
+            "latest_batch_id":     latest_batch_id,
         },
     )

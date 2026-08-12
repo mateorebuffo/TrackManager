@@ -20,6 +20,7 @@ class DownloadJob(Base):
     __tablename__ = "download_jobs"
 
     id            = Column(Integer, primary_key=True, index=True)
+    batch_id      = Column(Integer, nullable=True, index=True)
     created_at    = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at    = Column(DateTime, default=lambda: datetime.now(timezone.utc),
                            onupdate=lambda: datetime.now(timezone.utc), nullable=False)
