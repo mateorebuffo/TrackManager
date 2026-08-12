@@ -233,68 +233,76 @@ function openEditModal(btn) {
 
 {# ── Colas anteriores ──────────────────────────────────────────── #}
 {% if batches %}
-<div class="card mt-4">
-  <div class="card-header fw-semibold">Colas anteriores</div>
-  <div class="table-responsive">
-    <table class="table table-sm table-hover mb-0 align-middle">
-      <thead class="table-light">
-        <tr>
-          <th>Fecha</th>
-          <th class="text-center">Total</th>
-          <th class="text-center text-success">↓ OK</th>
-          <th class="text-center text-secondary">✕ No enc.</th>
-          <th class="text-center" style="color:#7c3aed;">💿 Vinilo</th>
-          <th class="text-center text-primary">BC</th>
-          <th class="text-center text-danger">Error</th>
-          <th class="text-center text-muted">Pendiente</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for b in batches %}
-        <tr>
-          <td class="text-muted small">
-            <a href="/auto-download/jobs?batch_id={{ b.batch_id }}" class="text-decoration-none text-reset fw-semibold">
-              {{ b.started_at.strftime('%d/%m/%Y %H:%M') if b.started_at else '—' }}
-            </a>
-          </td>
-          <td class="text-center small">{{ b.total }}</td>
-          <td class="text-center">
-            {% if b.completed %}
-            <a href="/auto-download/jobs?batch_id={{ b.batch_id }}&status_filter=completed"
-               class="fw-bold text-success text-decoration-none">{{ b.completed }}</a>
-            {% else %}<span class="text-muted">—</span>{% endif %}
-          </td>
-          <td class="text-center">
-            {% if b.not_found %}
-            <a href="/auto-download/jobs?batch_id={{ b.batch_id }}&status_filter=not_found"
-               class="fw-bold text-secondary text-decoration-none">{{ b.not_found }}</a>
-            {% else %}<span class="text-muted">—</span>{% endif %}
-          </td>
-          <td class="text-center">
-            {% if b.vinyl_only %}
-            <a href="/auto-download/jobs?batch_id={{ b.batch_id }}&status_filter=vinyl_only"
-               class="fw-bold text-decoration-none" style="color:#7c3aed;">{{ b.vinyl_only }}</a>
-            {% else %}<span class="text-muted">—</span>{% endif %}
-          </td>
-          <td class="text-center">
-            {% if b.bandcamp_only %}
-            <a href="/auto-download/jobs?batch_id={{ b.batch_id }}&status_filter=bandcamp_only"
-               class="fw-bold text-primary text-decoration-none">{{ b.bandcamp_only }}</a>
-            {% else %}<span class="text-muted">—</span>{% endif %}
-          </td>
-          <td class="text-center">
-            {% if b.failed %}
-            <a href="/auto-download/jobs?batch_id={{ b.batch_id }}&status_filter=failed"
-               class="fw-bold text-danger text-decoration-none">{{ b.failed }}</a>
-            {% else %}<span class="text-muted">—</span>{% endif %}
-          </td>
-          <td class="text-center small text-muted">
-            {% if b.pending or b.in_progress %}{{ b.pending + b.in_progress }}{% else %}—{% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+<div class="mt-4">
+  <h6 class="text-muted text-uppercase fw-semibold mb-2" style="font-size:0.72rem;letter-spacing:.07em;">Colas anteriores</h6>
+  <div class="d-flex flex-column gap-2">
+    {% for b in batches %}
+    <a href="/auto-download/jobs?batch_id={{ b.batch_id }}"
+       class="text-decoration-none d-block rounded border px-3 py-2 bg-white"
+       style="transition:box-shadow .15s;" onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,.08)'" onmouseout="this.style.boxShadow=''">
+      <div class="d-flex align-items-center gap-3 flex-wrap">
+
+        {# Date + total #}
+        <div style="min-width:130px;">
+          <div class="fw-semibold text-dark" style="font-size:.875rem;">
+            {{ b.started_at.strftime('%d/%m/%Y') if b.started_at else '—' }}
+          </div>
+          <div class="text-muted" style="font-size:.75rem;">
+            {{ b.started_at.strftime('%H:%M') if b.started_at else '' }} · {{ b.total }} tracks
+          </div>
+        </div>
+
+        {# Status badges — only show non-zero #}
+        <div class="d-flex flex-wrap gap-2 ms-auto">
+          {% if b.completed %}
+          <span class="badge rounded-pill px-3 py-2"
+                style="background:#dcfce7;color:#166534;font-size:.8rem;font-weight:600;"
+                onclick="event.preventDefault();location.href='/auto-download/jobs?batch_id={{ b.batch_id }}&status_filter=completed'">
+            ✓ {{ b.completed }} descargados
+          </span>
+          {% endif %}
+          {% if b.not_found %}
+          <span class="badge rounded-pill px-3 py-2"
+                style="background:#f1f5f9;color:#475569;font-size:.8rem;font-weight:600;"
+                onclick="event.preventDefault();location.href='/auto-download/jobs?batch_id={{ b.batch_id }}&status_filter=not_found'">
+            ✕ {{ b.not_found }} no encontrados
+          </span>
+          {% endif %}
+          {% if b.vinyl_only %}
+          <span class="badge rounded-pill px-3 py-2"
+                style="background:#f3e8ff;color:#6b21a8;font-size:.8rem;font-weight:600;"
+                onclick="event.preventDefault();location.href='/auto-download/jobs?batch_id={{ b.batch_id }}&status_filter=vinyl_only'">
+            💿 {{ b.vinyl_only }} solo vinilo
+          </span>
+          {% endif %}
+          {% if b.bandcamp_only %}
+          <span class="badge rounded-pill px-3 py-2"
+                style="background:#dbeafe;color:#1e40af;font-size:.8rem;font-weight:600;"
+                onclick="event.preventDefault();location.href='/auto-download/jobs?batch_id={{ b.batch_id }}&status_filter=bandcamp_only'">
+            BC {{ b.bandcamp_only }} solo Bandcamp
+          </span>
+          {% endif %}
+          {% if b.failed %}
+          <span class="badge rounded-pill px-3 py-2"
+                style="background:#fee2e2;color:#991b1b;font-size:.8rem;font-weight:600;"
+                onclick="event.preventDefault();location.href='/auto-download/jobs?batch_id={{ b.batch_id }}&status_filter=failed'">
+            ⚠ {{ b.failed }} errores
+          </span>
+          {% endif %}
+          {% if b.pending or b.in_progress %}
+          <span class="badge rounded-pill px-3 py-2"
+                style="background:#fef9c3;color:#854d0e;font-size:.8rem;font-weight:600;">
+            ⏳ {{ b.pending + b.in_progress }} pendientes
+          </span>
+          {% endif %}
+          {% if not b.completed and not b.not_found and not b.vinyl_only and not b.bandcamp_only and not b.failed and not b.pending and not b.in_progress %}
+          <span class="text-muted small">Sin resultados</span>
+          {% endif %}
+        </div>
+
+      </div>
+    </a>
+    {% endfor %}
   </div>
 </div>
 {% endif %}
