@@ -68,7 +68,7 @@ def sync_soundcloud(
     accept = request.headers.get("accept", "")
     if "text/html" in accept:
         return RedirectResponse(
-            url=f"/tracks/pending?synced={result.new_tracks}&source=soundcloud",
+            url=f"/tracks/pending?synced={result.new_tracks}&src=soundcloud",
             status_code=303,
         )
 
@@ -205,11 +205,11 @@ def spotify_select_playlist(
 
     if sync_error:
         return RedirectResponse(
-            url="/tracks/pending?sync_error=1&source=spotify",
+            url="/tracks/pending?sync_error=1&src=spotify",
             status_code=303,
         )
     return RedirectResponse(
-        url=f"/tracks/pending?synced={new_tracks}&source=spotify",
+        url=f"/tracks/pending?synced={new_tracks}&src=spotify",
         status_code=303,
     )
 
@@ -252,7 +252,7 @@ def sync_spotify(
         if "text/html" in accept:
             error_param = "spotify_playlist_forbidden" if playlist_id and ("403" in str(exc) or "Forbidden" in str(exc)) else "1"
             return RedirectResponse(
-                url=f"/tracks/pending?sync_error={error_param}&source=spotify",
+                url=f"/tracks/pending?sync_error={error_param}&src=spotify",
                 status_code=303,
             )
         return {"status": "error", "detail": str(exc)}
@@ -260,7 +260,7 @@ def sync_spotify(
     accept = request.headers.get("accept", "")
     if "text/html" in accept:
         return RedirectResponse(
-            url=f"/tracks/pending?synced={result.new_tracks}&source=spotify",
+            url=f"/tracks/pending?synced={result.new_tracks}&src=spotify",
             status_code=303,
         )
 
@@ -393,11 +393,11 @@ def youtube_select_playlist(
 
     if sync_error:
         return RedirectResponse(
-            url="/tracks/pending?sync_error=1&source=youtube",
+            url="/tracks/pending?sync_error=1&src=youtube",
             status_code=303,
         )
     return RedirectResponse(
-        url=f"/tracks/pending?synced={new_tracks}&source=youtube",
+        url=f"/tracks/pending?synced={new_tracks}&src=youtube",
         status_code=303,
     )
 
@@ -442,7 +442,7 @@ def sync_youtube(
     accept = request.headers.get("accept", "")
     if "text/html" in accept:
         return RedirectResponse(
-            url=f"/tracks/pending?synced={result.new_tracks}&source=youtube",
+            url=f"/tracks/pending?synced={result.new_tracks}&src=youtube",
             status_code=303,
         )
 

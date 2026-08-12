@@ -895,10 +895,10 @@ function escHtml(str) {
 document.addEventListener('DOMContentLoaded', () => {
   const params = new URLSearchParams(window.location.search);
   const synced = params.get('synced');
-  const source = params.get('source');
+  const src = params.get('src');
   const syncErr = params.get('sync_error');
   const labels = { soundcloud: 'SoundCloud', spotify: 'Spotify', youtube: 'YouTube' };
-  const label = labels[source] || source || '';
+  const label = labels[src] || src || '';
 
   const url = new URL(window.location.href);
 
@@ -922,7 +922,7 @@ document.addEventListener('DOMContentLoaded', () => {
   _showToastNow(msg, n > 0 ? 'success' : 'info');
   /* Clean URL so a manual reload doesn't re-show the toast */
   url.searchParams.delete('synced');
-  url.searchParams.delete('source');
+  url.searchParams.delete('src');
   window.history.replaceState({}, '', url.toString());
 });
 </script>
