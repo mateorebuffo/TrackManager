@@ -9,6 +9,7 @@ import logging
 import os
 import queue
 import sys
+import tempfile
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -21,6 +22,7 @@ from tkinter import ttk
 import subprocess
 
 import httpx
+from download.auth_error import AuthExpired
 from download.orchestrator import try_download as _try_download
 
 try:
@@ -186,6 +188,46 @@ def api_get_settings(cfg: dict) -> dict:
     except Exception as e:
         log.error("fetch settings: %s", e)
         return {}
+
+def api_get_credentials(cfg: dict) -> dict:
+    """Estado de las 3 credenciales: {'muzpa': {'ok':.., 'connected':.., 'msg':..}, ...}"""
+    try:
+        r = httpx.get(f"{API_URL}/api/me/credentials",
+                      headers=_headers(cfg), timeout=30)
+        r.raise_for_status()
+        return r.json()
+    except Exception as e:
+        log.error("fetch credentials: %s", e)
+        return {}
+
+
+def connect_account(cfg: dict, service: str) -> tuple[bool, str]:
+    """
+    Abrir la ventana de login en un subproceso. El subproceso valida contra el
+    servidor y guarda; acá solo se lee el resultado.
+
+    Devuelve (ok, mensaje). ok=False con mensaje vacío = el usuario cerró la
+    ventana sin completar el login.
+    """
+    out = Path(tempfile.gettempdir()) / f"tm_login_{service}_{os.getpid()}.json"
+    if getattr(sys, "frozen", False):
+        cmd = [sys.executable, "--login", service, str(out)]
+    else:
+        cmd = [sys.executable, str(Path(__file__).resolve()), "--login", service, str(out)]
+    # El token va por entorno: argv es legible por cualquier proceso de la máquina.
+    env = {**os.environ, "TM_TOKEN": cfg.get("token", ""), "TM_API_URL": API_URL}
+    try:
+        subprocess.run(cmd, env=env, timeout=900)
+        if out.exists():
+            data = json.loads(out.read_text(encoding="utf-8"))
+            return bool(data.get("ok")), str(data.get("msg", ""))
+    except Exception as e:
+        log.error("connect %s: %s", service, e)
+        return False, f"Error: {e}"
+    finally:
+        out.unlink(missing_ok=True)
+    return False, ""
+
 
 def api_start(cfg: dict, job_id: int) -> None:
     try:
@@ -377,6 +419,7 @@ class RunningWindow:
         self._rows: dict[int, str] = {}
         self._tray: "pystray.Icon | None" = None
         self._in_tray = False
+        self._creds_expired: str | None = None  # nombre del servicio cuya credencial venció
 
         self.root = Tk()
         self.root.title("Track Manager — Agente")
@@ -526,6 +569,8 @@ class RunningWindow:
                bg="white", cursor="hand2",
                command=_toggle_token).pack(side="left", padx=(4, 0), ipady=4, ipadx=8)
 
+        self._build_accounts_section(body, dlg, token_var)
+
         Label(body, text="Organización de carpetas", font=("Segoe UI", 9, "bold"),
               bg=BG, fg=FG).pack(anchor="w")
         Label(body, text="Cómo organizar los MP3 dentro de la carpeta de descarga",
@@ -571,6 +616,58 @@ class RunningWindow:
                activebackground="#1d4ed8", activeforeground="white",
                command=save).pack(fill="x", padx=24, pady=(8, 16), ipady=8)
 
+    # ── Cuentas conectadas ───────────────────────────────────────────────────
+
+    def _build_accounts_section(self, body, dlg, token_var) -> None:
+        """Tres filas Muzpa/Deezer/SoundCloud con estado y botón Conectar."""
+        Label(body, text="Cuentas conectadas", font=("Segoe UI", 9, "bold"),
+              bg=BG, fg=FG).pack(anchor="w")
+        Label(body, text="Te logueás en una ventana y el agente guarda la sesión solo",
+              font=("Segoe UI", 8), bg=BG, fg=MUTED).pack(anchor="w", pady=(1, 5))
+
+        self._acct_dots: dict[str, Label] = {}
+        for service, label in (("muzpa", "Muzpa"), ("deezer", "Deezer"),
+                               ("soundcloud", "SoundCloud")):
+            row = Frame(body, bg=BG)
+            row.pack(fill="x", pady=(0, 4))
+            dot = Label(row, text="●", font=("Segoe UI", 10), bg=BG, fg="#cbd5e1")
+            dot.pack(side="left")
+            Label(row, text=label, font=("Segoe UI", 9), bg=BG, fg=FG).pack(side="left", padx=(4, 0))
+            Button(row, text="Conectar", font=("Segoe UI", 8), relief="solid", bd=1,
+                   bg="white", cursor="hand2",
+                   command=lambda s=service, l=label: self._connect_account(s, l, dlg, token_var),
+                   ).pack(side="right", ipadx=6)
+            self._acct_dots[service] = dot
+
+        Frame(body, bg=BG, height=10).pack(fill="x")
+        threading.Thread(target=self._refresh_account_dots, daemon=True).start()
+
+    def _refresh_account_dots(self) -> None:
+        """Pintar los puntos según el estado real. Corre en hilo: hace 3 requests."""
+        status = api_get_credentials(self.cfg)
+        for service, dot in getattr(self, "_acct_dots", {}).items():
+            info = status.get(service) or {}
+            color = "#22c55e" if info.get("ok") else ("#f59e0b" if info.get("connected") else "#cbd5e1")
+            # El diálogo pudo cerrarse mientras corrían los requests.
+            self.root.after(0, lambda d=dot, c=color: d.winfo_exists() and d.config(fg=c))
+
+    def _connect_account(self, service: str, label: str, dlg, token_var) -> None:
+        token = token_var.get().strip()
+        if not token:
+            messagebox.showerror("Falta el token", "Pegá el token de acceso antes de conectar cuentas.", parent=dlg)
+            return
+        # El token puede estar recién pegado y todavía no guardado.
+        cfg = {**self.cfg, "token": token}
+
+        ok, msg = connect_account(cfg, service)
+        if ok:
+            messagebox.showinfo(label, f"{label} conectado.\n\n{msg}", parent=dlg)
+        elif msg:
+            messagebox.showerror(label, f"No se pudo conectar {label}.\n\n{msg}", parent=dlg)
+        else:
+            return  # ventana cerrada sin completar el login: sin ruido
+        threading.Thread(target=self._refresh_account_dots, daemon=True).start()
+
     def _stop_graceful(self) -> None:
         self.stop_btn.config(state="disabled", text="Deteniendo…")
         self.running = False
@@ -578,8 +675,10 @@ class RunningWindow:
     def _restart(self) -> None:
         self.running = True
         self._worker_done = False
+        self._creds_expired = None
         self.dot.config(fg="#22c55e")
-        self.status_lbl.config(text="Corriendo")
+        self.status_lbl.unbind("<Button-1>")
+        self.status_lbl.config(text="Corriendo", fg=FG, cursor="")
         self.stop_btn.config(state="normal", text="⏹ Detener agente", command=self._stop_graceful)
         t = threading.Thread(target=self._worker, daemon=True)
         t.start()
@@ -660,9 +759,12 @@ class RunningWindow:
         kind = msg[0]
         if kind == "stopped":
             self._worker_done = True
-            self.dot.config(fg="#94a3b8")
-            self.status_lbl.config(text="Agente detenido")
             self.stop_btn.config(state="normal", text="▶ Reanudar agente", command=self._restart)
+            # Si paramos por una credencial vencida, ese aviso manda: decir sólo
+            # "Agente detenido" esconde el motivo y el usuario no sabe qué hacer.
+            if not self._creds_expired:
+                self.dot.config(fg="#94a3b8")
+                self.status_lbl.config(text="Agente detenido")
         elif kind == "idle":
             self.dot.config(fg="#22c55e")
             self.status_lbl.config(text="Corriendo — sin pendientes")
@@ -676,6 +778,19 @@ class RunningWindow:
         elif kind == "no_creds":
             self.dot.config(fg="#f59e0b")
             self.status_lbl.config(text="Sin credenciales — configurá Muzpa en Ajustes")
+        elif kind == "creds_expired":
+            _, service = msg
+            name = {"muzpa": "Muzpa", "deezer": "Deezer", "soundcloud": "SoundCloud"}.get(service, service)
+            self._creds_expired = name
+            self.dot.config(fg="#f59e0b")
+            self.status_lbl.config(text=f"{name} desconectado — clic acá para reconectar",
+                                   fg=ACCENT, cursor="hand2")
+            self.status_lbl.bind("<Button-1>", lambda _e: self._open_settings_dialog())
+            threading.Thread(
+                target=_notify,
+                args=(f"{name} desconectado. Abri Ajustes para reconectar.",),
+                daemon=True,
+            ).start()
         elif kind == "enqueue":
             _, job_id, query = msg
             label, _ = _STATUS_LABEL["pending"]
@@ -719,7 +834,17 @@ class RunningWindow:
             return
         self.q.put(("start", job["id"]))
         api_start(self.cfg, job["id"])
-        result = download_track(job["query"], self.cfg, user_settings, job.get("liked_at"), job.get("collected_at"))
+        try:
+            result = download_track(job["query"], self.cfg, user_settings,
+                                    job.get("liked_at"), job.get("collected_at"))
+        except AuthExpired as e:
+            # A propósito NO se llama api_complete: el job queda in_progress y el
+            # reset-stuck del próximo arranque lo devuelve a pending. Marcarlo
+            # not_found lo daría por descartado para siempre.
+            log.warning("Credencial de %s vencida — job %d queda pendiente", e.service, job["id"])
+            self.running = False
+            self.q.put(("creds_expired", e.service))
+            return
         api_complete(self.cfg, job["id"], result)
         self.q.put(("finish", job["id"], result))
 
@@ -788,4 +913,10 @@ def main() -> None:
         messagebox.showerror("Error inesperado", str(e))
 
 if __name__ == "__main__":
+    # Modo captura de cookie: el mismo exe corre como subproceso con una ventana
+    # WebView2 en vez de la UI del agente. webview.start() bloquea el main thread
+    # y solo puede llamarse una vez por proceso, así que no convive con tkinter.
+    if "--login" in sys.argv:
+        import login_window
+        sys.exit(login_window.main(sys.argv[1:]))
     main()

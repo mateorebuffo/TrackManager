@@ -7,7 +7,9 @@ POST /api/download-jobs/{id}/complete — report result
 POST /api/generate-token              — generate API token for current user
 GET  /api/me/token                    — get current API token
 GET  /api/me/settings                 — get download credentials for the agent
-GET  /api/download-agent              — download pre-configured agent zip
+GET  /api/me/credentials              — validity status of the 3 service credentials
+POST /api/me/credentials              — validate + store a credential captured by the agent
+GET  /api/download-agent              — redirect to the agent download URL
 """
 from __future__ import annotations
 
@@ -98,7 +100,69 @@ def get_agent_settings(
         "muzpa_sess":        us.muzpa_sess        if us else "",
         "deezer_arl":        us.deezer_arl         if us else "",
         "download_full_eps": us.download_full_eps  if us else False,
+        # El agente no usa el token de SoundCloud (lo consume /sync/soundcloud en el
+        # server), pero sí necesita saber si está conectado para pintar el estado.
+        "soundcloud_connected": bool(us.soundcloud_oauth_token) if us else False,
     }
+
+
+# ── Credenciales capturadas por el agente ────────────────────────────────────
+
+class CredentialPayload(BaseModel):
+    service: str  # muzpa | deezer | soundcloud
+    value: str
+
+
+@router.get("/api/me/credentials")
+def get_credential_status(
+    user: User = Depends(agent_auth),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Estado de las 3 credenciales. Corre los checks contra cada servicio."""
+    from app.models.user_settings import UserSettings
+    from app.services import credential_check
+
+    us = db.query(UserSettings).filter_by(user_id=user.id).first()
+    out = {}
+    for service, (column, _fn) in credential_check.SERVICES.items():
+        value = getattr(us, column, "") or "" if us else ""
+        if not value:
+            out[service] = {"ok": False, "connected": False, "msg": "Sin conectar."}
+            continue
+        ok, msg = credential_check.check(service, value)
+        out[service] = {"ok": ok, "connected": True, "msg": msg}
+    return out
+
+
+@router.post("/api/me/credentials")
+def save_credential(
+    payload: CredentialPayload,
+    user: User = Depends(agent_auth),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Validar una credencial capturada por el agente y guardarla solo si pasa."""
+    from app.services import credential_check
+
+    if payload.service not in credential_check.SERVICES:
+        raise HTTPException(status_code=400, detail="Servicio desconocido")
+
+    value = credential_check.normalize(payload.service, payload.value)
+    ok, msg = credential_check.check(payload.service, value)
+    if not ok:
+        # No pisar una credencial buena con una que no valida.
+        return {"ok": False, "msg": msg}
+
+    from app.api.settings_page import _get_or_create_settings
+    us = _get_or_create_settings(db, user.id)
+    column, _fn = credential_check.SERVICES[payload.service]
+    setattr(us, column, value)
+    db.commit()
+
+    log_service.log_event(
+        db, "settings_changed", f"Credencial de {payload.service} conectada desde el agente",
+        user_id=user.id, commit=True,
+    )
+    return {"ok": True, "msg": msg}
 
 
 @router.get("/api/download-agent", response_model=None)

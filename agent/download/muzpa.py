@@ -15,6 +15,7 @@ from pathlib import Path
 import httpx
 
 from download.audio_verify import verify_mp3
+from download.auth_error import AuthExpired
 
 
 def _normalize(text: str) -> str:
@@ -66,13 +67,20 @@ def search(query: str, sess: str) -> tuple[dict | None, str]:
         )
         resp.raise_for_status()
     except httpx.HTTPStatusError as e:
+        if e.response.status_code in (401, 403):
+            raise AuthExpired("muzpa") from e
         logger.warning("Muzpa search HTTP error: %s", e)
         return None, "not_found"
     except httpx.RequestError as e:
         logger.warning("Muzpa search network error: %s", e)
         return None, "not_found"
 
-    data = resp.json()
+    try:
+        data = resp.json()
+    except Exception as e:
+        # Una sesión muerta puede responder 200 con el HTML del login. Pausar es
+        # más seguro que marcar el track como not_found para siempre.
+        raise AuthExpired("muzpa") from e
 
     satisfying: list[dict] = []
     all_tracks: list[dict] = []
@@ -150,7 +158,12 @@ def download(track_id: int, filename: str, dest_folder: Path, sess: str) -> Path
         timeout=120,
         follow_redirects=True,
     ) as resp:
-        resp.raise_for_status()
+        try:
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code in (401, 403):
+                raise AuthExpired("muzpa") from e
+            raise
         with open(dest, "wb") as f:
             for chunk in resp.iter_bytes(chunk_size=65536):
                 f.write(chunk)

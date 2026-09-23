@@ -5,7 +5,7 @@ echo === Track Manager Agent — Build ===
 set VENV=..\.venv-build\Scripts
 
 echo [1/4] Instalando dependencias...
-%VENV%\pip install mutagen pystray pillow --quiet
+%VENV%\pip install mutagen pystray pillow pywebview --quiet
 %VENV%\pip install deemix --quiet 2>nul || echo [INFO] deemix no disponible, Deezer no estara disponible
 
 echo [2/4] Generando icono...
@@ -23,6 +23,10 @@ if exist TrackManagerAgent.spec del TrackManagerAgent.spec
   --hidden-import mutagen.mp3 ^
   --hidden-import pystray._win32 ^
   --hidden-import PIL._imaging ^
+  --hidden-import webview.platforms.edgechromium ^
+  --hidden-import clr_loader ^
+  --collect-all webview ^
+  --hidden-import login_window ^
   --add-data "download;download" ^
   agent.py
 

@@ -193,7 +193,9 @@
                      placeholder="OAuth 2-xxxxx-xxxxxxxx-..."
                      autocomplete="off">
               <button class="btn btn-outline-secondary" type="button" onclick="toggleField('field-sc-token')">👁</button>
+              <button class="btn btn-outline-secondary" type="button" onclick="verifyCredential('soundcloud')">Verificar</button>
             </div>
+            <div id="soundcloud-verify-result" class="mt-1" style="font-size:0.75rem;display:none;"></div>
           </div>
         </div>
 
@@ -354,7 +356,7 @@
 
 <script>
 async function verifyCredential(service) {
-  const fieldMap = {muzpa: 'field-muzpa-sess', deezer: 'field-deezer-arl'};
+  const fieldMap = {muzpa: 'field-muzpa-sess', deezer: 'field-deezer-arl', soundcloud: 'field-sc-token'};
   const value = document.getElementById(fieldMap[service])?.value || '';
   const el = document.getElementById(service + '-verify-result');
   el.style.display = 'block';

@@ -25,6 +25,7 @@ from app.config import settings
 from app.db import get_db
 from app.models.user import User
 from app.models.user_settings import UserSettings
+from app.services import credential_check
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 templates = Jinja2Templates(directory="app/templates")
@@ -128,31 +129,16 @@ async def save_settings(
     return RedirectResponse(url=redirect_to, status_code=303)
 
 
+# Rutas explícitas a propósito: un /verify/{service} dinámico taparía /verify/spotify,
+# que se registra más abajo. La lógica vive en services/credential_check.
+
 @router.post("/verify/muzpa")
 def verify_muzpa(
     payload: _VerifyPayload,
     current_user: User = Depends(get_current_user),
 ) -> JSONResponse:
-    sess = payload.value.strip()
-    if not sess:
-        return JSONResponse({"ok": False, "msg": "No hay SESS configurado."})
-    try:
-        resp = httpx.get(
-            "https://srv.muzpa.com/a/ms/media/search",
-            params={"q": "test", "limit": "1"},
-            cookies={"SESS": sess},
-            headers={"User-Agent": "TrackManager/1.0"},
-            timeout=10,
-        )
-        if resp.status_code == 200:
-            return JSONResponse({"ok": True, "msg": "Credencial válida."})
-        elif resp.status_code in (401, 403):
-            return JSONResponse({"ok": False, "msg": "Sesión expirada o inválida. Actualizá el token."})
-        else:
-            return JSONResponse({"ok": False, "msg": f"Respuesta inesperada: {resp.status_code}."})
-    except Exception as e:
-        logger.exception("Muzpa verify error")
-        return JSONResponse({"ok": False, "msg": f"Error de conexión: {e}"})
+    ok, msg = credential_check.check_muzpa(payload.value)
+    return JSONResponse({"ok": ok, "msg": msg})
 
 
 @router.post("/verify/deezer")
@@ -160,29 +146,17 @@ def verify_deezer(
     payload: _VerifyPayload,
     current_user: User = Depends(get_current_user),
 ) -> JSONResponse:
-    arl = payload.value.strip()
-    if not arl:
-        return JSONResponse({"ok": False, "msg": "No hay ARL configurado."})
-    try:
-        resp = httpx.get(
-            "https://www.deezer.com/ajax/gw-light.php",
-            params={"method": "deezer.getUserData", "input": "3",
-                    "api_version": "1.0", "api_token": "null"},
-            cookies={"arl": arl},
-            headers={"User-Agent": "TrackManager/1.0"},
-            timeout=10,
-        )
-        data = resp.json()
-        user_id = data.get("results", {}).get("USER", {}).get("USER_ID", 0)
-        if user_id and int(user_id) > 0:
-            email = data.get("results", {}).get("USER", {}).get("EMAIL", "")
-            msg = f"Credencial válida.{' (' + email + ')' if email else ''}"
-            return JSONResponse({"ok": True, "msg": msg})
-        else:
-            return JSONResponse({"ok": False, "msg": "ARL expirado o inválido. Actualizá el ARL desde tu navegador."})
-    except Exception as e:
-        logger.exception("Deezer verify error")
-        return JSONResponse({"ok": False, "msg": f"Error de conexión: {e}"})
+    ok, msg = credential_check.check_deezer(payload.value)
+    return JSONResponse({"ok": ok, "msg": msg})
+
+
+@router.post("/verify/soundcloud")
+def verify_soundcloud(
+    payload: _VerifyPayload,
+    current_user: User = Depends(get_current_user),
+) -> JSONResponse:
+    ok, msg = credential_check.check_soundcloud(payload.value)
+    return JSONResponse({"ok": ok, "msg": msg})
 
 
 @router.post("/verify/spotify")

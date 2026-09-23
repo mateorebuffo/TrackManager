@@ -17,6 +17,7 @@ from pathlib import Path
 
 from download import muzpa, discogs_check  # bandcamp_check disabled — re-enable when a reliable API is available
 from download.audio_verify import verify_mp3
+from download.auth_error import AuthExpired
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,8 @@ def try_download(query: str, dest: Path, settings: dict) -> str:
                     return "completed"
                 found_low_quality = True
                 logger.info("Muzpa: low quality for %r, trying Deezer", query)
+        except AuthExpired:
+            raise  # credencial vencida: que el agente pause, no marcar not_found
         except Exception:
             logger.exception("Muzpa error for %r", query)
 
@@ -63,6 +66,8 @@ def try_download(query: str, dest: Path, settings: dict) -> str:
                 return "completed"
             elif result == "low_quality":
                 found_low_quality = True
+        except AuthExpired:
+            raise  # ídem Muzpa
         except Exception:
             logger.exception("Deezer error for %r", query)
 

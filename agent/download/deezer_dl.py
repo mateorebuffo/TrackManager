@@ -17,6 +17,7 @@ from pathlib import Path
 import httpx
 
 from download.audio_verify import verify_mp3
+from download.auth_error import AuthExpired
 
 _MIN_SIMILARITY = 0.72  # minimum ratio to accept a Deezer result
 
@@ -95,8 +96,7 @@ def download_track(query: str, dest_folder: Path, arl: str) -> str:
 
     dz = Deezer()
     if not dz.login_via_arl(arl):
-        logger.warning("Deezer ARL login failed")
-        return "not_found"
+        raise AuthExpired("deezer")
 
     dest_folder.mkdir(parents=True, exist_ok=True)
 
@@ -196,8 +196,7 @@ def download_album(query: str, base_dest: Path, arl: str) -> tuple[str, Path | N
 
     dz = Deezer()
     if not dz.login_via_arl(arl):
-        logger.warning("Deezer ARL login failed")
-        return "not_found", None
+        raise AuthExpired("deezer")
 
     dl_settings = copy.deepcopy(DEFAULT_SETTINGS)
     dl_settings["downloadLocation"] = str(dest_folder)
