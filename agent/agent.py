@@ -447,6 +447,10 @@ class RunningWindow:
                relief="flat", cursor="hand2", activebackground="#334155",
                activeforeground="white", bd=0,
                command=self._open_settings_dialog).pack(side="right", padx=12, pady=6)
+        Button(hdr, text="👤 Cuentas", font=("Segoe UI", 9), bg="#1e293b", fg="white",
+               relief="flat", cursor="hand2", activebackground="#334155",
+               activeforeground="white", bd=0,
+               command=self._open_accounts_dialog).pack(side="right", padx=0, pady=6)
 
         bar = Frame(r, bg=BG)
         bar.pack(fill="x", padx=16, pady=(10, 6))
@@ -569,8 +573,6 @@ class RunningWindow:
                bg="white", cursor="hand2",
                command=_toggle_token).pack(side="left", padx=(4, 0), ipady=4, ipadx=8)
 
-        self._build_accounts_section(body, dlg, token_var)
-
         Label(body, text="Organización de carpetas", font=("Segoe UI", 9, "bold"),
               bg=BG, fg=FG).pack(anchor="w")
         Label(body, text="Cómo organizar los MP3 dentro de la carpeta de descarga",
@@ -618,55 +620,107 @@ class RunningWindow:
 
     # ── Cuentas conectadas ───────────────────────────────────────────────────
 
-    def _build_accounts_section(self, body, dlg, token_var) -> None:
-        """Tres filas Muzpa/Deezer/SoundCloud con estado y botón Conectar."""
-        Label(body, text="Cuentas conectadas", font=("Segoe UI", 9, "bold"),
-              bg=BG, fg=FG).pack(anchor="w")
-        Label(body, text="Te logueás en una ventana y el agente guarda la sesión solo",
-              font=("Segoe UI", 8), bg=BG, fg=MUTED).pack(anchor="w", pady=(1, 5))
+    _ACCOUNTS = [
+        ("muzpa",      "Muzpa",      "Fuente principal de descarga"),
+        ("deezer",     "Deezer",     "Fuente alternativa (MP3 320)"),
+        ("soundcloud", "SoundCloud", "Importa tus likes"),
+        ("youtube",    "YouTube",    "Importa tus playlists"),
+    ]
+
+    def _open_accounts_dialog(self) -> None:
+        if not self.cfg.get("token"):
+            messagebox.showerror(
+                "Falta el token",
+                "Configurá el token de acceso en Ajustes (⚙) antes de conectar cuentas.",
+            )
+            return
+
+        dlg = Toplevel(self.root)
+        dlg.title("Cuentas conectadas")
+        dlg.configure(bg=BG)
+        dlg.resizable(False, False)
+        dlg.transient(self.root)
+        _app_icon(dlg)
+
+        Label(dlg, text="Cuentas conectadas", font=("Segoe UI", 13, "bold"),
+              bg=BG, fg=FG).pack(anchor="w", padx=24, pady=(18, 2))
+        Label(dlg, text="Te logueás en una ventana y el agente guarda la sesión solo.",
+              font=("Segoe UI", 8), bg=BG, fg=MUTED).pack(anchor="w", padx=24, pady=(0, 12))
+
+        body = Frame(dlg, bg=BG)
+        body.pack(fill="x", padx=24)
 
         self._acct_dots: dict[str, Label] = {}
-        for service, label in (("muzpa", "Muzpa"), ("deezer", "Deezer"),
-                               ("soundcloud", "SoundCloud")):
+        self._acct_msgs: dict[str, Label] = {}
+        for service, label, hint in self._ACCOUNTS:
             row = Frame(body, bg=BG)
-            row.pack(fill="x", pady=(0, 4))
-            dot = Label(row, text="●", font=("Segoe UI", 10), bg=BG, fg="#cbd5e1")
-            dot.pack(side="left")
-            Label(row, text=label, font=("Segoe UI", 9), bg=BG, fg=FG).pack(side="left", padx=(4, 0))
-            Button(row, text="Conectar", font=("Segoe UI", 8), relief="solid", bd=1,
-                   bg="white", cursor="hand2",
-                   command=lambda s=service, l=label: self._connect_account(s, l, dlg, token_var),
-                   ).pack(side="right", ipadx=6)
+            row.pack(fill="x", pady=(0, 10))
+            dot = Label(row, text="●", font=("Segoe UI", 11), bg=BG, fg="#cbd5e1")
+            dot.grid(row=0, column=0, rowspan=2, sticky="n", padx=(0, 6))
+            Label(row, text=label, font=("Segoe UI", 10, "bold"),
+                  bg=BG, fg=FG).grid(row=0, column=1, sticky="w")
+            msg = Label(row, text=hint, font=("Segoe UI", 8), bg=BG, fg=MUTED)
+            msg.grid(row=1, column=1, sticky="w")
+            btn = Button(row, text="Conectar", font=("Segoe UI", 9), relief="solid", bd=1,
+                         bg="white", cursor="hand2")
+            btn.config(command=lambda s=service, l=label, b=btn: self._connect_account(s, l, dlg, b))
+            btn.grid(row=0, column=2, rowspan=2, sticky="e", padx=(12, 0), ipadx=8, ipady=2)
+            row.columnconfigure(1, weight=1)
             self._acct_dots[service] = dot
+            self._acct_msgs[service] = msg
 
-        Frame(body, bg=BG, height=10).pack(fill="x")
+        Frame(dlg, height=1, bg="#e2e8f0").pack(fill="x", pady=(8, 0))
+        Button(dlg, text="Cerrar", font=("Segoe UI", 9), relief="flat",
+               bg=BG, fg=MUTED, cursor="hand2",
+               command=dlg.destroy).pack(pady=(8, 14))
+
+        dlg.update_idletasks()
+        w, h = 440, dlg.winfo_reqheight()
+        sw, sh = self.root.winfo_screenwidth(), self.root.winfo_screenheight()
+        dlg.geometry(f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
+
         threading.Thread(target=self._refresh_account_dots, daemon=True).start()
 
     def _refresh_account_dots(self) -> None:
-        """Pintar los puntos según el estado real. Corre en hilo: hace 3 requests."""
-        status = api_get_credentials(self.cfg)
+        """Pintar estado real. Corre en hilo: valida contra cada servicio."""
         for service, dot in getattr(self, "_acct_dots", {}).items():
+            self.root.after(0, lambda d=dot: d.winfo_exists() and d.config(fg="#cbd5e1"))
+        status = api_get_credentials(self.cfg)
+        for service, label, hint in self._ACCOUNTS:
+            dot = self._acct_dots.get(service)
+            msg_lbl = self._acct_msgs.get(service)
+            if not dot:
+                continue
             info = status.get(service) or {}
             color = "#22c55e" if info.get("ok") else ("#f59e0b" if info.get("connected") else "#cbd5e1")
+            text = info.get("msg") or hint
             # El diálogo pudo cerrarse mientras corrían los requests.
             self.root.after(0, lambda d=dot, c=color: d.winfo_exists() and d.config(fg=c))
+            self.root.after(0, lambda m=msg_lbl, t=text: m and m.winfo_exists() and m.config(text=t))
 
-    def _connect_account(self, service: str, label: str, dlg, token_var) -> None:
-        token = token_var.get().strip()
-        if not token:
-            messagebox.showerror("Falta el token", "Pegá el token de acceso antes de conectar cuentas.", parent=dlg)
-            return
-        # El token puede estar recién pegado y todavía no guardado.
-        cfg = {**self.cfg, "token": token}
+    def _connect_account(self, service: str, label: str, dlg, btn) -> None:
+        """
+        La ventana de login corre en un hilo: subprocess.run bloquea hasta que el
+        usuario termina, y en el hilo de tkinter eso congela toda la UI del agente.
+        """
+        btn.config(state="disabled", text="Conectando…")
 
-        ok, msg = connect_account(cfg, service)
-        if ok:
-            messagebox.showinfo(label, f"{label} conectado.\n\n{msg}", parent=dlg)
-        elif msg:
-            messagebox.showerror(label, f"No se pudo conectar {label}.\n\n{msg}", parent=dlg)
-        else:
-            return  # ventana cerrada sin completar el login: sin ruido
-        threading.Thread(target=self._refresh_account_dots, daemon=True).start()
+        def work():
+            ok, msg = connect_account(self.cfg, service)
+            self.root.after(0, lambda: done(ok, msg))
+
+        def done(ok: bool, msg: str):
+            if btn.winfo_exists():
+                btn.config(state="normal", text="Conectar")
+            if ok:
+                messagebox.showinfo(label, f"{label} conectado.\n\n{msg}", parent=dlg)
+            elif msg:
+                messagebox.showerror(label, f"No se pudo conectar {label}.\n\n{msg}", parent=dlg)
+            else:
+                return  # ventana cerrada sin completar el login: sin ruido
+            threading.Thread(target=self._refresh_account_dots, daemon=True).start()
+
+        threading.Thread(target=work, daemon=True).start()
 
     def _stop_graceful(self) -> None:
         self.stop_btn.config(state="disabled", text="Deteniendo…")
@@ -777,7 +831,7 @@ class RunningWindow:
             self.status_lbl.config(text="Error de conexión. Reintentando…")
         elif kind == "no_creds":
             self.dot.config(fg="#f59e0b")
-            self.status_lbl.config(text="Sin credenciales — configurá Muzpa en Ajustes")
+            self.status_lbl.config(text="Sin credenciales — conectá Muzpa en 👤 Cuentas")
         elif kind == "creds_expired":
             _, service = msg
             name = {"muzpa": "Muzpa", "deezer": "Deezer", "soundcloud": "SoundCloud"}.get(service, service)
@@ -785,10 +839,10 @@ class RunningWindow:
             self.dot.config(fg="#f59e0b")
             self.status_lbl.config(text=f"{name} desconectado — clic acá para reconectar",
                                    fg=ACCENT, cursor="hand2")
-            self.status_lbl.bind("<Button-1>", lambda _e: self._open_settings_dialog())
+            self.status_lbl.bind("<Button-1>", lambda _e: self._open_accounts_dialog())
             threading.Thread(
                 target=_notify,
-                args=(f"{name} desconectado. Abri Ajustes para reconectar.",),
+                args=(f"{name} desconectado. Abri Cuentas para reconectar.",),
                 daemon=True,
             ).start()
         elif kind == "enqueue":

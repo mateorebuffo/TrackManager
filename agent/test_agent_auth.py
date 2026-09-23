@@ -75,7 +75,7 @@ def test_only_validated_cookies_are_accepted(monkey):
         validated.append(value)
         return (value == "arl-logueado"), "ok"
 
-    monkey(login_window, "_save", fake_save)
+    monkey(login_window, "_save", lambda a, t, s, v: fake_save(a, t, s, v) + (True,))
     monkey(login_window, "_POLL_SECONDS", 0.01)
 
     out = Path(tempfile.gettempdir()) / "tm_test_watch.json"
@@ -89,10 +89,57 @@ def test_only_validated_cookies_are_accepted(monkey):
     out.unlink(missing_ok=True)
 
 
-def test_services_cover_the_three_accounts():
+def test_services_cover_every_account():
     assert set(login_window.SERVICES) == {"muzpa", "deezer", "soundcloud"}
     for url, cookie, label in login_window.SERVICES.values():
         assert url.startswith("https://") and cookie and label
+    assert set(login_window.OAUTH_SERVICES) == {"youtube"}
+    for path, label in login_window.OAUTH_SERVICES.values():
+        assert path.startswith("/") and label  # relativa: se le antepone TM_API_URL
+    assert set(login_window.all_services()) == {"muzpa", "deezer", "soundcloud", "youtube"}
+
+
+def test_agent_ui_lists_exactly_the_supported_services():
+    """La UI y login_window no se pueden desincronizar."""
+    import re
+    source = (Path(__file__).resolve().parent / "agent.py").read_text(encoding="utf-8")
+    block = source.split("_ACCOUNTS = [")[1].split("]")[0]
+    listed = set(re.findall(r'\("(\w+)",', block))
+    assert listed == set(login_window.all_services()), listed
+
+
+def test_oauth_watcher_waits_for_server_confirmation(monkey):
+    """YouTube no tiene cookie: cierra cuando el server dice que quedó conectado."""
+    import tempfile
+
+    class FakeWindow:
+        def __init__(self):
+            self.destroyed = False
+
+        def get_cookies(self):
+            return []
+
+        def destroy(self):
+            self.destroyed = True
+
+    calls = {"n": 0}
+
+    def fake_status(_api, _token, _service):
+        calls["n"] += 1
+        return {"ok": calls["n"] >= 3, "msg": "Credencial válida."}, ""
+
+    monkey(login_window, "_status", fake_status)
+    monkey(login_window, "_POLL_SECONDS", 0.01)
+
+    out = Path(tempfile.gettempdir()) / "tm_test_oauth.json"
+    out.unlink(missing_ok=True)
+    window = FakeWindow()
+    login_window._watch_oauth(window, "youtube", out, "http://x", "tok")
+
+    assert calls["n"] == 3
+    assert window.destroyed
+    assert json.loads(out.read_text())["ok"] is True
+    out.unlink(missing_ok=True)
 
 
 def _raise_status(status):
@@ -146,6 +193,100 @@ def test_orchestrator_lets_auth_expired_through(monkey):
         pass
     else:
         raise AssertionError("try_download se tragó AuthExpired y devolvió un status")
+
+
+def test_oauth_gives_up_when_server_lacks_the_endpoint(monkey):
+    """
+    Con el server sin deployear, /api/me/credentials daba 404 y la ventana
+    quedaba esperando para siempre — el agente se veía colgado.
+    """
+    import tempfile
+
+    class FakeWindow:
+        def __init__(self):
+            self.destroyed = False
+
+        def get_cookies(self):
+            return []
+
+        def destroy(self):
+            self.destroyed = True
+
+    monkey(login_window, "_status", lambda *_a: ({}, "El servidor no tiene el endpoint"))
+    monkey(login_window, "_POLL_SECONDS", 0.01)
+    monkey(login_window, "_MAX_ERRORS", 3)
+
+    out = Path(tempfile.gettempdir()) / "tm_test_404.json"
+    out.unlink(missing_ok=True)
+    window = FakeWindow()
+    login_window._watch_oauth(window, "youtube", out, "http://x", "tok")
+
+    assert window.destroyed, "la ventana quedo abierta para siempre"
+    result = json.loads(out.read_text())
+    assert result["ok"] is False
+    assert "endpoint" in result["msg"]
+    out.unlink(missing_ok=True)
+
+
+def test_status_detects_a_server_that_does_not_know_the_service(monkey):
+    """
+    Un server viejo responde 200 con muzpa/deezer/soundcloud pero sin youtube.
+    Sin detectarlo, la ventana esperaba para siempre una confirmación imposible.
+    """
+    class FakeResponse:
+        status_code = 200
+
+        @staticmethod
+        def json():
+            return {"muzpa": {"ok": True}, "deezer": {"ok": True}, "soundcloud": {"ok": True}}
+
+    monkey(login_window.httpx, "get", lambda *_a, **_kw: FakeResponse())
+
+    info, error = login_window._status("http://x", "tok", "youtube")
+    assert info == {}
+    assert "no soporta youtube" in error
+
+    info, error = login_window._status("http://x", "tok", "muzpa")
+    assert error == "" and info == {"ok": True}
+
+
+def test_cookie_watcher_retries_when_server_unreachable(monkey):
+    """Un error de red no significa que la cookie no sirva: hay que reintentarla."""
+    import tempfile
+    from http.cookies import SimpleCookie
+
+    jar = SimpleCookie()
+    jar["SESS"] = "cookie-buena"
+
+    class FakeWindow:
+        def __init__(self):
+            self.destroyed = False
+
+        def get_cookies(self):
+            return [jar]
+
+        def destroy(self):
+            self.destroyed = True
+
+    attempts = {"n": 0}
+
+    def flaky_save(_api, _token, _service, value):
+        attempts["n"] += 1
+        if attempts["n"] < 3:
+            return False, "sin red", False       # no se pudo preguntar
+        return True, "Credencial válida.", True  # ahora sí
+
+    monkey(login_window, "_save", flaky_save)
+    monkey(login_window, "_POLL_SECONDS", 0.01)
+
+    out = Path(tempfile.gettempdir()) / "tm_test_retry.json"
+    out.unlink(missing_ok=True)
+    window = FakeWindow()
+    login_window._watch(window, "muzpa", out, "http://x", "tok")
+
+    assert attempts["n"] == 3, f"no reintento el mismo valor: {attempts['n']}"
+    assert json.loads(out.read_text())["ok"] is True
+    out.unlink(missing_ok=True)
 
 
 def main() -> int:

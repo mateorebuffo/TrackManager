@@ -17,6 +17,11 @@ aparezca — Deezer setea un `arl` para visitantes anónimos, así que esperar "
 exista" cerraba la ventana antes de que el usuario escribiera nada. Cada valor
 nuevo se manda a POST /api/me/credentials, que valida contra el servicio y solo
 guarda si pasa; recién ahí se cierra la ventana.
+
+YouTube va por otro camino: es OAuth de Google con redirect al server, así que la
+ventana abre el flujo del propio Track Manager y el token lo guarda el callback.
+La primera vez pide loguearse a Track Manager dentro de la ventana; como el perfil
+del navegador embebido persiste, eso pasa una sola vez.
 """
 from __future__ import annotations
 
@@ -35,7 +40,21 @@ SERVICES = {
     "soundcloud": ("https://soundcloud.com/signin", "oauth_token", "SoundCloud"),
 }
 
+# OAuth: no hay cookie que leer. La ventana abre el flujo del propio server, que
+# guarda el token en su callback; acá solo se espera a que confirme que quedó
+# conectado. La ruta es relativa a la API (se le antepone TM_API_URL).
+OAUTH_SERVICES = {
+    "youtube": ("/sync/youtube/connect", "YouTube"),
+}
+
+
+def all_services() -> dict[str, str]:
+    """servicio -> etiqueta, para las dos formas de conexión."""
+    return {**{s: v[2] for s, v in SERVICES.items()},
+            **{s: v[1] for s, v in OAUTH_SERVICES.items()}}
+
 _POLL_SECONDS = 1.5
+_MAX_ERRORS = 5  # ~7s de servidor mudo antes de cerrar con el motivo
 _DEFAULT_API_URL = "https://trackmanager.app"
 
 
@@ -66,8 +85,15 @@ def _cookie_value(cookies, name: str) -> str:
     return ""
 
 
-def _save(api_url: str, token: str, service: str, value: str) -> tuple[bool, str]:
-    """POST /api/me/credentials — valida contra el servicio y guarda solo si pasa."""
+def _save(api_url: str, token: str, service: str, value: str) -> tuple[bool, str, bool]:
+    """
+    POST /api/me/credentials — valida contra el servicio y guarda solo si pasa.
+
+    Devuelve (ok, mensaje, servidor_respondio). El tercer valor separa "la cookie
+    no sirve" de "no pude preguntar": si el servidor no contesta (o es una versión
+    vieja sin el endpoint) no hay que descartar el valor ni seguir esperando para
+    siempre.
+    """
     try:
         r = httpx.post(
             f"{api_url}/api/me/credentials",
@@ -75,11 +101,29 @@ def _save(api_url: str, token: str, service: str, value: str) -> tuple[bool, str
             json={"service": service, "value": value},
             timeout=30,
         )
-        r.raise_for_status()
-        data = r.json()
-        return bool(data.get("ok")), str(data.get("msg", ""))
     except Exception as e:
-        return False, f"Error de conexión: {e}"
+        return False, f"No se pudo contactar al servidor: {e}", False
+
+    if r.status_code == 404:
+        return False, ("El servidor no tiene el endpoint de credenciales. "
+                       "Actualizá Track Manager antes de usar esta función."), False
+    if r.status_code in (401, 403):
+        return False, "Token del agente inválido. Revisalo en Ajustes (⚙).", True
+    if r.status_code >= 500:
+        return False, f"Error del servidor ({r.status_code}).", False
+    try:
+        data = r.json()
+    except Exception:
+        return False, f"Respuesta inesperada del servidor ({r.status_code}).", False
+    return bool(data.get("ok")), str(data.get("msg", "")), True
+
+
+def _finish(window, out_path: Path, ok: bool, msg: str) -> None:
+    out_path.write_text(json.dumps({"ok": ok, "msg": msg}), encoding="utf-8")
+    try:
+        window.destroy()
+    except Exception:
+        pass
 
 
 def _watch(window, service: str, out_path: Path, api_url: str, token: str) -> None:
@@ -88,6 +132,7 @@ def _watch(window, service: str, out_path: Path, api_url: str, token: str) -> No
     # backend. Solo se valida cuando el valor cambia, así que no es chatty.
     _url, cookie_name, _label = SERVICES[service]
     tried: set[str] = set()
+    errors = 0
     while True:
         time.sleep(_POLL_SECONDS)
         try:
@@ -99,19 +144,78 @@ def _watch(window, service: str, out_path: Path, api_url: str, token: str) -> No
             continue
         tried.add(value)
 
-        ok, msg = _save(api_url, token, service, value)
+        ok, msg, reachable = _save(api_url, token, service, value)
         if ok:
-            out_path.write_text(json.dumps({"ok": True, "msg": msg}), encoding="utf-8")
-            try:
-                window.destroy()
-            except Exception:
-                pass
+            _finish(window, out_path, True, msg)
+            return
+        if not reachable:
+            # No es que la cookie no sirva: no pudimos preguntar. Reintentar el
+            # mismo valor y, si el servidor sigue mudo, cerrar con el motivo en
+            # vez de dejar la ventana esperando para siempre.
+            tried.discard(value)
+            errors += 1
+            if errors >= _MAX_ERRORS:
+                _finish(window, out_path, False, msg)
+                return
+        else:
+            errors = 0
+
+
+def _status(api_url: str, token: str, service: str) -> tuple[dict, str]:
+    """(info del servicio, error). Error no vacío = no se pudo preguntar."""
+    try:
+        r = httpx.get(f"{api_url}/api/me/credentials",
+                      headers={"Authorization": f"Bearer {token}"}, timeout=30)
+    except Exception as e:
+        return {}, f"No se pudo contactar al servidor: {e}"
+
+    if r.status_code == 404:
+        return {}, ("El servidor no tiene el endpoint de credenciales. "
+                    "Actualizá Track Manager antes de usar esta función.")
+    if r.status_code in (401, 403):
+        return {}, "Token del agente inválido. Revisalo en Ajustes (⚙)."
+    try:
+        payload = r.json()
+    except Exception:
+        return {}, f"Respuesta inesperada del servidor ({r.status_code})."
+
+    # El endpoint devuelve TODOS los servicios que conoce. Si falta el nuestro, el
+    # servidor es más viejo que este agente: sin esto la ventana esperaba para
+    # siempre una confirmación que nunca iba a llegar.
+    if service not in payload:
+        return {}, (f"El servidor no soporta {service} todavía. "
+                    "Actualizá Track Manager antes de usar esta función.")
+    return (payload.get(service) or {}), ""
+
+
+def _watch_oauth(window, service: str, out_path: Path, api_url: str, token: str) -> None:
+    """Esperar a que el server confirme que el flujo OAuth terminó."""
+    errors = 0
+    while True:
+        time.sleep(_POLL_SECONDS)
+        try:
+            window.get_cookies()  # solo para detectar que la ventana sigue abierta
+        except Exception:
+            return  # cerrada por el usuario
+
+        info, error = _status(api_url, token, service)
+        if error:
+            # Un servidor viejo (sin el endpoint) dejaba la ventana esperando para
+            # siempre y, con el subprocess en el hilo de tkinter, colgaba el agente.
+            errors += 1
+            if errors >= _MAX_ERRORS:
+                _finish(window, out_path, False, error)
+                return
+            continue
+        errors = 0
+        if info.get("ok"):
+            _finish(window, out_path, True, info.get("msg", "Conectado."))
             return
 
 
 def run(service: str, out_path: str) -> int:
     """Abrir el login de `service`. 0 = credencial validada y guardada."""
-    if service not in SERVICES:
+    if service not in SERVICES and service not in OAUTH_SERVICES:
         print(f"servicio desconocido: {service}", file=sys.stderr)
         return 2
 
@@ -123,7 +227,13 @@ def run(service: str, out_path: str) -> int:
 
     import webview  # import tardío: arrastra pythonnet, solo se paga en el subproceso
 
-    url, _cookie_name, label = SERVICES[service]
+    if service in OAUTH_SERVICES:
+        path, label = OAUTH_SERVICES[service]
+        url, watcher = api_url + path, _watch_oauth
+    else:
+        url, _cookie_name, label = SERVICES[service]
+        watcher = _watch
+
     out = Path(out_path)
     out.unlink(missing_ok=True)  # nunca devolver una captura vieja
 
@@ -134,12 +244,17 @@ def run(service: str, out_path: str) -> int:
         height=760,
     )
     webview.start(
-        _watch,
+        watcher,
         (window, service, out, api_url, token),
         private_mode=False,                        # sesión persistente: reconectar rara vez pide la clave
         storage_path=str(_storage_dir(service)),
     )
-    return 0 if out.exists() else 1
+    if not out.exists():
+        return 1  # el usuario cerró la ventana sin completar
+    try:
+        return 0 if json.loads(out.read_text(encoding="utf-8")).get("ok") else 1
+    except Exception:
+        return 1
 
 
 def main(argv: list[str]) -> int:

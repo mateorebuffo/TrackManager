@@ -131,6 +131,18 @@ def get_credential_status(
             continue
         ok, msg = credential_check.check(service, value)
         out[service] = {"ok": ok, "connected": True, "msg": msg}
+
+    # YouTube es OAuth, no una cookie: no hay valor que validar, se pregunta al
+    # servicio de tokens (que además refresca solo si hace falta).
+    from app.services import youtube_auth
+    if not youtube_auth.is_connected(db, user.id):
+        out["youtube"] = {"ok": False, "connected": False, "msg": "Sin conectar."}
+    else:
+        try:
+            youtube_auth.get_valid_access_token(db, user.id)
+            out["youtube"] = {"ok": True, "connected": True, "msg": "Credencial válida."}
+        except RuntimeError as e:
+            out["youtube"] = {"ok": False, "connected": True, "msg": str(e)}
     return out
 
 
@@ -143,6 +155,9 @@ def save_credential(
     """Validar una credencial capturada por el agente y guardarla solo si pasa."""
     from app.services import credential_check
 
+    if payload.service == "youtube":
+        # OAuth: el token lo guarda el callback del server, no hay valor que postear.
+        raise HTTPException(status_code=400, detail="YouTube se conecta por OAuth, no por cookie")
     if payload.service not in credential_check.SERVICES:
         raise HTTPException(status_code=400, detail="Servicio desconocido")
 
