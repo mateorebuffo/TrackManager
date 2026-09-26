@@ -92,11 +92,13 @@
   <div class="flex-grow-1">
     <div style="font-weight:700;font-size:0.95rem;margin-bottom:0.2rem;">¡Bienvenido a Track Manager!</div>
     <div style="font-size:0.82rem;color:rgba(255,255,255,.75);">
-      Antes de empezar, configurá tus credenciales de importación (SoundCloud, Spotify o YouTube) y de descarga (Muzpa o Deezer).
+      {# Las credenciales ya no se cargan acá: se vinculan desde el agente, así que
+         el banner apunta al asistente y no a /settings, donde ya no están. #}
+      Todavía te falta vincular tus cuentas. Se hace desde el agente, y el asistente te guía paso a paso.
     </div>
   </div>
   <div class="d-flex gap-2 align-items-center flex-shrink-0">
-    <a href="/settings" class="btn btn-sm btn-light fw-600" style="font-size:0.82rem;font-weight:600;">Ir a Configuración →</a>
+    <a href="/primeros-pasos" class="btn btn-sm btn-light fw-600" style="font-size:0.82rem;font-weight:600;">Ver primeros pasos →</a>
     <button type="button" class="btn btn-sm" onclick="dismissSetupBanner()"
             style="background:rgba(255,255,255,.12);color:#fff;font-size:0.82rem;border:none;">✕</button>
   </div>
@@ -339,12 +341,16 @@ function dismissSetupBanner(){
           <span class="pi" style="font-size:14px;"><img src="/static/icons/soundcloud.svg" alt="SoundCloud"
             style="filter:{% if source == 'soundcloud' %}brightness(0) invert(1){% else %}invert(33%) sepia(77%) saturate(1200%) hue-rotate(1deg) brightness(90%){% endif %};"></span>
         </a>
+        {# Spotify es solo admin, igual que su botón de sync: para el resto el
+           filtro nunca puede dar resultados. #}
+        {% if is_admin %}
         <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q }}&source=spotify"
            class="btn btn-sm src-btn d-inline-flex align-items-center gap-1" title="Spotify"
            style="background:{% if source == 'spotify' %}#065f46{% else %}#d1fae5{% endif %};border:1px solid #a7f3d0;padding:.28rem .55rem;">
           <span class="pi" style="font-size:14px;"><img src="/static/icons/spotify.svg" alt="Spotify"
             style="filter:{% if source == 'spotify' %}brightness(0) invert(1){% else %}invert(26%) sepia(60%) saturate(600%) hue-rotate(120deg) brightness(80%){% endif %};"></span>
         </a>
+        {% endif %}
         <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q }}&source=youtube"
            class="btn btn-sm src-btn d-inline-flex align-items-center gap-1" title="YouTube"
            style="background:{% if source == 'youtube' %}#991b1b{% else %}#fee2e2{% endif %};border:1px solid #fecaca;padding:.28rem .55rem;">
@@ -634,7 +640,8 @@ function dismissSetupBanner(){
   {% elif active_status == 'vinyl_only' %}
     No hay tracks marcados como solo vinilo.
   {% else %}
-    No hay tracks pendientes. Presioná <strong>↻ SoundCloud</strong> / <strong>↻ Spotify</strong> / <strong>↻ YouTube</strong> para importar tus likes.
+    {# Sin el gate, a un no-admin se le nombra un botón que no tiene en pantalla. #}
+    No hay tracks pendientes. Presioná <strong>↻ SoundCloud</strong> /{% if is_admin %} <strong>↻ Spotify</strong> /{% endif %} <strong>↻ YouTube</strong> para importar tus likes.
   {% endif %}
 </div>
 {% endif %}
