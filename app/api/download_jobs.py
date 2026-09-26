@@ -115,34 +115,48 @@ class CredentialPayload(BaseModel):
 
 @router.get("/api/me/credentials")
 def get_credential_status(
+    service: str | None = None,
     user: User = Depends(agent_auth),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Estado de las 3 credenciales. Corre los checks contra cada servicio."""
+    """
+    Estado de las credenciales. Cada una se valida contra su servicio real.
+
+    `service` limita el chequeo a una sola. La ventana de login OAuth pollea esto
+    cada 1.5s esperando confirmación: sin el filtro, cada poll golpeaba también a
+    Muzpa, Deezer y SoundCloud — ~40 requests por minuto a cada uno, al pedo y
+    buen camino para que te bloqueen.
+    """
     from app.models.user_settings import UserSettings
     from app.services import credential_check
 
     us = db.query(UserSettings).filter_by(user_id=user.id).first()
-    out = {}
-    for service, (column, _fn) in credential_check.SERVICES.items():
-        value = getattr(us, column, "") or "" if us else ""
-        if not value:
-            out[service] = {"ok": False, "connected": False, "msg": "Sin conectar."}
+    out: dict = {}
+
+    for svc, (column, _fn) in credential_check.SERVICES.items():
+        if service and svc != service:
             continue
-        ok, msg = credential_check.check(service, value)
-        out[service] = {"ok": ok, "connected": True, "msg": msg}
+        value = (getattr(us, column, "") or "") if us else ""
+        if not value:
+            out[svc] = {"ok": False, "connected": False, "msg": "Sin conectar."}
+            continue
+        ok, msg = credential_check.check(svc, value)
+        out[svc] = {"ok": ok, "connected": True, "msg": msg}
 
     # YouTube es OAuth, no una cookie: no hay valor que validar, se pregunta al
     # servicio de tokens (que además refresca solo si hace falta).
-    from app.services import youtube_auth
-    if not youtube_auth.is_connected(db, user.id):
-        out["youtube"] = {"ok": False, "connected": False, "msg": "Sin conectar."}
-    else:
-        try:
-            youtube_auth.get_valid_access_token(db, user.id)
-            out["youtube"] = {"ok": True, "connected": True, "msg": credential_check.CONNECTED}
-        except RuntimeError as e:
-            out["youtube"] = {"ok": False, "connected": True, "msg": str(e)}
+    if not service or service == "youtube":
+        from app.services import youtube_auth
+        if not youtube_auth.is_connected(db, user.id):
+            out["youtube"] = {"ok": False, "connected": False, "msg": "Sin conectar."}
+        else:
+            try:
+                access_token = youtube_auth.get_valid_access_token(db, user.id)
+            except RuntimeError as e:
+                out["youtube"] = {"ok": False, "connected": True, "msg": str(e)}
+            else:
+                ok, msg = credential_check.check_youtube(access_token)
+                out["youtube"] = {"ok": ok, "connected": True, "msg": msg}
     return out
 
 

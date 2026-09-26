@@ -32,11 +32,11 @@ def check_muzpa(sess: str) -> tuple[bool, str]:
     if not sess:
         return False, "No hay SESS configurado."
     try:
+        # El endpoint de la cuenta ("My Account" en la web de Muzpa) en vez de una
+        # búsqueda: es la pregunta "¿quién soy?", así que responde si la sesión
+        # sirve y además de qué cuenta es. Una request, no dos.
         resp = httpx.get(
-            "https://srv.muzpa.com/a/ms/media/search",
-            # Mismos params que agent/download/muzpa.py — con q=/limit= la API
-            # responde 200 igual y un SESS vencido pasaba el check.
-            params={"mp3prefered": "true", "page": 0, "popular_order": "false", "text": "love"},
+            "https://srv.muzpa.com/a/ms/account",
             cookies={"SESS": sess},
             headers=_UA,
             timeout=_TIMEOUT,
@@ -50,16 +50,18 @@ def check_muzpa(sess: str) -> tuple[bool, str]:
     if resp.status_code != 200:
         return False, f"Respuesta inesperada: {resp.status_code}."
 
-    # Una sesión muerta puede devolver 200 con HTML de login en vez del JSON de
-    # búsqueda. La clave `albums` es lo que distingue una respuesta real.
+    # Una sesión muerta puede devolver 200 con el HTML del login en vez del JSON.
     try:
         data = resp.json()
     except Exception:
         return False, "Sesión expirada o inválida. Reconectá Muzpa."
-    if not isinstance(data, dict) or "albums" not in data:
+    if not isinstance(data, dict) or not data.get("id"):
         return False, "Sesión expirada o inválida. Reconectá Muzpa."
+    if data.get("disabled"):
+        return False, "La cuenta de Muzpa está deshabilitada."
 
-    return True, CONNECTED
+    who = data.get("email") or data.get("login") or ""
+    return True, f"{CONNECTED}{' (' + who + ')' if who else ''}"
 
 
 def check_deezer(arl: str) -> tuple[bool, str]:
@@ -121,6 +123,38 @@ def check_soundcloud(token: str) -> tuple[bool, str]:
 
     name = me.get("username") or me.get("permalink") or ""
     return True, f"{CONNECTED}{' (' + name + ')' if name else ''}"
+
+
+def check_youtube(access_token: str) -> tuple[bool, str]:
+    """
+    Qué canal quedó conectado. Recibe un access token ya válido (youtube_auth se
+    encarga de refrescarlo), así que un 401 acá es raro pero no imposible.
+    """
+    try:
+        resp = httpx.get(
+            "https://www.googleapis.com/youtube/v3/channels",
+            params={"part": "snippet", "mine": "true"},
+            headers={"Authorization": f"Bearer {access_token}", **_UA},
+            timeout=_TIMEOUT,
+        )
+    except Exception as e:
+        logger.exception("YouTube verify error")
+        return False, f"Error de conexión: {e}"
+
+    if resp.status_code in (401, 403):
+        return False, "Token expirado o inválido. Reconectá YouTube."
+    if resp.status_code != 200:
+        return False, f"Respuesta inesperada: {resp.status_code}."
+
+    try:
+        items = resp.json().get("items") or []
+    except Exception:
+        return False, "Respuesta inesperada de YouTube."
+
+    # Una cuenta de Google sin canal autentica bien pero no tiene items: sigue
+    # conectada, solo que no hay nombre que mostrar.
+    title = (items[0].get("snippet", {}).get("title") or "") if items else ""
+    return True, f"{CONNECTED}{' (' + title + ')' if title else ''}"
 
 
 # servicio -> (columna en UserSettings, función de validación)

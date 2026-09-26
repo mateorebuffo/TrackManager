@@ -164,7 +164,11 @@ def _watch(window, service: str, out_path: Path, api_url: str, token: str) -> No
 def _status(api_url: str, token: str, service: str) -> tuple[dict, str]:
     """(info del servicio, error). Error no vacío = no se pudo preguntar."""
     try:
+        # service= limita el chequeo al que estamos esperando. Sin eso, cada poll
+        # de esta ventana hacía que el server validara también Muzpa, Deezer y
+        # SoundCloud contra sus APIs — 40 requests por minuto a cada uno.
         r = httpx.get(f"{api_url}/api/me/credentials",
+                      params={"service": service},
                       headers={"Authorization": f"Bearer {token}"}, timeout=30)
     except Exception as e:
         return {}, f"No se pudo contactar al servidor: {e}"

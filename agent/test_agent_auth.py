@@ -240,9 +240,17 @@ def test_status_detects_a_server_that_does_not_know_the_service(monkey):
         def json():
             return {"muzpa": {"ok": True}, "deezer": {"ok": True}, "soundcloud": {"ok": True}}
 
-    monkey(login_window.httpx, "get", lambda *_a, **_kw: FakeResponse())
+    seen = {}
+
+    def fake_get(*_a, **kw):
+        seen.update(kw.get("params") or {})
+        return FakeResponse()
+
+    monkey(login_window.httpx, "get", fake_get)
 
     info, error = login_window._status("http://x", "tok", "youtube")
+    # Sin este filtro el server validaba las 4 cuentas en cada poll (cada 1.5s).
+    assert seen.get("service") == "youtube", seen
     assert info == {}
     assert "no soporta youtube" in error
 
