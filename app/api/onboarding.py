@@ -6,6 +6,8 @@ POST /primeros-pasos/listo  — marcar como visto (Finalizar y Saltar usan el mi
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -17,6 +19,20 @@ from app.models.user import User
 
 router = APIRouter(tags=["onboarding"])
 templates = Jinja2Templates(directory="app/templates")
+
+_CAPTURAS = Path("app/static/onboarding")
+
+
+def _version(nombre: str) -> str:
+    """
+    Marca de versión para el `?v=` de las capturas.
+
+    Sin esto, regenerar una captura no se ve: el CDN de Railway guarda el archivo
+    con max-age=14400 y sigue sirviendo el viejo durante 4 horas, sin que Ctrl+F5
+    ayude — la caché es del servidor, no del navegador. Cambiar la URL la saltea.
+    """
+    archivo = _CAPTURAS / nombre
+    return str(int(archivo.stat().st_mtime)) if archivo.exists() else "0"
 
 
 def is_pending(db: Session, user_id: int) -> bool:
@@ -40,6 +56,8 @@ def onboarding_page(
             "request": request,
             "api_token": current_user.api_token,
             "agent_available": _agent_is_available(),
+            "v_config": _version("agente-configuracion.png"),
+            "v_cuentas": _version("agente-cuentas.png"),
         },
     )
 

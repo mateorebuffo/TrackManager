@@ -122,8 +122,13 @@ def test_page_has_the_four_slides_and_the_screenshots(client, db_session):
     html = client.get("/primeros-pasos", headers=HOST).text
     for n in range(1, 5):
         assert f'data-slide="{n}"' in html
-    assert "/static/onboarding/agente-configuracion.png" in html
-    assert "/static/onboarding/agente-cuentas.png" in html
+    # Con ?v=: el CDN de Railway guarda los estaticos 4 horas, asi que regenerar
+    # una captura no se veria hasta que expire si la URL no cambia.
+    import re
+    for png in ("agente-configuracion", "agente-cuentas"):
+        m = re.search(rf"/static/onboarding/{png}\.png\?v=(\d+)", html)
+        assert m, f"{png}.png sin ?v= — el CDN va a seguir sirviendo la vieja"
+        assert int(m.group(1)) > 0
     assert "tok" in html  # el token, para copiar y pegar en el agente
 
 
