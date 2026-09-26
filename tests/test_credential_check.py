@@ -33,7 +33,18 @@ def test_muzpa_valid_session():
     with patch.object(httpx, "get", return_value=resp):
         ok, msg = cc.check_muzpa("abc123")
     assert ok is True
-    assert "válida" in msg
+    assert msg == cc.CONNECTED
+
+
+def test_every_service_reports_the_same_connected_text():
+    """El panel del agente las lista juntas: el texto de OK tiene que ser uno solo."""
+    muzpa = httpx.Response(200, json={"albums": []})
+    deezer = httpx.Response(200, json={"results": {"USER": {"USER_ID": 7, "EMAIL": "a@b.com"}}})
+    sc = httpx.Response(200, json={"id": 1, "username": "mateo"})
+    with patch.object(httpx, "get", side_effect=[muzpa, deezer, sc]):
+        msgs = [cc.check_muzpa("x")[1], cc.check_deezer("x")[1], cc.check_soundcloud("x")[1]]
+    for msg in msgs:
+        assert msg.startswith(cc.CONNECTED), msg
 
 
 def test_muzpa_dead_session_returns_html_with_200():
@@ -85,7 +96,7 @@ def test_deezer_valid_arl_reports_email():
     with patch.object(httpx, "get", return_value=resp):
         ok, msg = cc.check_deezer("arl123")
     assert ok is True
-    assert "dj@x.com" in msg
+    assert msg == f"{cc.CONNECTED} (dj@x.com)"
 
 
 def test_deezer_expired_arl_has_user_id_zero():

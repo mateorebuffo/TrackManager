@@ -140,7 +140,7 @@ def get_credential_status(
     else:
         try:
             youtube_auth.get_valid_access_token(db, user.id)
-            out["youtube"] = {"ok": True, "connected": True, "msg": "Credencial válida."}
+            out["youtube"] = {"ok": True, "connected": True, "msg": credential_check.CONNECTED}
         except RuntimeError as e:
             out["youtube"] = {"ok": False, "connected": True, "msg": str(e)}
     return out

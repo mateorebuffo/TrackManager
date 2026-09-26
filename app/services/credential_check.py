@@ -19,6 +19,10 @@ logger = logging.getLogger(__name__)
 _TIMEOUT = 10
 _UA = {"User-Agent": "TrackManager/1.0"}
 
+# Mismo texto para las cuatro cuentas — el panel del agente las lista juntas y
+# cada servicio diciendo lo suyo se leía como si fueran estados distintos.
+CONNECTED = "Cuenta conectada"
+
 # Mismo host que usa app/collectors/soundcloud.py
 _SC_BASE = "https://api-v2.soundcloud.com"
 
@@ -55,7 +59,7 @@ def check_muzpa(sess: str) -> tuple[bool, str]:
     if not isinstance(data, dict) or "albums" not in data:
         return False, "Sesión expirada o inválida. Reconectá Muzpa."
 
-    return True, "Credencial válida."
+    return True, CONNECTED
 
 
 def check_deezer(arl: str) -> tuple[bool, str]:
@@ -80,7 +84,7 @@ def check_deezer(arl: str) -> tuple[bool, str]:
     user_id = user.get("USER_ID", 0)
     if user_id and int(user_id) > 0:
         email = user.get("EMAIL", "")
-        return True, f"Credencial válida.{' (' + email + ')' if email else ''}"
+        return True, f"{CONNECTED}{' (' + email + ')' if email else ''}"
     return False, "ARL expirado o inválido. Reconectá Deezer."
 
 
@@ -116,7 +120,7 @@ def check_soundcloud(token: str) -> tuple[bool, str]:
         return False, "Token expirado o inválido. Reconectá SoundCloud."
 
     name = me.get("username") or me.get("permalink") or ""
-    return True, f"Credencial válida.{' (' + name + ')' if name else ''}"
+    return True, f"{CONNECTED}{' (' + name + ')' if name else ''}"
 
 
 # servicio -> (columna en UserSettings, función de validación)
