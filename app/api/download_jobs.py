@@ -13,6 +13,7 @@ GET  /api/download-agent              — redirect to the agent download URL
 """
 from __future__ import annotations
 
+import hashlib
 import secrets
 
 from app.utils.rate_limit import UserRateLimiter
@@ -156,7 +157,13 @@ def get_credential_status(
                 out["youtube"] = {"ok": False, "connected": True, "msg": str(e)}
             else:
                 ok, msg = credential_check.check_youtube(access_token)
-                out["youtube"] = {"ok": ok, "connected": True, "msg": msg}
+                out["youtube"] = {
+                    "ok": ok, "connected": True, "msg": msg,
+                    # Huella del token, para que "Cambiar cuenta" en el agente pueda
+                    # esperar uno NUEVO. Sin esto la ventana se cierra al primer poll
+                    # con el token viejo, antes de que Google pregunte nada.
+                    "token_id": hashlib.sha256(access_token.encode()).hexdigest()[:12],
+                }
     return out
 
 

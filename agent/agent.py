@@ -274,6 +274,10 @@ def _make_icon_image() -> "Image.Image":
 def _tray_image() -> "Image.Image":
     return _make_icon_image()
 
+# Ancho del diálogo de Cuentas. La fila más apretada es "Cambiar cuenta" junto a
+# un mail largo: pide 397px de los 422 útiles que quedan con padx=24 a cada lado.
+_ACCOUNTS_DLG_W = 470
+
 ACCENT = "#2563eb"
 BG     = "#f8fafc"
 FG     = "#1e293b"
@@ -627,6 +631,14 @@ class RunningWindow:
         ("youtube",    "YouTube",    "Importa tus playlists"),
     ]
 
+    @staticmethod
+    def _account_button_label(info: dict) -> str:
+        """
+        Mira `connected`, no `ok`: una cuenta conectada pero con la sesión vencida
+        también se cambia — "Conectar" ahí daría a entender que no hay ninguna.
+        """
+        return "Cambiar cuenta" if info.get("connected") else "Conectar"
+
     def _open_accounts_dialog(self) -> None:
         if not self.cfg.get("token"):
             messagebox.showerror(
@@ -644,14 +656,25 @@ class RunningWindow:
 
         Label(dlg, text="Cuentas conectadas", font=("Segoe UI", 13, "bold"),
               bg=BG, fg=FG).pack(anchor="w", padx=24, pady=(18, 2))
-        Label(dlg, text="Te logueás en una ventana y el agente guarda la sesión solo.",
-              font=("Segoe UI", 8), bg=BG, fg=MUTED).pack(anchor="w", padx=24, pady=(0, 12))
+        # wraplength obligatorio: la ventana se fuerza a 440px y sólo se calcula el
+        # alto, así que un texto que pida más ancho queda cortado.
+        Label(dlg,
+              text="Conectá las cuentas que Track Manager necesita para buscar y "
+                   "descargar tu música. Se abre una ventana, iniciás sesión como "
+                   "siempre, y el agente la recuerda.",
+              font=("Segoe UI", 8), bg=BG, fg=MUTED,
+              # -48 por el padx=24 de cada lado, -8 más porque el Label suma su
+              # propio borde interno y con el valor justo pedía 3px de más.
+              wraplength=_ACCOUNTS_DLG_W - 56,
+              justify="left").pack(anchor="w", padx=24, pady=(0, 12))
 
         body = Frame(dlg, bg=BG)
         body.pack(fill="x", padx=24)
 
         self._acct_dots: dict[str, Label] = {}
         self._acct_msgs: dict[str, Label] = {}
+        self._acct_btns: dict[str, Button] = {}
+        self._acct_connected: dict[str, bool] = {}
         for service, label, hint in self._ACCOUNTS:
             row = Frame(body, bg=BG)
             row.pack(fill="x", pady=(0, 10))
@@ -668,6 +691,7 @@ class RunningWindow:
             row.columnconfigure(1, weight=1)
             self._acct_dots[service] = dot
             self._acct_msgs[service] = msg
+            self._acct_btns[service] = btn
 
         Frame(dlg, height=1, bg="#e2e8f0").pack(fill="x", pady=(8, 0))
         Button(dlg, text="Cerrar", font=("Segoe UI", 9), relief="flat",
@@ -675,7 +699,8 @@ class RunningWindow:
                command=dlg.destroy).pack(pady=(8, 14))
 
         dlg.update_idletasks()
-        w, h = 440, dlg.winfo_reqheight()
+        # 470 y no 440: con "Cambiar cuenta" la fila pide 397px y sólo quedaban 392.
+        w, h = _ACCOUNTS_DLG_W, dlg.winfo_reqheight()
         sw, sh = self.root.winfo_screenwidth(), self.root.winfo_screenheight()
         dlg.geometry(f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
 
@@ -694,15 +719,35 @@ class RunningWindow:
             info = status.get(service) or {}
             color = "#22c55e" if info.get("ok") else ("#f59e0b" if info.get("connected") else "#cbd5e1")
             text = info.get("msg") or hint
+            btn_text = self._account_button_label(info)
+            btn = self._acct_btns.get(service)
+            self._acct_connected[service] = bool(info.get("connected"))
             # El diálogo pudo cerrarse mientras corrían los requests.
             self.root.after(0, lambda d=dot, c=color: d.winfo_exists() and d.config(fg=c))
             self.root.after(0, lambda m=msg_lbl, t=text: m and m.winfo_exists() and m.config(text=t))
+            self.root.after(0, lambda b=btn, t=btn_text: b and b.winfo_exists() and b.config(text=t))
 
     def _connect_account(self, service: str, label: str, dlg, btn) -> None:
         """
         La ventana de login corre en un hilo: subprocess.run bloquea hasta que el
         usuario termina, y en el hilo de tkinter eso congela toda la UI del agente.
         """
+        switching = self._acct_connected.get(service, False)
+        if switching:
+            # Sin borrar el perfil del navegador la ventana vuelve a entrar con la
+            # sesión guardada y se cierra sola: no habría forma de cambiar de cuenta.
+            import login_window
+            if not login_window.forget_session(service):
+                messagebox.showerror(
+                    label,
+                    f"No se pudo borrar la sesión guardada de {label}.\n\n"
+                    "Cerrá el agente por completo (también desde la bandeja) y "
+                    "volvé a intentarlo.",
+                    parent=dlg,
+                )
+                return
+
+        previous = btn.cget("text")
         btn.config(state="disabled", text="Conectando…")
 
         def work():
@@ -711,7 +756,9 @@ class RunningWindow:
 
         def done(ok: bool, msg: str):
             if btn.winfo_exists():
-                btn.config(state="normal", text="Conectar")
+                # El refresh de abajo pone la etiqueta definitiva; esto sólo evita
+                # que quede en "Conectando…" si el usuario cerró sin loguearse.
+                btn.config(state="normal", text=previous)
             if ok:
                 messagebox.showinfo(label, f"{label} conectado.\n\n{msg}", parent=dlg)
             elif msg:

@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -63,6 +64,24 @@ def _storage_dir(service: str) -> Path:
     d = base / "TrackManager" / "browser" / service
     d.mkdir(parents=True, exist_ok=True)
     return d
+
+
+def forget_session(service: str) -> bool:
+    """
+    Borrar el perfil del navegador embebido para que el próximo login arranque de
+    cero. Sin esto, "Conectar" sobre una cuenta ya conectada vuelve a entrar con
+    la sesión guardada, valida al instante y cierra la ventana: no hay forma de
+    cambiar de cuenta.
+
+    Devuelve False si el perfil sobrevivió — el que llama tiene que avisar, no
+    seguir, porque entrar con la misma cuenta después de pedir cambiarla es
+    exactamente el bug que esto arregla.
+    """
+    # ponytail: borrado directo. Si WebView2 llegara a dejar el perfil bloqueado
+    # seguido, la salida es usar perfiles numerados (muzpa, muzpa.1, …).
+    d = _storage_dir(service)
+    shutil.rmtree(d, ignore_errors=True)
+    return not d.exists() or not any(d.iterdir())
 
 
 def _cookie_value(cookies, name: str) -> str:
@@ -118,6 +137,20 @@ def _save(api_url: str, token: str, service: str, value: str) -> tuple[bool, str
     return bool(data.get("ok")), str(data.get("msg", "")), True
 
 
+def _window_closed(window) -> bool:
+    """
+    ¿El usuario cerró la ventana?
+
+    Al destruirse, get_cookies() devuelve None en vez de levantar — y el hilo que
+    corre el watcher no es daemon, así que un watcher que no se entera deja el
+    proceso vivo para siempre y `subprocess.run` en el agente nunca vuelve.
+    """
+    try:
+        return window.get_cookies() is None
+    except Exception:
+        return True
+
+
 def _finish(window, out_path: Path, ok: bool, msg: str) -> None:
     out_path.write_text(json.dumps({"ok": ok, "msg": msg}), encoding="utf-8")
     try:
@@ -136,9 +169,12 @@ def _watch(window, service: str, out_path: Path, api_url: str, token: str) -> No
     while True:
         time.sleep(_POLL_SECONDS)
         try:
-            value = _cookie_value(window.get_cookies(), cookie_name)
+            cookies = window.get_cookies()
         except Exception:
             return  # ventana cerrada por el usuario
+        if cookies is None:
+            return  # ídem — al cerrarse devuelve None en vez de levantar
+        value = _cookie_value(cookies, cookie_name)
 
         if not value or value in tried:
             continue
@@ -192,15 +228,21 @@ def _status(api_url: str, token: str, service: str) -> tuple[dict, str]:
     return (payload.get(service) or {}), ""
 
 
-def _watch_oauth(window, service: str, out_path: Path, api_url: str, token: str) -> None:
-    """Esperar a que el server confirme que el flujo OAuth terminó."""
+def _watch_oauth(window, service: str, out_path: Path, api_url: str, token: str,
+                 baseline_id: str | None = None) -> None:
+    """
+    Esperar a que el server confirme que el flujo OAuth terminó.
+
+    `baseline_id` es la huella del token que ya estaba guardado. Se exige que la
+    nueva sea distinta: borrar el perfil del navegador no borra el token del
+    server, así que sin esto "Cambiar cuenta" cerraba la ventana en el primer
+    poll — con la cuenta vieja y sin que Google llegara a preguntar nada.
+    """
     errors = 0
     while True:
         time.sleep(_POLL_SECONDS)
-        try:
-            window.get_cookies()  # solo para detectar que la ventana sigue abierta
-        except Exception:
-            return  # cerrada por el usuario
+        if _window_closed(window):
+            return
 
         info, error = _status(api_url, token, service)
         if error:
@@ -212,7 +254,12 @@ def _watch_oauth(window, service: str, out_path: Path, api_url: str, token: str)
                 return
             continue
         errors = 0
-        if info.get("ok"):
+        if not info.get("ok"):
+            continue
+        # token_id ausente = server viejo que no lo manda. Ahí no se puede exigir
+        # que cambie: mejor comportarse como antes que esperar para siempre.
+        token_id = info.get("token_id")
+        if token_id is None or token_id != baseline_id:
             _finish(window, out_path, True, info.get("msg", "Conectado."))
             return
 
@@ -234,9 +281,14 @@ def run(service: str, out_path: str) -> int:
     if service in OAUTH_SERVICES:
         path, label = OAUTH_SERVICES[service]
         url, watcher = api_url + path, _watch_oauth
+        # Huella del token actual: el watcher exige una distinta para dar por
+        # terminado el login. Vacía si no había nada conectado.
+        info, _err = _status(api_url, token, service)
+        extra = (info.get("token_id"),)
     else:
         url, _cookie_name, label = SERVICES[service]
         watcher = _watch
+        extra = ()
 
     out = Path(out_path)
     out.unlink(missing_ok=True)  # nunca devolver una captura vieja
@@ -249,7 +301,7 @@ def run(service: str, out_path: str) -> int:
     )
     webview.start(
         watcher,
-        (window, service, out, api_url, token),
+        (window, service, out, api_url, token, *extra),
         private_mode=False,                        # sesión persistente: reconectar rara vez pide la clave
         storage_path=str(_storage_dir(service)),
     )

@@ -99,6 +99,86 @@ def test_services_cover_every_account():
     assert set(login_window.all_services()) == {"muzpa", "deezer", "soundcloud", "youtube"}
 
 
+def _never_called(name: str):
+    def _fail(*_a, **_kw):
+        raise AssertionError(f"{name} no deberia llamarse con la ventana cerrada")
+    return _fail
+
+
+class _ClosedWindow:
+    """Ventana cerrada: pywebview devuelve None desde get_cookies(), no levanta."""
+
+    def get_cookies(self):
+        return None
+
+    def destroy(self):
+        raise AssertionError("no hay que destruir una ventana ya cerrada")
+
+
+def test_cookie_watcher_returns_when_the_user_closes_the_window(monkey):
+    """
+    El hilo del watcher no es daemon: si no corta, el proceso queda vivo para
+    siempre y el boton del agente se clava en "Conectando…".
+    """
+    import tempfile
+    monkey(login_window, "_POLL_SECONDS", 0.01)
+    monkey(login_window, "_save", _never_called("_save"))
+
+    out = Path(tempfile.gettempdir()) / "tm_test_closed.json"
+    out.unlink(missing_ok=True)
+    login_window._watch(_ClosedWindow(), "muzpa", out, "http://x", "tok")
+    assert not out.exists()
+
+
+def test_oauth_watcher_returns_when_the_user_closes_the_window(monkey):
+    import tempfile
+    monkey(login_window, "_POLL_SECONDS", 0.01)
+    monkey(login_window, "_status", _never_called("_status"))
+
+    out = Path(tempfile.gettempdir()) / "tm_test_closed_oauth.json"
+    out.unlink(missing_ok=True)
+    login_window._watch_oauth(_ClosedWindow(), "youtube", out, "http://x", "tok")
+    assert not out.exists()
+
+
+def test_forget_session_clears_a_saved_profile(monkey):
+    """
+    Lo que hace posible "Cambiar cuenta": sin borrar el perfil, la ventana vuelve
+    a entrar con la sesión guardada y se cierra sola.
+    """
+    import tempfile
+
+    root = Path(tempfile.mkdtemp())
+    profile = root / "muzpa"
+    (profile / "Default").mkdir(parents=True)
+    (profile / "Default" / "Cookies").write_text("sesion vieja", encoding="utf-8")
+
+    monkey(login_window, "_storage_dir", lambda _s: profile)
+    assert login_window.forget_session("muzpa") is True
+    assert not (profile / "Default" / "Cookies").exists()
+
+
+def test_forget_session_on_a_service_never_used(monkey):
+    """No tiene que explotar si nunca se conectó esa cuenta."""
+    import tempfile
+
+    nunca = Path(tempfile.mkdtemp()) / "no-existe"
+    monkey(login_window, "_storage_dir", lambda _s: nunca)
+    assert login_window.forget_session("deezer") is True
+
+
+def test_button_says_change_account_when_connected():
+    # staticmethod puro: se llama sin instanciar la ventana ni levantar tkinter.
+    import agent
+    label = agent.RunningWindow._account_button_label
+
+    assert label({"connected": True, "ok": True}) == "Cambiar cuenta"
+    # conectada pero vencida: se cambia, no se "conecta de cero"
+    assert label({"connected": True, "ok": False}) == "Cambiar cuenta"
+    assert label({"connected": False, "ok": False}) == "Conectar"
+    assert label({}) == "Conectar"
+
+
 def test_agent_ui_lists_exactly_the_supported_services():
     """La UI y login_window no se pueden desincronizar."""
     import re
@@ -193,6 +273,102 @@ def test_orchestrator_lets_auth_expired_through(monkey):
         pass
     else:
         raise AssertionError("try_download se tragó AuthExpired y devolvió un status")
+
+
+def test_oauth_switch_waits_for_a_different_token(monkey):
+    """
+    Borrar el perfil del navegador no borra el token del server. Sin exigir una
+    huella distinta, "Cambiar cuenta" en YouTube cerraba la ventana en el primer
+    poll con la cuenta vieja, antes de que Google preguntara nada.
+    """
+    import tempfile
+
+    class FakeWindow:
+        def __init__(self):
+            self.destroyed = False
+
+        def get_cookies(self):
+            return []
+
+        def destroy(self):
+            self.destroyed = True
+
+    polls = {"n": 0}
+
+    def fake_status(_api, _token, _service):
+        polls["n"] += 1
+        # las primeras 3 vueltas sigue el token viejo; despues el usuario se
+        # logueo con otra cuenta y el server devuelve uno nuevo
+        tid = "VIEJO123" if polls["n"] < 4 else "NUEVO456"
+        return {"ok": True, "msg": "Cuenta conectada", "token_id": tid}, ""
+
+    monkey(login_window, "_status", fake_status)
+    monkey(login_window, "_POLL_SECONDS", 0.01)
+
+    out = Path(tempfile.gettempdir()) / "tm_test_switch.json"
+    out.unlink(missing_ok=True)
+    window = FakeWindow()
+    login_window._watch_oauth(window, "youtube", out, "http://x", "tok",
+                              baseline_id="VIEJO123")
+
+    assert polls["n"] == 4, f"cerro antes de tiempo: {polls['n']} polls"
+    assert window.destroyed
+    out.unlink(missing_ok=True)
+
+
+def test_oauth_first_connection_has_no_baseline(monkey):
+    """Conectar por primera vez: cualquier token sirve, no hay con que comparar."""
+    import tempfile
+
+    class FakeWindow:
+        def __init__(self):
+            self.destroyed = False
+
+        def get_cookies(self):
+            return []
+
+        def destroy(self):
+            self.destroyed = True
+
+    monkey(login_window, "_status",
+           lambda *_a: ({"ok": True, "msg": "Cuenta conectada", "token_id": "ABC"}, ""))
+    monkey(login_window, "_POLL_SECONDS", 0.01)
+
+    out = Path(tempfile.gettempdir()) / "tm_test_first.json"
+    out.unlink(missing_ok=True)
+    window = FakeWindow()
+    login_window._watch_oauth(window, "youtube", out, "http://x", "tok")
+    assert window.destroyed
+    assert json.loads(out.read_text())["ok"] is True
+    out.unlink(missing_ok=True)
+
+
+def test_oauth_does_not_hang_against_a_server_without_token_id(monkey):
+    """
+    Un server viejo no manda token_id. Exigir que cambie ahí dejaba la ventana
+    girando para siempre; sin token_id hay que comportarse como antes.
+    """
+    import tempfile
+
+    class FakeWindow:
+        def __init__(self):
+            self.destroyed = False
+
+        def get_cookies(self):
+            return []
+
+        def destroy(self):
+            self.destroyed = True
+
+    monkey(login_window, "_status", lambda *_a: ({"ok": True, "msg": "Conectado."}, ""))
+    monkey(login_window, "_POLL_SECONDS", 0.01)
+
+    out = Path(tempfile.gettempdir()) / "tm_test_noid.json"
+    out.unlink(missing_ok=True)
+    window = FakeWindow()
+    login_window._watch_oauth(window, "youtube", out, "http://x", "tok", baseline_id=None)
+    assert window.destroyed, "se colgo esperando un token_id que el server no manda"
+    out.unlink(missing_ok=True)
 
 
 def test_oauth_gives_up_when_server_lacks_the_endpoint(monkey):
