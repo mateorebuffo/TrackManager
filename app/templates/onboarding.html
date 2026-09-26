@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block title %}Primeros pasos — Track Manager{% endblock %}
+
+{% block content %}
+<style>
+  .ob-card { max-width: 720px; margin: 0 auto; border-radius: var(--tm-radius-lg);
+             border: 1px solid var(--tm-border); box-shadow: var(--tm-shadow); }
+  .ob-body { padding: 2rem 2.25rem 1.5rem; }
+  .ob-step { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .08em;
+             color: var(--tm-muted); font-weight: 600; }
+  .ob-title { font-size: 1.5rem; font-weight: 700; margin: .35rem 0 .75rem; }
+  .ob-text { font-size: 0.92rem; color: var(--tm-muted); line-height: 1.6; }
+  .ob-shot { display: block; max-width: 100%; height: auto; margin: 1rem auto;
+             border: 1px solid var(--tm-border); border-radius: var(--tm-radius); }
+  .ob-foot { display: flex; align-items: center; justify-content: space-between;
+             gap: 1rem; padding: 1rem 2.25rem 1.5rem; border-top: 1px solid var(--tm-border); }
+  .ob-dots { display: flex; gap: .4rem; }
+  .ob-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--tm-border); }
+  .ob-dot.on { background: var(--tm-accent, #2563eb); }
+  .ob-slide { display: none; }
+  .ob-slide.on { display: block; }
+</style>
+
+<div class="ob-card">
+  <div class="ob-body">
+
+    {# ── 1. Bienvenida y descarga ───────────────────────────────── #}
+    <section class="ob-slide on" data-slide="1">
+      <div class="ob-step">Paso 1 de 4</div>
+      <div class="ob-title">Bienvenido a Track Manager</div>
+      <p class="ob-text">
+        Track Manager encuentra y organiza tu música, pero las descargas las hace el
+        <strong>Agente</strong>: un programa que corre en tu computadora, sin instalación.
+        Lo primero es descargarlo.
+      </p>
+      {% if agent_available %}
+      <a href="/api/download-agent" class="btn btn-primary">⬇ Descargar el agente</a>
+      {% else %}
+      <div class="alert alert-warning py-2" style="font-size:.85rem;">
+        El agente todavía no está disponible para descargar. Avisale al administrador
+        que falta configurar <code>AGENT_DOWNLOAD_URL</code>.
+      </div>
+      {% endif %}
+      <p class="ob-text mt-3 mb-0">
+        Guardalo en un lugar que te resulte fácil de encontrar. No hace falta instalarlo:
+        es un solo archivo que se abre haciendo doble clic.
+      </p>
+    </section>
+
+    {# ── 2. Configurar el agente ────────────────────────────────── #}
+    <section class="ob-slide" data-slide="2">
+      <div class="ob-step">Paso 2 de 4</div>
+      <div class="ob-title">Configurá el agente</div>
+      <p class="ob-text">
+        Abrí el <strong>TrackManagerAgent.exe</strong> que descargaste. La primera vez se
+        abre sola esta ventana de configuración.
+      </p>
+
+      <img src="/static/onboarding/agente-configuracion.png" class="ob-shot"
+           alt="Ventana de configuración del agente, con el campo del token resaltado">
+
+      <p class="ob-text">
+        <strong>1.</strong> Copiá este token y pegalo en el campo resaltado en rojo:
+      </p>
+      <div class="input-group input-group-sm mb-3">
+        <input type="text" class="form-control font-monospace" id="ob-token"
+               value="{{ api_token or '' }}" readonly placeholder="Generá tu token →">
+        {% if api_token %}
+        <button class="btn btn-outline-secondary" type="button" onclick="obCopiar()">Copiar</button>
+        {% else %}
+        <button class="btn btn-primary" type="button" onclick="obGenerar()">Generar token</button>
+        {% endif %}
+      </div>
+      <div class="text-success small d-none mb-2" id="ob-copiado">¡Copiado!</div>
+
+      <p class="ob-text mb-1">
+        <strong>2.</strong> Elegí la <strong>carpeta de descarga</strong>: ahí se van a
+        guardar tus MP3.
+      </p>
+      <p class="ob-text">
+        <strong>3.</strong> Elegí cómo querés <strong>organizar las carpetas</strong>.
+        Podés dejar todo junto, o que se armen subcarpetas por fecha.
+      </p>
+      <p class="ob-text mb-0">
+        Cuando termines, clic en <strong>Iniciar agente →</strong>.
+      </p>
+    </section>
+
+    {# ── 3. Vincular cuentas ────────────────────────────────────── #}
+    <section class="ob-slide" data-slide="3">
+      <div class="ob-step">Paso 3 de 4</div>
+      <div class="ob-title">Ya casi — vinculá tus cuentas</div>
+      <p class="ob-text">
+        Apenas inicies el agente se abre solo este panel, porque todavía no tenés ninguna
+        cuenta vinculada.
+      </p>
+
+      <img src="/static/onboarding/agente-cuentas.png" class="ob-shot"
+           alt="Panel de cuentas del agente con las cuatro cuentas conectadas">
+
+      <p class="ob-text">
+        Clic en <strong>Conectar</strong> en cada una. Se abre una ventana con la página
+        del servicio, iniciás sesión como lo harías en el navegador, y el agente guarda la
+        sesión solo. No tenés que copiar ni pegar nada.
+      </p>
+      <p class="ob-text mb-0">
+        <strong>SoundCloud</strong> y <strong>YouTube</strong> son de dónde se importa tu
+        música; <strong>Muzpa</strong> y <strong>Deezer</strong>, de dónde se descarga.
+        Cuando las tengas todas en verde, clic en <strong>Cerrar</strong>.
+      </p>
+    </section>
+
+    {# ── 4. Listo ───────────────────────────────────────────────── #}
+    <section class="ob-slide" data-slide="4">
+      <div class="ob-step">Paso 4 de 4</div>
+      <div class="ob-title">¡Listo! Ya podés usar Track Manager</div>
+      <p class="ob-text">
+        Con el agente abierto y las cuentas vinculadas, ya podés importar tu música y
+        mandar tracks a descargar desde acá.
+      </p>
+      <p class="ob-text mb-0">
+        Una sola cosa para recordar: <strong>el agente tiene que estar abierto</strong>
+        para que las descargas se hagan. Podés minimizarlo a la bandeja del sistema y
+        seguir trabajando.
+      </p>
+    </section>
+
+  </div>
+
+  <div class="ob-foot">
+    <form method="POST" action="/primeros-pasos/listo" class="m-0">
+      <button type="submit" class="btn btn-link btn-sm p-0 text-muted"
+              style="font-size:.78rem;" id="ob-saltar">Saltar por ahora</button>
+    </form>
+
+    <div class="ob-dots" id="ob-dots">
+      <span class="ob-dot on"></span><span class="ob-dot"></span>
+      <span class="ob-dot"></span><span class="ob-dot"></span>
+    </div>
+
+    <div class="d-flex gap-2">
+      <button type="button" class="btn btn-outline-secondary btn-sm d-none"
+              id="ob-atras" onclick="obIr(-1)">Atrás</button>
+      <button type="button" class="btn btn-primary btn-sm" id="ob-listo"
+              onclick="obIr(1)">Listo</button>
+      <form method="POST" action="/primeros-pasos/listo" class="m-0 d-none" id="ob-fin">
+        <button type="submit" class="btn btn-primary btn-sm">Finalizar</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+const OB_TOTAL = 4;
+let obActual = 1;
+
+function obIr(delta) {
+  obActual = Math.min(OB_TOTAL, Math.max(1, obActual + delta));
+  document.querySelectorAll('.ob-slide').forEach(s => {
+    s.classList.toggle('on', Number(s.dataset.slide) === obActual);
+  });
+  document.querySelectorAll('#ob-dots .ob-dot').forEach((d, i) => {
+    d.classList.toggle('on', i < obActual);
+  });
+  document.getElementById('ob-atras').classList.toggle('d-none', obActual === 1);
+  // En la última, "Listo" deja lugar al submit que marca el asistente como visto.
+  document.getElementById('ob-listo').classList.toggle('d-none', obActual === OB_TOTAL);
+  document.getElementById('ob-fin').classList.toggle('d-none', obActual !== OB_TOTAL);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function obCopiar() {
+  const campo = document.getElementById('ob-token');
+  navigator.clipboard.writeText(campo.value);
+  const ok = document.getElementById('ob-copiado');
+  ok.classList.remove('d-none');
+  setTimeout(() => ok.classList.add('d-none'), 2000);
+}
+
+async function obGenerar() {
+  const res = await fetch('/api/generate-token', { method: 'POST' });
+  if (!res.ok) {
+    alert('No se pudo generar el token. Probá de nuevo en unos minutos.');
+    return;
+  }
+  const data = await res.json();
+  document.getElementById('ob-token').value = data.token;
+  const btn = event.target;
+  btn.textContent = 'Copiar';
+  btn.className = 'btn btn-outline-secondary';
+  btn.onclick = obCopiar;
+}
+</script>
+{% endblock %}

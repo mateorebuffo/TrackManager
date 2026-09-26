@@ -2,16 +2,20 @@ import logging
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.orm import Session
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.responses import Response
 
-from app.api import auth, auto_download, debug, download_jobs, review, settings_page, sync, tracks
-from app.auth_middleware import AuthMiddleware
+from app.api import (auth, auto_download, debug, download_jobs, onboarding, review,
+                     settings_page, sync, tracks)
+from app.auth_middleware import AuthMiddleware, get_current_user
 from app.config import settings
+from app.db import get_db
+from app.models.user import User
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -84,11 +88,20 @@ app.include_router(review.router)
 app.include_router(auto_download.router)
 app.include_router(download_jobs.router)
 app.include_router(settings_page.router)
+app.include_router(onboarding.router)
 app.include_router(debug.router)
 
 
 @app.get("/", include_in_schema=False)
-def root() -> RedirectResponse:
+def root(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> RedirectResponse:
+    # El login cae acá por defecto (_safe_next), así que es el lugar natural para
+    # mandar al asistente la primera vez. No va en AuthMiddleware: corre en cada
+    # request y abre su propia sesión de DB; una query por request no se paga.
+    if onboarding.is_pending(db, current_user.id):
+        return RedirectResponse(url="/primeros-pasos")
     return RedirectResponse(url="/tracks/pending")
 
 

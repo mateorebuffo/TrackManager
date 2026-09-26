@@ -17,6 +17,10 @@ class UserSettings(Base):
     organize_by_like_date = Column(Boolean, nullable=False, default=False)  # legacy, kept for DB compat
     folder_organize_mode = Column(Text, nullable=False, default="none")  # none | like_date | import_date
 
+    # Asistente de primeros pasos. Se marca tanto al finalizarlo como al saltearlo:
+    # en los dos casos el usuario ya decidió y no hay que volver a interrumpirlo.
+    onboarding_done = Column(Boolean, nullable=False, default=False, server_default="0")
+
     # Per-user Spotify Developer app credentials (admin only)
     spotify_client_id     = Column(Text, nullable=True)
     spotify_client_secret = Column(Text, nullable=True)
