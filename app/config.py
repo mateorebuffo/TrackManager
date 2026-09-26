@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     download_full_eps: bool = False
     organize_by_like_date: bool = False
 
+    # SoundCloud, YouTube, Muzpa y Deezer se conectan desde el agente (botón Cuentas),
+    # así que sus campos en /settings quedan ocultos. El código sigue ahí: poner
+    # SHOW_LEGACY_SETTINGS=true los vuelve a mostrar, con sus botones de Verificar.
+    show_legacy_settings: bool = False
+
     # Agent distribution: set AGENT_DOWNLOAD_URL to an external URL (e.g. GitHub Release)
     # where users can download the TrackManagerAgent zip.  Leave empty if serving the exe
     # directly from app/static/agent/ (local / self-hosted only).

@@ -36,10 +36,27 @@ _FIELDS = [
     ("spotify_client_secret",  "Spotify Client Secret",            "password", False),
     ("muzpa_sess",             "Muzpa Session (SESS=...)",          "password", False),
     ("deezer_arl",             "Deezer ARL",                        "password", False),
-    ("download_dir",           "Carpeta de descarga",               "text",     False),
     ("download_full_eps",      "Descargar EPs completos",           "checkbox", False),
-    ("folder_organize_mode",   "Organización de carpetas",          "radio",    False),
 ]
+
+# Ahora se conectan desde el agente. Se ocultan con SHOW_LEGACY_SETTINGS en vez de
+# borrarse, por si hiciera falta volver a configurarlas desde la web.
+_LEGACY_FIELDS = {"soundcloud_oauth_token", "muzpa_sess", "deezer_arl"}
+
+
+def _active_fields() -> list[tuple]:
+    """
+    Los campos que se muestran Y se guardan — la misma lista para las dos cosas.
+
+    Si difirieran, guardar pisaría con vacío los campos que no se renderizan: es
+    exactamente lo que venía pasando con download_dir y folder_organize_mode, que
+    estaban en _FIELDS pero en ninguna plantilla, así que cada "Guardar cambios"
+    los borraba. Nadie los leía (el agente usa su propio agent.json), por eso se
+    fueron de la lista.
+    """
+    if settings.show_legacy_settings:
+        return _FIELDS
+    return [f for f in _FIELDS if f[0] not in _LEGACY_FIELDS]
 
 
 def _get_or_create_settings(db: Session, user_id: int) -> UserSettings:
@@ -73,15 +90,14 @@ def settings_page(
         "spotify_client_secret":  us.spotify_client_secret or "",
         "muzpa_sess":             us.muzpa_sess or "",
         "deezer_arl":             us.deezer_arl or "",
-        "download_dir":           us.download_dir or "",
         "download_full_eps":      us.download_full_eps,
-        "folder_organize_mode":   us.folder_organize_mode or "none",
     }
     return templates.TemplateResponse(
         "settings.html",
         {
             "request": request,
-            "fields": _FIELDS,
+            "fields": _active_fields(),
+            "show_legacy_settings": settings.show_legacy_settings,
             "current": current,
             "spotify_connected": current_user.is_admin and spotify_auth.is_connected(db, current_user.id),
             "youtube_connected": youtube_auth.is_connected(db, current_user.id),
@@ -102,7 +118,7 @@ async def save_settings(
     form = await request.form()
     us = _get_or_create_settings(db, current_user.id)
 
-    for key, _label, field_type, _required in _FIELDS:
+    for key, _label, field_type, _required in _active_fields():
         if field_type == "checkbox":
             setattr(us, key, form.get(key) == "on")
         elif field_type == "radio":

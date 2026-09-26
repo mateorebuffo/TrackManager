@@ -148,6 +148,10 @@
         </div>
         {% endif %}
 
+        {# SoundCloud, YouTube, Muzpa y Deezer se conectan desde el agente.
+           SHOW_LEGACY_SETTINGS=true los vuelve a mostrar acá. #}
+        {% if show_legacy_settings %}
+
         {# YouTube #}
         <div class="svc-row svc-youtube">
           <div class="d-flex align-items-center justify-content-between">
@@ -244,6 +248,25 @@
             <div id="deezer-verify-result" class="mt-1" style="font-size:0.75rem;display:none;"></div>
           </div>
         </div>
+
+        {% else %}
+
+        <div class="svc-row">
+          <div class="svc-name mb-2">
+            <span class="svc-dot dot-sc"></span>Cuentas de música
+          </div>
+          <p style="font-size:0.82rem;color:var(--tm-muted);margin:0;">
+            SoundCloud, YouTube, Muzpa y Deezer se conectan desde el
+            <strong style="color:var(--tm-text);">agente</strong>, en el botón
+            <strong style="color:var(--tm-text);">👤 Cuentas</strong>. Te logueás en una
+            ventana como lo harías en el navegador y el agente guarda la sesión solo.
+            {% if not api_token %}
+              Generá el token y descargá el agente desde el panel de la derecha.
+            {% endif %}
+          </p>
+        </div>
+
+        {% endif %}
 
       </div>
     </div>
