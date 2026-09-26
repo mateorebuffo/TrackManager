@@ -87,14 +87,16 @@ def capturar_configuracion() -> None:
 
 
 def capturar_cuentas() -> None:
-    """El panel de Cuentas, con las cuatro vinculadas."""
+    """
+    El panel de Cuentas tal como lo ve alguien que recien empieza: sin ninguna
+    vinculada, que es justamente cuando el panel se abre solo.
+
+    No mostrarlo conectado: con las cuatro en verde los botones dicen "Cambiar
+    cuenta" y la captura contradice al instructivo, que manda a tocar "Conectar".
+    """
     print("panel de cuentas...")
-    falso = {
-        "muzpa":      {"connected": True, "ok": True, "msg": "Cuenta conectada (tu-mail@ejemplo.com)"},
-        "deezer":     {"connected": True, "ok": True, "msg": "Cuenta conectada (tu-mail@ejemplo.com)"},
-        "soundcloud": {"connected": True, "ok": True, "msg": "Cuenta conectada (Tu Nombre)"},
-        "youtube":    {"connected": True, "ok": True, "msg": "Cuenta conectada (Tu Canal)"},
-    }
+    falso = {s: {"connected": False, "ok": False, "msg": "Sin conectar."}
+             for s in ("muzpa", "deezer", "soundcloud", "youtube")}
     agent.api_get_credentials = lambda _cfg: falso
     agent.RunningWindow._worker = lambda self: None  # que no toque la red
 
@@ -111,6 +113,11 @@ def capturar_cuentas() -> None:
     def capturar():
         dlg = next(w for w in win.root.winfo_children()
                    if w.winfo_class() == "Toplevel" and "Cuentas" in w.title())
+        # El instructivo manda a tocar "Conectar": si la captura saliera con las
+        # cuentas ya vinculadas, los botones dirian "Cambiar cuenta" y la imagen
+        # contradiria al texto. Mejor romper acá que publicar eso.
+        etiquetas = {b.cget("text") for b in win._acct_btns.values()}
+        assert etiquetas == {"Conectar"}, f"los botones dicen {etiquetas}, no 'Conectar'"
         _capturar(dlg, SALIDA / "agente-cuentas.png")
         win.root.quit()
 
