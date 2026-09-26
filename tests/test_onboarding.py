@@ -141,7 +141,9 @@ def test_page_offers_to_generate_the_token_when_there_is_none(client, db_session
 
     html = client.get("/primeros-pasos", headers=HOST).text
     assert "Generar token" in html
-    assert "obGenerar()" in html
+    # El boton se pasa por parametro: con event.target, despues del await el
+    # event global ya no existe y el boton nunca cambiaba a "Copiar".
+    assert "obGenerar(this)" in html
 
 
 def test_page_stays_reachable_after_finishing(client, db_session):

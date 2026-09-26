@@ -365,18 +365,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  /* Toast */
+  /* Toast dejado por la página anterior */
   const msg = sessionStorage.getItem('_toast');
   if (!msg) return;
   const type = sessionStorage.getItem('_toast_type') || 'success';
   sessionStorage.removeItem('_toast');
   sessionStorage.removeItem('_toast_type');
+  showToast(msg, type);
+});
+
+/* Mostrar un toast ahora. _setToast() lo deja para la próxima carga; esto es
+   para acciones que no navegan, como copiar algo al portapapeles. */
+function showToast(msg, type) {
   const el = document.getElementById('global-toast');
-  const isLight = type === 'warning';
-  el.classList.add(isLight ? 'text-dark' : 'text-white', 'bg-' + type);
+  el.classList.remove('text-dark', 'text-white',
+                      'bg-success', 'bg-danger', 'bg-warning', 'bg-info');
+  el.classList.add(type === 'warning' ? 'text-dark' : 'text-white', 'bg-' + (type || 'success'));
   document.getElementById('global-toast-body').textContent = msg;
   bootstrap.Toast.getOrCreateInstance(el, { delay: 3000 }).show();
-});
+}
 
 function _setToast(msg, type) {
   sessionStorage.setItem('_toast', msg);

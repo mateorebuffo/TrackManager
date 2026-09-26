@@ -66,16 +66,17 @@
         <input type="text" class="form-control font-monospace" id="ob-token"
                value="{{ api_token or '' }}" readonly placeholder="Generá tu token →">
         {% if api_token %}
-        <button class="btn btn-outline-secondary" type="button" onclick="obCopiar()">Copiar</button>
+        <button class="btn btn-outline-secondary" type="button" id="ob-btn-token"
+                onclick="obCopiar()">Copiar</button>
         {% else %}
-        <button class="btn btn-primary" type="button" onclick="obGenerar()">Generar token</button>
+        <button class="btn btn-primary" type="button" id="ob-btn-token"
+                onclick="obGenerar(this)">Generar token</button>
         {% endif %}
       </div>
-      <div class="text-success small d-none mb-2" id="ob-copiado">¡Copiado!</div>
 
       <p class="ob-text mb-1">
         <strong>2.</strong> Elegí la <strong>carpeta de descarga</strong>: ahí se van a
-        guardar tus MP3.
+        guardar tus tracks.
       </p>
       <p class="ob-text">
         <strong>3.</strong> Elegí cómo querés <strong>organizar las carpetas</strong>.
@@ -169,26 +170,40 @@ function obIr(delta) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function obCopiar() {
+async function obCopiar() {
   const campo = document.getElementById('ob-token');
-  navigator.clipboard.writeText(campo.value);
-  const ok = document.getElementById('ob-copiado');
-  ok.classList.remove('d-none');
-  setTimeout(() => ok.classList.add('d-none'), 2000);
+  if (!campo.value) return;
+  try {
+    await navigator.clipboard.writeText(campo.value);
+  } catch {
+    // navigator.clipboard sólo existe en contexto seguro (https o localhost).
+    campo.select();
+    document.execCommand('copy');
+  }
+  showToast('Token copiado', 'success');
 }
 
-async function obGenerar() {
-  const res = await fetch('/api/generate-token', { method: 'POST' });
-  if (!res.ok) {
-    alert('No se pudo generar el token. Probá de nuevo en unos minutos.');
-    return;
+async function obGenerar(btn) {
+  // El boton llega por parametro y no por event.target: despues de un await,
+  // el event global ya no existe y el boton quedaba sin cambiar a "Copiar".
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/generate-token', { method: 'POST' });
+    if (!res.ok) {
+      showToast(res.status === 429
+        ? 'Alcanzaste el límite de tokens por hora. Probá más tarde.'
+        : 'No se pudo generar el token. Probá de nuevo.', 'danger');
+      return;
+    }
+    const data = await res.json();
+    document.getElementById('ob-token').value = data.token;
+    btn.textContent = 'Copiar';
+    btn.className = 'btn btn-outline-secondary';
+    btn.onclick = obCopiar;
+    showToast('Token generado', 'success');
+  } finally {
+    btn.disabled = false;
   }
-  const data = await res.json();
-  document.getElementById('ob-token').value = data.token;
-  const btn = event.target;
-  btn.textContent = 'Copiar';
-  btn.className = 'btn btn-outline-secondary';
-  btn.onclick = obCopiar;
 }
 </script>
 {% endblock %}
