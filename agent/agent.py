@@ -639,6 +639,27 @@ class RunningWindow:
         """
         return "Cambiar cuenta" if info.get("connected") else "Conectar"
 
+    @staticmethod
+    def _needs_account_setup(status: dict) -> bool:
+        """
+        Sin ninguna cuenta vinculada el agente no sirve para nada, así que el
+        panel se abre solo. Con al menos una conectada no se molesta: el aviso de
+        la barra de estado alcanza.
+
+        `status` vacío = el server no contestó. Ahí tampoco se abre: no sabemos
+        nada, y abrir el panel sería culpar al usuario de un problema de red.
+        """
+        if not status:
+            return False
+        return not any(info.get("connected") for info in status.values())
+
+    def _open_accounts_if_unconfigured(self) -> None:
+        """Corre en un hilo al arrancar: hace un request, no puede ir en la UI."""
+        if not self.cfg.get("token"):
+            return
+        if self._needs_account_setup(api_get_credentials(self.cfg)):
+            self.root.after(0, self._open_accounts_dialog)
+
     def _open_accounts_dialog(self) -> None:
         if not self.cfg.get("token"):
             messagebox.showerror(
@@ -997,6 +1018,7 @@ class RunningWindow:
         t = threading.Thread(target=self._worker, daemon=True)
         t.start()
         self.root.after(200, self._poll)
+        threading.Thread(target=self._open_accounts_if_unconfigured, daemon=True).start()
         self.root.mainloop()
 
 # ── Entry point ──────────────────────────────────────────────────────────────

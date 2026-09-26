@@ -167,6 +167,26 @@ def test_forget_session_on_a_service_never_used(monkey):
     assert login_window.forget_session("deezer") is True
 
 
+def test_accounts_panel_opens_only_when_nothing_is_linked():
+    import agent
+    needs = agent.RunningWindow._needs_account_setup
+
+    nada = {s: {"connected": False, "ok": False} for s in
+            ("muzpa", "deezer", "soundcloud", "youtube")}
+    assert needs(nada) is True
+
+    # con una sola vinculada no se molesta: alcanza el aviso de la barra
+    una = {**nada, "muzpa": {"connected": True, "ok": True}}
+    assert needs(una) is False
+
+    # vencida pero vinculada tampoco abre el panel de arranque
+    vencida = {**nada, "muzpa": {"connected": True, "ok": False}}
+    assert needs(vencida) is False
+
+    # server sin contestar: no sabemos nada, no abrir
+    assert needs({}) is False
+
+
 def test_button_says_change_account_when_connected():
     # staticmethod puro: se llama sin instanciar la ventana ni levantar tkinter.
     import agent
