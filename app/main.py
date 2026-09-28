@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 from fastapi import Depends, FastAPI, Request
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -103,6 +103,12 @@ def root(
     if onboarding.is_pending(db, current_user.id):
         return RedirectResponse(url="/primeros-pasos")
     return RedirectResponse(url="/tracks/pending")
+
+
+@app.get("/para-que-sirve", include_in_schema=False)
+def landing() -> FileResponse:
+    # Página estática y pública: explica la app a quien todavía no tiene cuenta.
+    return FileResponse("app/templates/landing.html")
 
 
 @app.get("/health", include_in_schema=False)

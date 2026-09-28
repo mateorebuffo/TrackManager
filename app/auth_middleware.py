@@ -21,7 +21,7 @@ def get_user_by_api_token(token: str, db: Session) -> Optional[User]:
     return db.query(User).filter(User.api_token == token).first()
 
 _COOKIE = "mc_session"
-_PUBLIC = {"/login", "/setup", "/favicon.ico", "/health"}
+_PUBLIC = {"/login", "/setup", "/favicon.ico", "/health", "/para-que-sirve"}
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
