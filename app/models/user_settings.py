@@ -1,6 +1,7 @@
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, Text
 from sqlalchemy.orm import relationship
 from app.db import Base
+from app.models.encrypted import EncryptedText
 
 
 class UserSettings(Base):
@@ -9,9 +10,9 @@ class UserSettings(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
 
-    soundcloud_oauth_token = Column(Text, nullable=True, default="")
-    muzpa_sess = Column(Text, nullable=True, default="")
-    deezer_arl = Column(Text, nullable=True, default="")
+    soundcloud_oauth_token = Column(EncryptedText, nullable=True, default="")
+    muzpa_sess = Column(EncryptedText, nullable=True, default="")
+    deezer_arl = Column(EncryptedText, nullable=True, default="")
     download_dir = Column(Text, nullable=True, default="")
     download_full_eps = Column(Boolean, nullable=False, default=False)
     organize_by_like_date = Column(Boolean, nullable=False, default=False)  # legacy, kept for DB compat
@@ -23,7 +24,7 @@ class UserSettings(Base):
 
     # Per-user Spotify Developer app credentials (admin only)
     spotify_client_id     = Column(Text, nullable=True)
-    spotify_client_secret = Column(Text, nullable=True)
+    spotify_client_secret = Column(EncryptedText, nullable=True)
 
     # MUERTA: era la cookie sp_dc del sync de Spotify del lado del cliente, que se
     # reemplazó por OAuth. No la escribe ni la lee nadie. Se deja la columna porque
@@ -32,8 +33,8 @@ class UserSettings(Base):
     spotify_sp_dc = Column(Text, nullable=True)
 
     # OAuth token blobs stored as JSON strings
-    spotify_token_json = Column(Text, nullable=True)
-    youtube_token_json = Column(Text, nullable=True)
+    spotify_token_json = Column(EncryptedText, nullable=True)
+    youtube_token_json = Column(EncryptedText, nullable=True)
 
     # Selected playlists for sync
     spotify_playlist_id   = Column(Text, nullable=True)
