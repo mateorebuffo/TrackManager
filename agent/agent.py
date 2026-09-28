@@ -331,7 +331,7 @@ class SetupWindow:
         if needs_setup:
             Label(body, text="Token de acceso", font=("Segoe UI", 9, "bold"),
                   bg=BG, fg=FG).pack(anchor="w")
-            Label(body, text="Copialo desde la web → Auto-descarga → Token del agente",
+            Label(body, text="Copialo desde la web → Configuración → Agente de Descarga",
                   font=("Segoe UI", 8), bg=BG, fg=MUTED).pack(anchor="w", pady=(1, 5))
             self.token_var = StringVar(value=self.cfg.get("token", ""))
             Entry(body, textvariable=self.token_var, show="•",
@@ -563,7 +563,7 @@ class RunningWindow:
 
         Label(body, text="Token de acceso", font=("Segoe UI", 9, "bold"),
               bg=BG, fg=FG).pack(anchor="w")
-        Label(body, text="Copialo desde la web → Auto-descarga → Token del agente",
+        Label(body, text="Copialo desde la web → Configuración → Agente de Descarga",
               font=("Segoe UI", 8), bg=BG, fg=MUTED).pack(anchor="w", pady=(1, 5))
         token_var = StringVar(value=self.cfg.get("token", ""))
         token_row = Frame(body, bg=BG)
