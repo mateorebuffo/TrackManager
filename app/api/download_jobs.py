@@ -51,6 +51,14 @@ def agent_auth(
     authorization: str | None = Header(None),
     db: Session = Depends(get_db),
 ) -> User:
+    """
+    El usuario detrás del token del agente.
+
+    AuthMiddleware ya valida el token y deja el usuario en request.state, pero
+    esto se revalida igual: es lo que hace que el endpoint falle con 401 antes
+    de mirar el body, y deja la dependencia explícita en la firma en vez de
+    depender de que el middleware haya corrido.
+    """
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Token requerido")
     token = authorization.removeprefix("Bearer ").strip()
@@ -84,17 +92,10 @@ def get_token(
 
 @router.get("/api/me/settings")
 def get_agent_settings(
-    authorization: str | None = Header(None),
+    user: User = Depends(agent_auth),
     db: Session = Depends(get_db),
 ) -> dict:
     """Return the user's download credentials for the local agent."""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Token requerido")
-    token = authorization.removeprefix("Bearer ").strip()
-    user = get_user_by_token(token, db)
-    if not user:
-        raise HTTPException(status_code=401, detail="Token inválido")
-
     from app.models.user_settings import UserSettings
     us = db.query(UserSettings).filter_by(user_id=user.id).first()
     return {
@@ -218,35 +219,23 @@ class CompletePayload(BaseModel):
     error: str | None = None
 
 
-def _get_job_for_agent(job_id: int, db: Session, authorization: str | None) -> tuple[DownloadJob, User]:
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Token requerido")
-    token = authorization.removeprefix("Bearer ").strip()
-    user = get_user_by_token(token, db)
-    if not user:
-        raise HTTPException(status_code=401, detail="Token inválido")
+def _get_job_for_agent(job_id: int, db: Session, user: User) -> DownloadJob:
+    """El job, siempre acotado al usuario del token: nadie toca jobs ajenos."""
     job = db.query(DownloadJob).filter(
         DownloadJob.id == job_id,
         DownloadJob.user_id == user.id,
     ).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job no encontrado")
-    return job, user
+    return job
 
 
 @router.get("/api/download-jobs")
 def get_pending_jobs(
-    authorization: str | None = Header(None),
+    user: User = Depends(agent_auth),
     db: Session = Depends(get_db),
 ) -> list[dict]:
     """Return pending jobs for the authenticated agent."""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Token requerido")
-    token = authorization.removeprefix("Bearer ").strip()
-    user = get_user_by_token(token, db)
-    if not user:
-        raise HTTPException(status_code=401, detail="Token inválido")
-
     from app.api.auto_download import _cancel_stale_jobs
     _cancel_stale_jobs(db, user.id)
 
@@ -291,17 +280,10 @@ def get_pending_jobs(
 
 @router.get("/api/download-jobs/stats")
 def get_jobs_stats(
-    authorization: str | None = Header(None),
+    user: User = Depends(agent_auth),
     db: Session = Depends(get_db),
 ) -> dict:
     """Return pending + in_progress counts for the authenticated agent."""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Token requerido")
-    token = authorization.removeprefix("Bearer ").strip()
-    user = get_user_by_token(token, db)
-    if not user:
-        raise HTTPException(status_code=401, detail="Token inválido")
-
     counts = dict(
         db.query(DownloadJob.status, func.count())
         .filter(DownloadJob.user_id == user.id)
@@ -338,17 +320,10 @@ def cancel_all_pending(
 
 @router.post("/api/download-jobs/reset-stuck")
 def reset_stuck_jobs(
-    authorization: str | None = Header(None),
+    user: User = Depends(agent_auth),
     db: Session = Depends(get_db),
 ) -> dict:
     """Reset in_progress jobs back to pending (called by agent on startup)."""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Token requerido")
-    token = authorization.removeprefix("Bearer ").strip()
-    user = get_user_by_token(token, db)
-    if not user:
-        raise HTTPException(status_code=401, detail="Token inválido")
-
     count = (
         db.query(DownloadJob)
         .filter(DownloadJob.user_id == user.id, DownloadJob.status == JobStatus.in_progress)
@@ -361,10 +336,10 @@ def reset_stuck_jobs(
 @router.post("/api/download-jobs/{job_id}/start")
 def start_job(
     job_id: int,
-    authorization: str | None = Header(None),
+    user: User = Depends(agent_auth),
     db: Session = Depends(get_db),
 ) -> dict:
-    job, user = _get_job_for_agent(job_id, db, authorization)
+    job = _get_job_for_agent(job_id, db, user)
     job.status = JobStatus.in_progress
     job.attempt_count += 1
     job.updated_at = datetime.now(timezone.utc)
@@ -384,10 +359,10 @@ def start_job(
 def complete_job(
     job_id: int,
     payload: CompletePayload,
-    authorization: str | None = Header(None),
+    user: User = Depends(agent_auth),
     db: Session = Depends(get_db),
 ) -> dict:
-    job, user = _get_job_for_agent(job_id, db, authorization)
+    job = _get_job_for_agent(job_id, db, user)
 
     valid = {"completed", "not_found", "vinyl_only", "bandcamp_only", "failed"}
     if payload.status not in valid:
