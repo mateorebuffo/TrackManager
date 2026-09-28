@@ -96,16 +96,39 @@ def db_session(engine) -> Session:
         connection.close()
 
 
+class _SessionNoClose:
+    """
+    Wrapper que ignora close().
+
+    AuthMiddleware abre su propia sesión con SessionLocal() y la cierra en un
+    finally, salteándose dependency_overrides. Para que vea la base de prueba hay
+    que darle la sesión del test, pero sin dejar que la cierre.
+    """
+
+    def __init__(self, real):
+        self._real = real
+
+    def __getattr__(self, name):
+        return getattr(self._real, name)
+
+    def close(self):
+        pass
+
+
 @pytest.fixture(scope="function")
-def client(engine, db_session: Session) -> TestClient:
+def client(engine, db_session: Session, monkeypatch) -> TestClient:
     """
     FastAPI TestClient with:
       1. The get_db dependency replaced by a closure that yields db_session.
       2. The app's on_startup create_tables() replaced so it creates tables on
          our test engine rather than the module-level production engine.
+      3. AuthMiddleware pointed at the test session, and an authenticated user.
     """
     from unittest.mock import patch
     import app.db as app_db
+    import app.auth_middleware as auth_middleware
+    from app.models.user import User
+    from app.services.auth import make_session_token
 
     def _override_get_db():
         try:
@@ -114,6 +137,33 @@ def client(engine, db_session: Session) -> TestClient:
             pass  # lifecycle managed by db_session fixture
 
     app.dependency_overrides[get_db] = _override_get_db
+    monkeypatch.setattr(auth_middleware, "SessionLocal",
+                        lambda: _SessionNoClose(db_session))
+
+    # Sin rate limit en los tests. El estado vive a nivel módulo y el user_id es 1
+    # en todos, así que se arrastra entre tests; y hay tests que llaman dos veces
+    # al mismo endpoint a propósito (idempotencia), que con 1 llamada por 60s es
+    # imposible. Ninguna prueba cubre el 429 hoy.
+    from app.utils.rate_limit import UserRateLimiter
+    monkeypatch.setattr(UserRateLimiter, "acquire", lambda self, user_id: True)
+    monkeypatch.setattr(UserRateLimiter, "is_limited", lambda self, user_id: False)
+
+    # Estos tests son anteriores al login. Sin un usuario, AuthMiddleware ve la
+    # base vacía y manda todo a /setup con un 302 — que es por qué fallaban 43.
+    user = User(username="tester", hashed_password="x", is_admin=True, api_token="tok-test")
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+
+    # /sync/soundcloud corta con "OAuth token no configurado" si no hay fila de
+    # settings. El valor da igual: con USE_MOCK_COLLECTOR el collector no lo usa.
+    from app.models.user_settings import UserSettings
+    db_session.add(UserSettings(
+        user_id=user.id,
+        soundcloud_oauth_token="token-de-prueba",
+        onboarding_done=True,   # que "/" no redirija al asistente
+    ))
+    db_session.commit()
 
     # Patch create_tables so the startup hook targets our test engine instead
     # of the module-level production engine.
@@ -121,8 +171,12 @@ def client(engine, db_session: Session) -> TestClient:
         from app.models import source_track, normalized_track, review_item  # noqa: F401
         Base.metadata.create_all(bind=engine)
 
+    # base_url con un host permitido: TrustedHostMiddleware (app/main.py) sólo
+    # acepta trackmanager.app, localhost y 127.0.0.1, y el default del TestClient
+    # es "testserver" — con eso toda request web moría en "Invalid host header".
     with patch.object(app_db, "create_tables", _test_create_tables):
-        with TestClient(app, raise_server_exceptions=True) as c:
+        with TestClient(app, base_url="http://localhost", raise_server_exceptions=True) as c:
+            c.cookies.set("mc_session", make_session_token(user.id))
             yield c
 
     app.dependency_overrides.clear()

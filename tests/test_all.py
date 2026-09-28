@@ -776,7 +776,13 @@ class TestSyncSoundcloudEndpoint:
             follow_redirects=False,
         )
         assert resp.status_code == 303
-        assert resp.headers["location"] == "/tracks/pending"
+        # El redirect lleva el resultado del sync. Es `src` y no `source` a
+        # propósito: `source` es el filtro de fuente de la propia pantalla, y
+        # usar el mismo nombre dejaba el filtro aplicado al volver del sync.
+        location = resp.headers["location"]
+        assert location.startswith("/tracks/pending?")
+        assert "src=soundcloud" in location
+        assert "synced=" in location
 
     def test_sync_errors_field_present(self, client):
         resp = client.post("/sync/soundcloud")
