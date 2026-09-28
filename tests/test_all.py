@@ -177,61 +177,44 @@ class TestStripNoise:
 
 
 class TestExtractVersion:
-    def test_extended_mix_in_parens(self):
-        text, version = extract_version("Bicep - Glue (Extended Mix)")
-        assert version == "Extended Mix"
-        assert "Extended Mix" not in text
-        assert "(" not in text
+    """
+    Sólo se saca "Radio Edit" del título.
 
-    def test_radio_edit_in_parens(self):
+    Todo lo demás (Extended Mix, VIP, Remix, Club Mix, Instrumental…) queda
+    adentro a propósito: identifica QUÉ versión es y quién la remixó, así que un
+    remix tiene que entrar a la biblioteca como un track aparte y no deduplicarse
+    contra el original. Ver el comentario sobre _VERSION_PATTERNS en
+    app/utils/text.py — estos tests afirman esa decisión.
+    """
+
+    def test_radio_edit_se_saca(self):
         text, version = extract_version("Bonobo - Kiara (Radio Edit)")
         assert version == "Radio Edit"
+        assert "Radio Edit" not in text
+        assert "(" not in text
+        assert text == text.strip()
 
-    def test_vip_mix(self):
-        text, version = extract_version("Mount Kimbie - Before I Move Off (VIP Mix)")
-        assert version == "VIP"
-
-    def test_original_mix(self):
-        text, version = extract_version("Track (Original Mix)")
-        assert version == "Original Mix"
-
-    def test_club_mix(self):
-        text, version = extract_version("Track (Club Mix)")
-        assert version == "Club Mix"
-
-    def test_remix_in_brackets(self):
-        text, version = extract_version("Track [Remix]")
-        assert version == "Remix"
+    @pytest.mark.parametrize("titulo", [
+        "Bicep - Glue (Extended Mix)",
+        "Mount Kimbie - Before I Move Off (VIP Mix)",
+        "Track (Original Mix)",
+        "Track (Club Mix)",
+        "Track [Remix]",
+        "Track (Extended Version)",
+        "Track (Instrumental)",
+        "Track (Acoustic Version)",
+        "Track (Dub Mix)",
+        "Track (Edit)",
+    ])
+    def test_el_resto_queda_en_el_titulo(self, titulo):
+        text, version = extract_version(titulo)
+        assert version is None, f"{titulo!r} no deberia extraer version"
+        assert text == titulo, "el titulo tiene que quedar intacto"
 
     def test_no_version(self):
         text, version = extract_version("Floating Points - LesAlpx")
         assert version is None
         assert text == "Floating Points - LesAlpx"
-
-    def test_extended_version_label(self):
-        text, version = extract_version("Track (Extended Version)")
-        assert version == "Extended Mix"
-
-    def test_instrumental(self):
-        text, version = extract_version("Track (Instrumental)")
-        assert version == "Instrumental"
-
-    def test_acoustic(self):
-        text, version = extract_version("Track (Acoustic Version)")
-        assert version == "Acoustic"
-
-    def test_dub_mix(self):
-        text, version = extract_version("Track (Dub Mix)")
-        assert version == "Dub Mix"
-
-    def test_edit_label(self):
-        text, version = extract_version("Track (Edit)")
-        assert version == "Edit"
-
-    def test_whitespace_cleaned_after_removal(self):
-        # There should be no leading/trailing whitespace in the returned text
-        text, version = extract_version("Bicep - Glue (Extended Mix)")
-        assert text == text.strip()
 
 
 class TestSplitArtistTitle:
@@ -331,7 +314,10 @@ class TestNormalizeTrack:
         )
         assert result.normalized_artist == "Bicep"
         assert "Glue" in result.normalized_title
-        assert result.version_info == "Extended Mix"
+        # "Extended Mix" no se extrae: queda en el título para que el track no
+        # se confunda con otra versión. "FREE DOWNLOAD" sí es ruido y se limpia.
+        assert result.version_info is None
+        assert "Extended Mix" in result.normalized_title
         assert "FREE DOWNLOAD" not in result.search_query
         assert result.confidence_score > 0.5
 
@@ -411,11 +397,14 @@ class TestNormalizeTrack:
         result = normalize_track("LesAlpx", None)
         assert result.confidence_score == pytest.approx(0.7)
 
-    def test_vip_mix_version(self):
+    def test_vip_mix_queda_en_el_titulo(self):
+        """El VIP es otra versión, no ruido: tiene que sobrevivir al fingerprint."""
         result = normalize_track(
             "Mount Kimbie - Before I Move Off (VIP Mix)", "Mount Kimbie"
         )
-        assert result.version_info == "VIP"
+        assert result.version_info is None
+        assert "VIP" in result.normalized_title
+        assert "vip" in result.fingerprint_text
 
     def test_fire_emoji_title_cleaned(self):
         result = normalize_track("Objekt - Dogma (Extended) 🔥 FREE DL", "Objekt")
@@ -659,13 +648,13 @@ class TestRunSync:
 
     def test_weak_duplicate_not_flagged_different_version(self, db_session):
         """
-        'Bicep - Glue (Radio Edit)' vs 'Bicep - Glue (Extended Mix)' produces
-        a fingerprint score of ~69 — below the weak threshold of 75.
-        The track is ingested successfully but carries NO duplicate flag.
+        'Bicep - Glue (Radio Edit)' contra 'Bicep - Glue (Extended Mix)': entra
+        como track nuevo y sin marca de duplicado.
 
-        This test documents a known gap: two clearly related versions of the
-        same track are not caught by the deduplicator because the version
-        segment pulls the score down below both thresholds.
+        Es a propósito, no una falla del deduplicador: "Extended Mix" se queda en
+        el título (sólo "Radio Edit" se extrae), así que los fingerprints difieren
+        y un remix o una versión extendida entran como tracks aparte. Para un DJ
+        son archivos distintos y los quiere a los dos.
         """
         track1 = _raw_track("401", "Bicep - Glue (Extended Mix)", "Bicep")
         track2 = RawTrack(
@@ -680,8 +669,8 @@ class TestRunSync:
         run_sync(_SimpleCollector([track1]), db_session)
         result2 = run_sync(_SimpleCollector([track2]), db_session)
 
-        # Radio Edit and Extended Mix of same track → strong duplicate via base fingerprint
-        assert result2.strong_duplicates_flagged == 1
+        assert result2.new_tracks == 1
+        assert result2.strong_duplicates_flagged == 0
         assert result2.weak_duplicates_flagged == 0
 
     def test_empty_title_does_not_crash(self, db_session):
