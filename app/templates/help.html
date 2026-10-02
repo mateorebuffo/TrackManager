@@ -41,7 +41,7 @@
 <div class="hp">
   <nav class="hp-toc" aria-label="Secciones de la ayuda">
     <a href="#empezar">Cómo funciona</a>
-    <a href="#importar">Importar tus likes</a>
+    <a href="#importar">Importar tu música</a>
     <a href="#revisar">Revisar tracks</a>
     <a href="#descargar">Descargar</a>
     <a href="#no-encontrados">Temas que no se encuentran</a>
@@ -54,13 +54,13 @@
 
     <section class="hp-section" id="empezar">
       <h5>Cómo funciona</h5>
-      <p class="hp-lead">Likeás en SoundCloud o YouTube, Track Manager junta esos likes y el agente los descarga a tu computadora.</p>
+      <p class="hp-lead">Likeás en SoundCloud o guardás en una playlist de YouTube, Track Manager junta esos temas y el agente los descarga a tu computadora.</p>
 
       <details open>
         <summary>El recorrido completo, en 4 pasos</summary>
         <div class="hp-body">
           <ol>
-            <li><strong>Importás</strong> tus likes desde la pantalla <span class="ui">Tracks</span> con los botones de SoundCloud y YouTube.</li>
+            <li><strong>Importás</strong> tus likes de SoundCloud y tu playlist de YouTube desde la pantalla <span class="ui">Tracks</span> con los botones de SoundCloud y YouTube.</li>
             <li><strong>Revisás</strong> la lista: descartás lo que no querés y corregís nombres si hace falta. Los repetidos ya vienen marcados.</li>
             <li><strong>Armás la cola</strong>: seleccionás los tracks y tocás <span class="ui">↗ Armar cola de descarga</span>.</li>
             <li><strong>Descargás</strong>: en <span class="ui">Cola</span> tocás <span class="ui">⬇ Auto-descargar todo</span> y el agente baja los temas a tu carpeta.</li>
@@ -71,7 +71,7 @@
     </section>
 
     <section class="hp-section" id="importar">
-      <h5>Importar tus likes</h5>
+      <h5>Importar tu música</h5>
       <p class="hp-lead">Los botones de importar están arriba a la derecha en <span class="ui">Tracks</span>.</p>
 
       <details>
@@ -90,10 +90,11 @@
         <summary>¿Cómo importo desde YouTube?</summary>
         <div class="hp-body">
           <ol>
-            <li>La primera vez, tocá el botón rojo de YouTube con <span class="ui">+</span> y elegí la playlist de donde querés importar (por ejemplo, tus "Me gusta").</li>
+            <li>La primera vez, tocá el botón rojo de YouTube con <span class="ui">+</span> y elegí una de tus playlists.</li>
             <li>Desde ahí, el botón pasa a <span class="ui">↻</span>: tocalo cada vez que quieras traer lo nuevo de esa playlist.</li>
             <li>Para cambiar de playlist, abrí la flechita al lado del botón y elegí <span class="ui">☰ Elegir playlist…</span>.</li>
           </ol>
+          <div class="hp-tip">En YouTube se importa desde una <strong>playlist</strong>, no desde los "Me gusta". Lo más práctico es armar una playlist tuya (por ejemplo "Para descargar") y guardar ahí los temas que te gusten, en vez de tocar "Me gusta".</div>
           <div class="hp-tip">Si la playlist es de otro usuario, puede fallar al importar. Lo más seguro es usar una playlist tuya.</div>
         </div>
       </details>
@@ -106,14 +107,14 @@
       </details>
 
       <details>
-        <summary>Likeé el mismo tema en SoundCloud y en YouTube. ¿Lo voy a bajar dos veces?</summary>
+        <summary>Tengo el mismo tema en SoundCloud y en YouTube. ¿Lo voy a bajar dos veces?</summary>
         <div class="hp-body">
           No. Al importar, Track Manager compara cada tema con los que ya tenés:
           <ul>
             <li>Si es claramente el mismo, no lo agrega.</li>
             <li>Si se parece mucho pero no es seguro, lo agrega con una nota <span class="text-warning fw-semibold">⚠</span> en la columna <em>Notas</em>. Tocala para ver los dos temas juntos y descartar el que sobra.</li>
           </ul>
-          <div class="hp-tip">Un <strong>remix, extended o VIP</strong> cuenta como un tema distinto del original, a propósito: para un DJ son archivos diferentes y suele querer los dos.</div>
+          <div class="hp-tip">Una versión <strong>remix, extended o Edit</strong> cuenta como un tema distinto del original, a propósito: para un DJ son archivos diferentes y suele querer los dos.</div>
         </div>
       </details>
     </section>
@@ -186,7 +187,7 @@
       <details>
         <summary>¿Dónde quedan los archivos?</summary>
         <div class="hp-body">
-          En la carpeta que elegiste al configurar el agente. Si elegiste organizar por fecha, cada tema cae en la subcarpeta del mes en que lo likeaste, por ejemplo <code>2026/2026-07/</code>, así tenés lo último siempre a mano.
+          En la carpeta que elegiste al configurar el agente. Si elegiste organizar por fecha, cada tema cae en la subcarpeta del mes en que lo likeaste o lo sumaste a la playlist, por ejemplo <code>2026/2026-07/</code>, así tenés lo último siempre a mano.
         </div>
       </details>
 
@@ -331,7 +332,7 @@
         <summary>Importé y no apareció nada nuevo</summary>
         <div class="hp-body">
           <ul>
-            <li>Si no likeaste nada desde la última vez, no hay nada para traer: es normal.</li>
+            <li>Si no likeaste nada en SoundCloud ni sumaste temas a tu playlist de YouTube desde la última vez, no hay nada para traer: es normal.</li>
             <li>Fijate que no tengas un filtro activo (etiquetas debajo del buscador) que esté escondiendo los temas.</li>
             <li>En YouTube, confirmá que la playlist elegida sea la correcta (flechita al lado del botón).</li>
           </ul>
