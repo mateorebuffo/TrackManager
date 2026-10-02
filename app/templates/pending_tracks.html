@@ -83,6 +83,8 @@
     flex-wrap: wrap;
     box-shadow: var(--tm-shadow);
   }
+  .copy-track { cursor: copy; }
+  .copy-track:hover { color: var(--tm-primary); }
 </style>
 
 {# ── Setup banner ──────────────────────────────────────────────── #}
@@ -517,9 +519,17 @@ function dismissSetupBanner(){
         <td class="text-muted font-monospace" style="font-size:0.72rem;">{{ row.review_id }}</td>
 
         <td style="max-width:150px;">
-          <span class="fw-semibold text-truncate d-block" style="max-width:140px;" title="{{ row.artist }}">
-            {{ row.artist or "—" }}
-          </span>
+          {% if row.artist and row.artist != "—" %}
+            {% set copy_text = row.artist ~ " - " ~ row.title %}
+            <span class="fw-semibold text-truncate d-block copy-track" style="max-width:140px;"
+                  role="button" tabindex="0" data-copy="{{ copy_text }}"
+                  title="Copiar «{{ copy_text }}»"
+                  onclick="copyTrack(this)" onkeydown="if(event.key==='Enter')copyTrack(this)">
+              {{ row.artist }}
+            </span>
+          {% else %}
+            <span class="fw-semibold text-truncate d-block" style="max-width:140px;">—</span>
+          {% endif %}
           {% if row.channel and row.channel != row.artist and row.channel != "—" %}
             <span class="text-muted" style="font-size:0.7rem;">{{ row.channel }}</span>
           {% endif %}
@@ -760,6 +770,13 @@ function _showToastNow(msg, type) {
 function updateSelCount() {
   const n = document.querySelectorAll('.row-check:checked').length;
   document.getElementById('sel-count').textContent = n + ' seleccionado' + (n !== 1 ? 's' : '');
+}
+
+function copyTrack(el) {
+  // navigator.clipboard sólo existe en contexto seguro (https o localhost).
+  navigator.clipboard.writeText(el.dataset.copy)
+    .then(() => showToast('Nombre del track copiado', 'success'))
+    .catch(() => showToast('No se pudo copiar', 'danger'));
 }
 
 function openEditModal(btn) {

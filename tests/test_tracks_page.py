@@ -89,3 +89,13 @@ def test_setup_banner_points_at_the_wizard(client, db_session):
     html = _entrar(db_session, client, admin=False)
     assert "/primeros-pasos" in html
     assert "Ir a Configuración" not in html
+
+
+def test_tocar_el_artista_copia_artista_guion_titulo(client):
+    """El fixture `client` ya tiene usuario y sesión; el collector mock trae tracks."""
+    import re
+    client.post("/sync/soundcloud", headers=HOST)
+    html = client.get("/tracks/pending", headers=HOST).text
+    copias = re.findall(r'data-copy="([^"]+)"', html)
+    assert copias, "ninguna fila ofrece copiar"
+    assert all(" - " in c and not c.startswith("—") for c in copias)
