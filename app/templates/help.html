@@ -1,0 +1,387 @@
+{% extends "base.html" %}
+
+{% block title %}Ayuda — Track Manager{% endblock %}
+
+{% block content %}
+<style>
+  .hp { display: grid; grid-template-columns: 210px 1fr; gap: 2rem; align-items: start; max-width: 1040px; }
+  .hp-toc { position: sticky; top: 72px; display: grid; gap: 2px; font-size: .84rem; }
+  .hp-toc a { color: var(--tm-muted); text-decoration: none; padding: .35rem .6rem; border-radius: 6px; }
+  .hp-toc a:hover { background: #e9ecf3; color: var(--tm-text); }
+  .hp-search { max-width: 420px; }
+  .hp-section { margin-bottom: 2rem; scroll-margin-top: 72px; }
+  .hp-section > h5 { font-weight: 700; margin-bottom: .25rem; }
+  .hp-section > p.hp-lead { color: var(--tm-muted); margin-bottom: .75rem; }
+  .hp details { background: var(--tm-card); border: 1px solid var(--tm-border); border-radius: var(--tm-radius); margin-bottom: .5rem; }
+  .hp summary { cursor: pointer; padding: .75rem 1rem; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 1rem; }
+  .hp summary::-webkit-details-marker { display: none; }
+  .hp summary::after { content: "+"; color: var(--tm-muted); font-weight: 400; }
+  .hp details[open] summary::after { content: "−"; }
+  .hp summary:focus-visible { outline: 2px solid var(--tm-primary); outline-offset: 2px; border-radius: var(--tm-radius); }
+  .hp .hp-body { padding: 0 1rem 1rem; line-height: 1.6; }
+  .hp .hp-body ol, .hp .hp-body ul { padding-left: 1.2rem; margin-bottom: .5rem; }
+  .hp .hp-body li { margin-bottom: .3rem; }
+  .hp .hp-tip { background: #eef2ff; border-left: 3px solid var(--tm-primary); padding: .5rem .75rem; border-radius: 4px; margin-top: .5rem; }
+  .hp .ui { display: inline-block; font-size: .78rem; font-weight: 600; padding: .05rem .45rem; border: 1px solid var(--tm-border); border-radius: 5px; background: #f8fafc; white-space: nowrap; }
+  .hp .badge { font-weight: 600; }
+  .hp-states td { padding: .45rem .6rem; vertical-align: top; }
+  .hp-empty { display: none; }
+  @media (max-width: 860px) { .hp { grid-template-columns: 1fr; } .hp-toc { display: none; } }
+</style>
+
+<div class="d-flex flex-wrap align-items-end justify-content-between gap-3 mb-4">
+  <div>
+    <h4 class="tm-page-title mb-1">Ayuda</h4>
+    <div class="text-muted small">Cómo se usa cada parte de Track Manager, paso a paso.</div>
+  </div>
+  <input type="search" id="hp-q" class="form-control form-control-sm hp-search"
+         placeholder="Buscar en la ayuda… (ej: duplicado, agente, vinilo)" aria-label="Buscar en la ayuda">
+</div>
+
+<div class="hp">
+  <nav class="hp-toc" aria-label="Secciones de la ayuda">
+    <a href="#empezar">Cómo funciona</a>
+    <a href="#importar">Importar tus likes</a>
+    <a href="#revisar">Revisar tracks</a>
+    <a href="#descargar">Descargar</a>
+    <a href="#no-encontrados">Temas que no se encuentran</a>
+    <a href="#agente">El agente y las cuentas</a>
+    <a href="#estados">Qué significa cada estado</a>
+    <a href="#problemas">Problemas frecuentes</a>
+  </nav>
+
+  <div id="hp-content">
+
+    <section class="hp-section" id="empezar">
+      <h5>Cómo funciona</h5>
+      <p class="hp-lead">Likeás en SoundCloud o YouTube, Track Manager junta esos likes y el agente los descarga a tu computadora.</p>
+
+      <details open>
+        <summary>El recorrido completo, en 4 pasos</summary>
+        <div class="hp-body">
+          <ol>
+            <li><strong>Importás</strong> tus likes desde la pantalla <span class="ui">Tracks</span> con los botones de SoundCloud y YouTube.</li>
+            <li><strong>Revisás</strong> la lista: descartás lo que no querés y corregís nombres si hace falta. Los repetidos ya vienen marcados.</li>
+            <li><strong>Armás la cola</strong>: seleccionás los tracks y tocás <span class="ui">↗ Armar cola de descarga</span>.</li>
+            <li><strong>Descargás</strong>: en <span class="ui">Cola</span> tocás <span class="ui">⬇ Auto-descargar todo</span> y el agente baja los temas a tu carpeta.</li>
+          </ol>
+          <div class="hp-tip">Si es tu primera vez, empezá por <a href="/primeros-pasos">los primeros pasos</a>: ahí se instala el agente y se vinculan las cuentas.</div>
+        </div>
+      </details>
+    </section>
+
+    <section class="hp-section" id="importar">
+      <h5>Importar tus likes</h5>
+      <p class="hp-lead">Los botones de importar están arriba a la derecha en <span class="ui">Tracks</span>.</p>
+
+      <details>
+        <summary>¿Cómo importo mis likes de SoundCloud?</summary>
+        <div class="hp-body">
+          <ol>
+            <li>Andá a <span class="ui">Tracks</span>.</li>
+            <li>Tocá el botón naranja de SoundCloud con <span class="ui">↻</span>.</li>
+            <li>Esperá a que termine: los temas nuevos aparecen en la pestaña <span class="ui">Pendiente</span>.</li>
+          </ol>
+          Si el botón muestra <span class="ui">+</span> en vez de <span class="ui">↻</span>, todavía no vinculaste SoundCloud: se hace desde el agente (ver <a href="#agente">El agente y las cuentas</a>).
+        </div>
+      </details>
+
+      <details>
+        <summary>¿Cómo importo desde YouTube?</summary>
+        <div class="hp-body">
+          <ol>
+            <li>La primera vez, tocá el botón rojo de YouTube con <span class="ui">+</span> y elegí la playlist de donde querés importar (por ejemplo, tus "Me gusta").</li>
+            <li>Desde ahí, el botón pasa a <span class="ui">↻</span>: tocalo cada vez que quieras traer lo nuevo de esa playlist.</li>
+            <li>Para cambiar de playlist, abrí la flechita al lado del botón y elegí <span class="ui">☰ Elegir playlist…</span>.</li>
+          </ol>
+          <div class="hp-tip">Si la playlist es de otro usuario, puede fallar al importar. Lo más seguro es usar una playlist tuya.</div>
+        </div>
+      </details>
+
+      <details>
+        <summary>¿Cada cuánto conviene importar? ¿Se duplica lo que ya importé?</summary>
+        <div class="hp-body">
+          Podés importar las veces que quieras: Track Manager solo agrega lo que todavía no tenía, así que nada se duplica. Lo más práctico es importar una vez por semana, o antes de preparar un set.
+        </div>
+      </details>
+
+      <details>
+        <summary>Likeé el mismo tema en SoundCloud y en YouTube. ¿Lo voy a bajar dos veces?</summary>
+        <div class="hp-body">
+          No. Al importar, Track Manager compara cada tema con los que ya tenés:
+          <ul>
+            <li>Si es claramente el mismo, no lo agrega.</li>
+            <li>Si se parece mucho pero no es seguro, lo agrega con una nota <span class="text-warning fw-semibold">⚠</span> en la columna <em>Notas</em>. Tocala para ver los dos temas juntos y descartar el que sobra.</li>
+          </ul>
+          <div class="hp-tip">Un <strong>remix, extended o VIP</strong> cuenta como un tema distinto del original, a propósito: para un DJ son archivos diferentes y suele querer los dos.</div>
+        </div>
+      </details>
+    </section>
+
+    <section class="hp-section" id="revisar">
+      <h5>Revisar tracks</h5>
+      <p class="hp-lead">En <span class="ui">Tracks</span> ves todo lo que importaste, separado en pestañas por estado.</p>
+
+      <details>
+        <summary>¿Cómo busco, filtro y ordeno?</summary>
+        <div class="hp-body">
+          <ul>
+            <li><strong>Buscar:</strong> escribí un artista o título en el buscador y apretá Enter.</li>
+            <li><strong>Por plataforma:</strong> tocá el logo de SoundCloud o YouTube para ver solo esos temas. <span class="ui">Todos</span> los vuelve a mostrar.</li>
+            <li><strong>Por fecha:</strong> tocá <span class="ui">📅</span>, elegí <em>Desde</em> y <em>Hasta</em> y tocá <span class="ui">Aplicar</span>.</li>
+            <li><strong>Ordenar:</strong> con el menú desplegable (por fecha de like, de importación, artista o título), o tocando el nombre de la columna.</li>
+          </ul>
+          Los filtros activos aparecen como etiquetas debajo. Cada una tiene una <span class="ui">✕</span> para sacarla, o <span class="ui">✕ Limpiar todo</span> para sacarlas todas.
+        </div>
+      </details>
+
+      <details>
+        <summary>¿Cómo descarto lo que no quiero?</summary>
+        <div class="hp-body">
+          <ul>
+            <li><strong>Uno solo:</strong> tocá la <span class="ui">✕</span> roja al final de la fila.</li>
+            <li><strong>Varios:</strong> marcá las casillas de la izquierda y tocá <span class="ui">✕ Descartar</span> arriba de la tabla.</li>
+          </ul>
+          Lo descartado va a la pestaña <span class="ui">Descartado</span>. Si te arrepentís, buscalo ahí y tocá <span class="ui">↩</span> para devolverlo a pendiente.
+        </div>
+      </details>
+
+      <details>
+        <summary>El artista o el título vinieron mal. ¿Cómo los corrijo?</summary>
+        <div class="hp-body">
+          <ol>
+            <li>Tocá <span class="ui">✎</span> en la fila del tema.</li>
+            <li>Corregí <em>Artista</em>, <em>Título</em> o <em>Versión</em> (por ejemplo "Original Mix" o "Remix"). Abajo ves el título original, tal como venía de la plataforma.</li>
+            <li>Tocá <span class="ui">Guardar</span>.</li>
+          </ol>
+          Conviene corregirlo antes de descargar: con el nombre limpio la descarga encuentra el tema más fácil y el archivo queda bien nombrado.
+        </div>
+      </details>
+
+      <details>
+        <summary>¿Qué es la pestaña "Sets"?</summary>
+        <div class="hp-body">
+          Ahí van los temas de más de 35 minutos, que casi siempre son sets o mixes completos y no un track suelto. No se mandan a descargar para no llenarte la carpeta con horas de audio.
+        </div>
+      </details>
+    </section>
+
+    <section class="hp-section" id="descargar">
+      <h5>Descargar</h5>
+      <p class="hp-lead">Primero armás la cola con lo que querés bajar, después la descargás de una sola vez.</p>
+
+      <details>
+        <summary>¿Cómo mando temas a descargar?</summary>
+        <div class="hp-body">
+          <ol>
+            <li>En <span class="ui">Tracks</span>, pestaña <span class="ui">Pendiente</span>, marcá las casillas de los temas que querés. La casilla de arriba de todo marca todos.</li>
+            <li>Tocá <span class="ui">↗ Armar cola de descarga</span>.</li>
+            <li>Vas a la pantalla <span class="ui">Cola</span>, donde ves todo lo que está listo para bajar. El número al lado de <span class="ui">Cola</span>, arriba, te dice cuántos hay.</li>
+            <li>Con el agente abierto, tocá <span class="ui">⬇ Auto-descargar todo</span>.</li>
+          </ol>
+          Vas a ver el progreso en vivo. Cuando termina, aparece un resumen con cuántos se descargaron y cuáles no se encontraron.
+        </div>
+      </details>
+
+      <details>
+        <summary>¿Dónde quedan los archivos?</summary>
+        <div class="hp-body">
+          En la carpeta que elegiste al configurar el agente. Si elegiste organizar por fecha, cada tema cae en la subcarpeta del mes en que lo likeaste, por ejemplo <code>2026/2026-07/</code>, así tenés lo último siempre a mano.
+        </div>
+      </details>
+
+      <details>
+        <summary>Me equivoqué al armar la cola. ¿Cómo la deshago?</summary>
+        <div class="hp-body">
+          <ul>
+            <li><strong>Un tema:</strong> en <span class="ui">Tracks</span>, pestaña <span class="ui">En cola</span>, tocá <span class="ui">↩</span> en esa fila.</li>
+            <li><strong>Toda la cola:</strong> en <span class="ui">Cola</span>, tocá <span class="ui">↩ Vaciar cola</span>. Todo vuelve a pendiente y no se pierde nada.</li>
+          </ul>
+          Si la descarga ya arrancó, en la pantalla de progreso podés tocar <span class="ui">Cancelar cola</span> para frenar lo que todavía no se bajó.
+        </div>
+      </details>
+
+      <details>
+        <summary>¿Puedo ver descargas anteriores?</summary>
+        <div class="hp-body">
+          Sí. Abajo de todo en <span class="ui">Cola</span> está <em>Colas anteriores</em>: cada tarjeta es una tanda de descarga con sus números. Tocala para ver el detalle, o tocá un número (por ejemplo "no encontrados") para ver solo esos temas.
+        </div>
+      </details>
+    </section>
+
+    <section class="hp-section" id="no-encontrados">
+      <h5>Temas que no se encuentran</h5>
+      <p class="hp-lead">No todo está disponible para descargar. Track Manager te dice por qué y te deja buscarlo a mano.</p>
+
+      <details>
+        <summary>¿Por qué un tema quedó "No encontrado", "Solo vinilo" o "Solo Bandcamp"?</summary>
+        <div class="hp-body">
+          <ul>
+            <li><span class="badge s-not_found">No encontrado</span> no apareció en ninguna de las plataformas de descarga. A veces es un nombre mal escrito: probá corregirlo con <span class="ui">✎</span> y reintentá.</li>
+            <li><span class="badge s-vinyl">Solo vinilo</span> el tema existe, pero solo salió en vinilo y no hay archivo digital para bajar.</li>
+            <li><span class="badge s-bandcamp">Solo Bandcamp</span> está a la venta en Bandcamp, que no permite descarga automática. Si lo querés, lo comprás ahí.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>¿Cómo lo busco a mano?</summary>
+        <div class="hp-body">
+          En el resumen de la descarga, cada tema no encontrado tiene botones de búsqueda: <span class="ui">Muzpa</span>, <span class="ui">Deemix</span>, <span class="ui">Bandcamp</span> y <span class="ui">Discogs</span> abren la búsqueda de ese tema en cada sitio, y <span class="ui">⧉ SS</span> copia el nombre listo para pegar en Soulseek. Los botones que ya usaste quedan marcados, para que no busques dos veces en el mismo lugar.
+          <div class="hp-tip">Si lo conseguiste por tu cuenta, tocá <span class="ui">✓</span> para marcarlo como descargado y que no te lo vuelva a pedir.</div>
+        </div>
+      </details>
+
+      <details>
+        <summary>¿Cómo reintento un tema?</summary>
+        <div class="hp-body">
+          En <span class="ui">Tracks</span>, buscalo en su pestaña (<em>No encontrado</em>, <em>Solo vinilo</em>, etc.) y tocá <span class="ui">↺</span> para mandarlo de nuevo a la cola. Para varios a la vez, marcá las casillas y tocá <span class="ui">↗ Armar cola de descarga</span>. Sirve sobre todo después de corregir el nombre, o si pasó un tiempo y el tema salió en digital.
+        </div>
+      </details>
+    </section>
+
+    <section class="hp-section" id="agente">
+      <h5>El agente y las cuentas</h5>
+      <p class="hp-lead">El agente es un programa chico que corre en tu computadora y hace las descargas.</p>
+
+      <details>
+        <summary>¿Para qué sirve el agente? ¿Por qué no descarga la web directamente?</summary>
+        <div class="hp-body">
+          Los archivos tienen que terminar en <em>tu</em> computadora, y las sesiones de tus cuentas quedan guardadas ahí, no en la web. Por eso la web organiza y el agente descarga. No hace falta instalarlo: es un solo archivo que se abre con doble clic.
+          <div class="hp-tip"><strong>El agente tiene que estar abierto</strong> para que las descargas se hagan. Podés minimizarlo a la bandeja del sistema y seguir con lo tuyo.</div>
+        </div>
+      </details>
+
+      <details>
+        <summary>¿Cómo instalo y configuro el agente?</summary>
+        <div class="hp-body">
+          <ol>
+            <li>Bajalo desde <a href="/primeros-pasos">los primeros pasos</a> (hay versión para Windows y para Mac).</li>
+            <li>Abrilo. La primera vez se abre solo la ventana de configuración.</li>
+            <li>Pegá tu <strong>token</strong>: lo copiás desde los primeros pasos o desde <span class="ui">Config</span>, con <span class="ui">Copiar</span>. Si no tenés uno, tocá <span class="ui">Generar token</span>.</li>
+            <li>Elegí la <strong>carpeta de descarga</strong> y cómo organizarla (todo junto o por fecha).</li>
+            <li>Tocá <span class="ui">Iniciar agente →</span>.</li>
+          </ol>
+          En Mac, la primera vez el sistema avisa que no puede verificar al desarrollador: andá a <em>Ajustes del Sistema → Privacidad y seguridad</em> y tocá <em>Abrir igualmente</em>. Es una sola vez.
+        </div>
+      </details>
+
+      <details>
+        <summary>¿Cómo vinculo mis cuentas?</summary>
+        <div class="hp-body">
+          Las cuentas se vinculan desde el agente, no desde la web:
+          <ol>
+            <li>Al iniciar el agente se abre el panel de cuentas (después lo encontrás en el agente mismo).</li>
+            <li>Tocá <span class="ui">Conectar</span> en cada una. Se abre la página del servicio, iniciás sesión como siempre y el agente guarda la sesión solo. No hay que copiar ni pegar nada.</li>
+            <li>Cuando estén todas en verde, tocá <span class="ui">Cerrar</span>.</li>
+          </ol>
+          <strong>SoundCloud</strong> y <strong>YouTube</strong> son de dónde se importa tu música; <strong>Muzpa</strong> y <strong>Deezer</strong>, de dónde se descarga. Conviene tener las dos de descarga: tienen catálogos distintos y entre las dos encuentran más temas.
+        </div>
+      </details>
+
+      <details>
+        <summary>¿Cambié de computadora o perdí el token?</summary>
+        <div class="hp-body">
+          Bajá el agente en la computadora nueva y configuralo de nuevo con tu token, que está en <span class="ui">Config</span>. Si generás un token nuevo, el anterior deja de funcionar: acordate de pegar el nuevo en el agente.
+        </div>
+      </details>
+    </section>
+
+    <section class="hp-section" id="estados">
+      <h5>Qué significa cada estado</h5>
+      <p class="hp-lead">Cada tema tiene un estado, y en <span class="ui">Tracks</span> hay una pestaña por cada uno.</p>
+      <div class="table-responsive">
+        <table class="table table-sm bg-white hp-states mb-0">
+          <tbody>
+            <tr><td><span class="badge s-pending">Pendiente</span></td><td>Recién importado, esperando que lo revises.</td></tr>
+            <tr><td><span class="badge s-queued">En cola</span></td><td>Lo elegiste para descargar; está en <span class="ui">Cola</span>.</td></tr>
+            <tr><td><span class="badge s-downloaded">Descargado</span></td><td>Ya está en tu carpeta.</td></tr>
+            <tr><td><span class="badge s-not_found">No encontrado</span></td><td>No apareció en las plataformas de descarga.</td></tr>
+            <tr><td><span class="badge s-vinyl">Solo vinilo</span></td><td>Existe, pero no hay versión digital.</td></tr>
+            <tr><td><span class="badge s-bandcamp">Solo Bandcamp</span></td><td>Solo se consigue comprándolo en Bandcamp.</td></tr>
+            <tr><td><span class="badge s-set">Set</span></td><td>Dura más de 35 minutos: es un set o mix, no se descarga.</td></tr>
+            <tr><td><span class="badge s-discarded">Descartado</span></td><td>Lo sacaste vos. Se puede recuperar con <span class="ui">↩</span>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="hp-section" id="problemas">
+      <h5>Problemas frecuentes</h5>
+
+      <details>
+        <summary>El botón "Auto-descargar todo" está gris</summary>
+        <div class="hp-body">
+          Pasa por una de dos razones:
+          <ul>
+            <li><strong>No hay nada en cola:</strong> primero armá la cola desde <span class="ui">Tracks</span>.</li>
+            <li><strong>No tenés ninguna cuenta de descarga vinculada:</strong> vinculá Muzpa o Deezer desde el agente (ver <a href="#agente">El agente y las cuentas</a>).</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>Toqué "Auto-descargar" y no baja nada</summary>
+        <div class="hp-body">
+          Casi siempre es que <strong>el agente está cerrado</strong>. Abrilo y las descargas arrancan solas. Si sigue sin bajar, revisá en el agente que las cuentas estén en verde y que el token sea el mismo que figura en <span class="ui">Config</span>.
+        </div>
+      </details>
+
+      <details>
+        <summary>Importé y no apareció nada nuevo</summary>
+        <div class="hp-body">
+          <ul>
+            <li>Si no likeaste nada desde la última vez, no hay nada para traer: es normal.</li>
+            <li>Fijate que no tengas un filtro activo (etiquetas debajo del buscador) que esté escondiendo los temas.</li>
+            <li>En YouTube, confirmá que la playlist elegida sea la correcta (flechita al lado del botón).</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>Algo anda mal. ¿Cómo lo reporto?</summary>
+        <div class="hp-body">
+          <ul>
+            <li><strong>Problema con un tema puntual:</strong> tocá <span class="ui">🔔</span> en su fila. Ves su historial y podés reportarlo desde ahí.</li>
+            <li><strong>Cualquier otra cosa:</strong> andá a <span class="ui">Reportar</span> en el menú de arriba, describí qué pasó y tocá <span class="ui">Enviar</span>.</li>
+          </ul>
+          Cuanto más concreto (qué tocaste, qué esperabas y qué pasó), más rápido se arregla.
+        </div>
+      </details>
+    </section>
+
+    <div class="alert alert-light border hp-empty" id="hp-empty">
+      No encontramos nada con esa búsqueda. Probá con otra palabra, o <a href="/debug/reports">hacé tu consulta en Reportar</a>.
+    </div>
+  </div>
+</div>
+
+<script>
+  // Buscador: deja visibles solo las preguntas que contienen todas las palabras, y las abre.
+  (function () {
+    var input = document.getElementById('hp-q');
+    var items = document.querySelectorAll('#hp-content details');
+    var sections = document.querySelectorAll('#hp-content .hp-section');
+    var empty = document.getElementById('hp-empty');
+    var norm = function (s) { return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); };
+    input.addEventListener('input', function () {
+      var words = norm(input.value).split(/\s+/).filter(Boolean);
+      var any = false;
+      items.forEach(function (d) {
+        var hit = words.every(function (w) { return norm(d.textContent).indexOf(w) !== -1; });
+        d.hidden = !hit;
+        d.open = words.length ? hit : d === items[0];
+        any = any || hit;
+      });
+      sections.forEach(function (s) {
+        var visible = s.querySelector('details:not([hidden])') || (!words.length);
+        // La tabla de estados no tiene <details>: se muestra si coincide su texto.
+        if (!s.querySelector('details')) visible = !words.length || words.every(function (w) { return norm(s.textContent).indexOf(w) !== -1; });
+        s.hidden = !visible;
+        any = any || (visible && !s.querySelector('details'));
+      });
+      empty.style.display = any ? 'none' : 'block';
+    });
+  })();
+</script>
+{% endblock %}
