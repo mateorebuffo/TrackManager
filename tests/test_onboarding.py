@@ -165,3 +165,33 @@ def test_screenshots_exist_on_disk():
         archivo = estaticos / nombre
         assert archivo.exists(), f"falta {nombre}: correr scripts/capture_agent_screenshots.py"
         assert archivo.stat().st_size > 5_000, f"{nombre} parece vacía"
+
+
+# ── Descarga del agente: Windows y Mac ───────────────────────────────────────
+
+def test_download_redirects_to_the_right_os(client, db_session, monkeypatch):
+    from app.config import settings
+    monkeypatch.setattr(settings, "agent_download_url", "https://x/win.exe")
+    monkeypatch.setattr(settings, "agent_download_url_mac_arm", "https://x/mac-arm64.zip")
+    monkeypatch.setattr(settings, "agent_download_url_mac_intel", "")
+    _usuario(db_session, client)
+
+    def ir(q):
+        return client.get(f"/api/download-agent{q}", headers=HOST, follow_redirects=False)
+
+    assert ir("").headers["location"] == "https://x/win.exe"  # sin ?os= sigue siendo Windows
+    assert ir("?os=mac-arm").headers["location"] == "https://x/mac-arm64.zip"
+    assert ir("?os=mac-intel").status_code == 503
+    assert ir("?os=linux").status_code == 400
+
+
+def test_page_shows_mac_buttons_only_when_configured(client, db_session, monkeypatch):
+    from app.config import settings
+    monkeypatch.setattr(settings, "agent_download_url", "https://x/win.exe")
+    monkeypatch.setattr(settings, "agent_download_url_mac_arm", "https://x/mac-arm64.zip")
+    monkeypatch.setattr(settings, "agent_download_url_mac_intel", "")
+    _usuario(db_session, client)
+
+    html = client.get("/primeros-pasos", headers=HOST).text
+    assert "?os=mac-arm" in html and "Abrir igualmente" in html
+    assert "?os=mac-intel" not in html

@@ -33,8 +33,18 @@
         <strong>Agente</strong>: un programa que corre en tu computadora, sin instalación.
         Lo primero es descargarlo.
       </p>
-      {% if agent_available %}
-      <a href="/api/download-agent" class="btn btn-primary">⬇ Descargar el agente</a>
+      {% if agent_available or agent_mac_arm or agent_mac_intel %}
+      <div class="d-flex flex-wrap gap-2">
+        {% if agent_available %}
+        <a href="/api/download-agent" class="btn btn-primary">⬇ Windows</a>
+        {% endif %}
+        {% if agent_mac_arm %}
+        <a href="/api/download-agent?os=mac-arm" class="btn btn-primary">⬇ Mac (Apple Silicon)</a>
+        {% endif %}
+        {% if agent_mac_intel %}
+        <a href="/api/download-agent?os=mac-intel" class="btn btn-primary">⬇ Mac (Intel)</a>
+        {% endif %}
+      </div>
       {% else %}
       <div class="alert alert-warning py-2" style="font-size:.85rem;">
         El agente todavía no está disponible para descargar. Avisale al administrador
@@ -42,9 +52,19 @@
       </div>
       {% endif %}
       <p class="ob-text mt-3 mb-0">
-        Guardalo en un lugar que te resulte fácil de encontrar. No hace falta instalarlo:
-        es un solo archivo que se abre haciendo doble clic.
+        <strong>Windows:</strong> guardalo en un lugar que te resulte fácil de encontrar.
+        No hace falta instalarlo: es un solo archivo que se abre haciendo doble clic.
       </p>
+      {% if agent_mac_arm or agent_mac_intel %}
+      <p class="ob-text mt-2 mb-0">
+        <strong>Mac:</strong> ¿cuál es la tuya? Menú Apple → Acerca de esta Mac: si dice
+        <em>Chip Apple M…</em> es Apple Silicon; si dice <em>Procesador Intel</em>, es Intel.
+        Descomprimí el zip, arrastrá <strong>TrackManagerAgent</strong> a Aplicaciones y abrilo.
+        La primera vez macOS avisa que no puede verificar al desarrollador: andá a
+        <strong>Ajustes del Sistema → Privacidad y seguridad</strong> y tocá
+        <strong>Abrir igualmente</strong>. Es una sola vez.
+      </p>
+      {% endif %}
     </section>
 
     {# ── 2. Configurar el agente ────────────────────────────────── #}
@@ -52,7 +72,7 @@
       <div class="ob-step">Paso 2 de 4</div>
       <div class="ob-title">Configurá el agente</div>
       <p class="ob-text">
-        Abrí el <strong>TrackManagerAgent.exe</strong> que descargaste. La primera vez se
+        Abrí el <strong>TrackManagerAgent</strong> que descargaste. La primera vez se
         abre sola esta ventana de configuración.
       </p>
 

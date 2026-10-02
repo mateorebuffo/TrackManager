@@ -25,3 +25,8 @@ if __name__ == "__main__":
     images[0].save(out, format="ICO", sizes=[(s, s) for s in sizes],
                    append_images=images[1:])
     print(f"Icono generado: {out}")
+
+    # macOS: Pillow saca los tamaños del .icns a partir de una imagen grande.
+    icns = out.with_suffix(".icns")
+    make_icon(1024).save(icns, format="ICNS")
+    print(f"Icono generado: {icns}")

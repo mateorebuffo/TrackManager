@@ -299,10 +299,16 @@ def run(service: str, out_path: str) -> int:
         width=980,
         height=760,
     )
+    # En macOS pywebview ignora storage_path: todos los servicios comparten un único
+    # almacén de WebKit, así que forget_session no borra nada y "Cambiar cuenta"
+    # volvía a entrar con la cuenta vieja. Ahí private_mode=True vacía ese almacén
+    # al abrir y después sigue guardando. Como es uno solo, también olvida el login
+    # embebido de los otros servicios (no sus credenciales en el servidor).
+    fresh = sys.platform == "darwin" and os.environ.get("TM_FRESH") == "1"
     webview.start(
         watcher,
         (window, service, out, api_url, token, *extra),
-        private_mode=False,                        # sesión persistente: reconectar rara vez pide la clave
+        private_mode=fresh,                        # sesión persistente: reconectar rara vez pide la clave
         storage_path=str(_storage_dir(service)),
     )
     if not out.exists():

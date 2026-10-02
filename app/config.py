@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     # where users can download the TrackManagerAgent zip.  Leave empty if serving the exe
     # directly from app/static/agent/ (local / self-hosted only).
     agent_download_url: str = ""
+    # Ídem para los zips del agente de Mac (.github/workflows/agent-mac.yml).
+    agent_download_url_mac_arm: str = ""
+    agent_download_url_mac_intel: str = ""
 
     # Google Custom Search API for Bandcamp presence checks.
     # Free tier: 100 queries/day. Set both vars in Railway to enable.

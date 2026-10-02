@@ -104,6 +104,8 @@ def settings_page(
             "api_token": current_user.api_token,
             "base_url": str(request.base_url).rstrip("/"),
             "agent_available": _agent_is_available(),
+            "agent_mac_arm": bool(settings.agent_download_url_mac_arm),
+            "agent_mac_intel": bool(settings.agent_download_url_mac_intel),
             "is_admin": current_user.is_admin,
         },
     )

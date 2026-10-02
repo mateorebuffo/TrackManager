@@ -204,12 +204,21 @@ def save_credential(
 
 @router.get("/api/download-agent", response_model=None)
 def download_agent(
+    os: str = "windows",
     current_user: User = Depends(get_current_user),
 ) -> RedirectResponse:
     from app.config import settings
-    if not settings.agent_download_url:
-        raise HTTPException(status_code=503, detail="AGENT_DOWNLOAD_URL no configurado.")
-    return RedirectResponse(url=settings.agent_download_url, status_code=302)
+    var = {
+        "windows":   "agent_download_url",
+        "mac-arm":   "agent_download_url_mac_arm",
+        "mac-intel": "agent_download_url_mac_intel",
+    }.get(os)
+    if not var:
+        raise HTTPException(status_code=400, detail="Sistema operativo desconocido.")
+    url = getattr(settings, var)
+    if not url:
+        raise HTTPException(status_code=503, detail=f"{var.upper()} no configurado.")
+    return RedirectResponse(url=url, status_code=302)
 
 
 # ── Agent endpoints ───────────────────────────────────────────────────────────

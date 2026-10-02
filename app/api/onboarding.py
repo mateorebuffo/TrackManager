@@ -51,12 +51,15 @@ def onboarding_page(
 ) -> HTMLResponse:
     # Sigue accesible una vez completado: es el link "Ver primeros pasos" de Ajustes.
     from app.api.settings_page import _agent_is_available
+    from app.config import settings
     return templates.TemplateResponse(
         "onboarding.html",
         {
             "request": request,
             "api_token": current_user.api_token,
             "agent_available": _agent_is_available(),
+            "agent_mac_arm": bool(settings.agent_download_url_mac_arm),
+            "agent_mac_intel": bool(settings.agent_download_url_mac_intel),
             "v_config": _version("agente-configuracion.png"),
             "v_cuentas": _version("agente-cuentas.png"),
         },

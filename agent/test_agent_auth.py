@@ -493,6 +493,53 @@ def test_cookie_watcher_retries_when_server_unreachable(monkey):
     out.unlink(missing_ok=True)
 
 
+def test_dest_folder_layout():
+    """Las 3 organizaciones de carpetas arman lo mismo en Windows y en Mac."""
+    import agent
+    base = Path("musica")
+    assert agent._dest_folder(base, "none", "2026-09-10", "2026-09-28") == base
+    assert agent._dest_folder(base, "import_date", collected_at="2026-09-28") == \
+        base / "2026" / "2026-09-28"
+    assert agent._dest_folder(base, "like_date", liked_at="2026-09-10") == \
+        base / "2026" / "2026-09"
+
+
+def test_fresh_login_only_clears_on_mac(monkey):
+    """
+    En macOS pywebview ignora storage_path: "Cambiar cuenta" sólo funciona si el
+    subproceso vacía el almacén de WebKit (private_mode). En Windows no se toca.
+    """
+    import os
+    import tempfile
+    import types
+
+    seen = {}
+    fake = types.SimpleNamespace(
+        create_window=lambda *_a, **_kw: object(),
+        start=lambda *_a, **kw: seen.update(kw),
+    )
+    monkey(login_window, "_storage_dir", lambda _s: Path(tempfile.gettempdir()))
+    out = str(Path(tempfile.gettempdir()) / "tm_test_fresh.json")
+
+    real = sys.modules.get("webview")
+    sys.modules["webview"] = fake
+    try:
+        for platform, env, expected in [
+            ("darwin", {"TM_TOKEN": "t", "TM_FRESH": "1"}, True),
+            ("darwin", {"TM_TOKEN": "t"}, False),
+            ("win32",  {"TM_TOKEN": "t", "TM_FRESH": "1"}, False),
+        ]:
+            monkey(sys, "platform", platform)
+            monkey(os, "environ", env)
+            login_window.run("muzpa", out)
+            assert seen["private_mode"] is expected, (platform, env)
+    finally:
+        if real is None:
+            del sys.modules["webview"]
+        else:
+            sys.modules["webview"] = real
+
+
 def main() -> int:
     patches: list[tuple] = []
 

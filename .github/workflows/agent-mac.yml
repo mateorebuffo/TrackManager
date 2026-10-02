@@ -1,0 +1,94 @@
+# Agente de descarga para macOS. Equivalente a agent/build.bat, pero PyInstaller no
+# compila apps de Mac desde Windows: corre en las Mac de GitHub.
+#
+#   Manual (Actions → Agente macOS → Run workflow): deja los zips como artifacts.
+#   Tag agent-v*  (git tag agent-v1.0 && git push --tags): además los sube al Release.
+name: Agente macOS
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["agent-v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        runner: [macos-15, macos-15-intel]  # Apple Silicon, Intel
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        working-directory: agent
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Dependencias
+        # Las de build.bat + tkmacosx (botones con color en Mac). pywebview trae pyobjc.
+        run: pip install pyinstaller httpx mutagen pystray pillow pywebview deemix tkmacosx
+
+      - name: Tests del agente
+        run: python test_agent_auth.py
+
+      - name: Icono
+        run: python make_icon.py
+
+      - name: Build
+        # Sin --onefile: en Mac el formato normal es un .app (carpeta).
+        run: |
+          pyinstaller \
+            --windowed \
+            --clean \
+            --name TrackManagerAgent \
+            --icon agent_icon.icns \
+            --osx-bundle-identifier app.trackmanager.agent \
+            --hidden-import httpx \
+            --hidden-import mutagen.mp3 \
+            --hidden-import pystray._darwin \
+            --hidden-import PIL._imaging \
+            --hidden-import webview.platforms.cocoa \
+            --collect-all webview \
+            --hidden-import login_window \
+            --add-data "download:download" \
+            agent.py
+
+      - name: El .app arranca
+        # Todos los imports del agente corren antes de mirar argv: si falta algo en
+        # el bundle, esto falla. Con argumentos inválidos sale con 2 sin abrir ventanas.
+        timeout-minutes: 2
+        run: |
+          set +e
+          dist/TrackManagerAgent.app/Contents/MacOS/TrackManagerAgent --login
+          test $? -eq 2
+
+      - name: Zip
+        # ditto y no zip: zip rompe los symlinks del bundle.
+        run: ditto -c -k --keepParent dist/TrackManagerAgent.app "TrackManagerAgent-mac-$(uname -m).zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: agent-mac-${{ matrix.runner }}
+          path: agent/TrackManagerAgent-mac-*.zip
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/agent-v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - name: Subir al Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 \
+            || gh release create "$GITHUB_REF_NAME" --title "Agente $GITHUB_REF_NAME" --notes ""
+          gh release upload "$GITHUB_REF_NAME" TrackManagerAgent-mac-*.zip --clobber

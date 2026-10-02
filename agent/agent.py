@@ -19,6 +19,11 @@ from tkinter import *
 from tkinter import filedialog, messagebox
 from tkinter import ttk
 
+if sys.platform == "darwin":
+    # Los botones nativos de macOS ignoran bg pero usan fg: el texto blanco queda
+    # invisible sobre un botón claro. tkmacosx.Button es un reemplazo directo.
+    from tkmacosx import Button
+
 import subprocess
 
 import httpx
@@ -35,6 +40,19 @@ except ImportError:
 
 def _notify(message: str) -> None:
     """Windows toast notification via PowerShell — no extra dependencies."""
+    if sys.platform == "darwin":
+        try:
+            # El mensaje va por argv, no interpolado en el script.
+            subprocess.Popen(
+                ["osascript", "-e", "on run argv",
+                 "-e", 'display notification (item 1 of argv) with title "Track Manager"',
+                 "-e", "end run", message],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except Exception as e:
+            log.debug("Notification failed: %s", e)
+        return
     try:
         script = (
             "[Windows.UI.Notifications.ToastNotificationManager,"
@@ -201,7 +219,7 @@ def api_get_credentials(cfg: dict) -> dict:
         return {}
 
 
-def connect_account(cfg: dict, service: str) -> tuple[bool, str]:
+def connect_account(cfg: dict, service: str, fresh: bool = False) -> tuple[bool, str]:
     """
     Abrir la ventana de login en un subproceso. El subproceso valida contra el
     servidor y guarda; acá solo se lee el resultado.
@@ -216,6 +234,8 @@ def connect_account(cfg: dict, service: str) -> tuple[bool, str]:
         cmd = [sys.executable, str(Path(__file__).resolve()), "--login", service, str(out)]
     # El token va por entorno: argv es legible por cualquier proceso de la máquina.
     env = {**os.environ, "TM_TOKEN": cfg.get("token", ""), "TM_API_URL": API_URL}
+    if fresh:
+        env["TM_FRESH"] = "1"  # "Cambiar cuenta": en macOS lo usa login_window.run
     try:
         subprocess.run(cmd, env=env, timeout=900)
         if out.exists():
@@ -431,6 +451,9 @@ class RunningWindow:
         self.root.resizable(True, True)
         self.root.minsize(460, 340)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+        if sys.platform == "darwin":
+            # Sin esto Cmd+Q cierra de golpe, salteando el aviso de _on_close.
+            self.root.createcommand("tk::mac::Quit", self._on_close)
         self.root.bind("<Unmap>", lambda e: self._to_tray() if e.widget is self.root and not self._in_tray else None)
         self._center(500, 460)
         self._build()
@@ -519,7 +542,10 @@ class RunningWindow:
     def _open_folder(self) -> None:
         folder = self.cfg.get("download_dir", "")
         if folder and Path(folder).exists():
-            os.startfile(folder)
+            if sys.platform == "darwin":
+                subprocess.Popen(["open", folder])
+            else:
+                os.startfile(folder)
         else:
             messagebox.showerror("Error", "La carpeta de descarga no existe o no está configurada.")
 
@@ -772,7 +798,7 @@ class RunningWindow:
         btn.config(state="disabled", text="Conectando…")
 
         def work():
-            ok, msg = connect_account(self.cfg, service)
+            ok, msg = connect_account(self.cfg, service, fresh=switching)
             self.root.after(0, lambda: done(ok, msg))
 
         def done(ok: bool, msg: str):
@@ -807,7 +833,10 @@ class RunningWindow:
         self.root.after(200, self._poll)
 
     def _to_tray(self) -> None:
-        if not _TRAY_OK or self._in_tray:
+        # En macOS pystray tiene que correr en el hilo principal, que ya ocupa
+        # tkinter: la ventana se ocultaba sin ícono para volver. Ahí minimizar va
+        # al Dock, que es el equivalente nativo de la bandeja.
+        if not _TRAY_OK or self._in_tray or sys.platform == "darwin":
             return
         self._in_tray = True
         self.root.withdraw()
