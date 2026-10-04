@@ -10,8 +10,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.responses import Response
 
-from app.api import (auth, auto_download, debug, download_jobs, onboarding, review,
-                     settings_page, sync, tracks)
+from app.api import (auth, auto_download, debug, download_jobs, extension, onboarding,
+                     review, settings_page, sync, tracks)
 from app.auth_middleware import AuthMiddleware, get_current_user
 from app.config import settings
 from app.db import get_db
@@ -87,6 +87,7 @@ app.include_router(tracks.router)
 app.include_router(review.router)
 app.include_router(auto_download.router)
 app.include_router(download_jobs.router)
+app.include_router(extension.router)
 app.include_router(settings_page.router)
 app.include_router(onboarding.router)
 app.include_router(debug.router)

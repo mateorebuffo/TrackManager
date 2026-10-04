@@ -575,6 +575,8 @@ function dismissSetupBanner(){
             <span class="badge src-sp">SP</span>
           {% elif row.source == "youtube" %}
             <span class="badge src-yt">YT</span>
+          {% elif row.source == "traxsource" %}
+            <span class="badge src-tx" title="Traxsource">TX</span>
           {% else %}
             <span class="badge s-pending">{{ row.source }}</span>
           {% endif %}

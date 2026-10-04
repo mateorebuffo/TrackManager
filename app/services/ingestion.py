@@ -95,6 +95,13 @@ def run_sync(collector: BaseCollector, db: Session, user_id: int | None = None) 
     return result
 
 
+def import_one(raw: RawTrack, db: Session, user_id: int) -> SyncResult:
+    """Importa un solo track (lo usa la extensión de Chrome) por el mismo camino que un sync."""
+    result = SyncResult(total_fetched=1)
+    _process_track(raw, db, result, user_id=user_id)
+    return result
+
+
 def _process_track(
     raw: RawTrack,
     db: Session,
