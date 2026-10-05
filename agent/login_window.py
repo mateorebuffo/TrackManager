@@ -54,6 +54,12 @@ def all_services() -> dict[str, str]:
     return {**{s: v[2] for s, v in SERVICES.items()},
             **{s: v[1] for s, v in OAUTH_SERVICES.items()}}
 
+# WKWebView se presenta sin "Version/… Safari/…" en el user agent, y la página de
+# SoundCloud quedaba en blanco en Mac (Muzpa y Deezer cargaban). Con el UA de Safari
+# se la trata como el navegador real que es. En Windows WebView2 ya dice Edge.
+_MAC_USER_AGENT = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 "
+                   "(KHTML, like Gecko) Version/18.0 Safari/605.1.15")
+
 _POLL_SECONDS = 1.5
 _MAX_ERRORS = 5  # ~7s de servidor mudo antes de cerrar con el motivo
 _DEFAULT_API_URL = "https://trackmanager.app"
@@ -310,6 +316,7 @@ def run(service: str, out_path: str) -> int:
         (window, service, out, api_url, token, *extra),
         private_mode=fresh,                        # sesión persistente: reconectar rara vez pide la clave
         storage_path=str(_storage_dir(service)),
+        user_agent=_MAC_USER_AGENT if sys.platform == "darwin" else None,
     )
     if not out.exists():
         return 1  # el usuario cerró la ventana sin completar
