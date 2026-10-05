@@ -38,6 +38,43 @@ except ImportError:
     _TRAY_OK = False
 
 
+def _paste_into(entry: Entry) -> None:
+    """Pega el portapapeles en la caja, reemplazando lo seleccionado."""
+    try:
+        text = entry.clipboard_get().strip()
+    except TclError:  # portapapeles vacío o sin texto
+        return
+    pos = entry.index(INSERT)
+    if entry.selection_present():
+        pos = entry.index(SEL_FIRST)
+        entry.delete(SEL_FIRST, SEL_LAST)
+    entry.insert(pos, text)
+
+
+def _enable_entry_menu(root: Tk) -> None:
+    """
+    Menú Cortar/Copiar/Pegar con clic derecho en todas las cajas de texto.
+
+    Tk no lo trae, y en macOS Cmd+V a veces no llega a la caja (pasó con el token),
+    así que "Pegar" lee el portapapeles directo en vez de depender del atajo.
+    """
+    menu = Menu(root, tearoff=0)
+    target: dict = {}
+    menu.add_command(label="Cortar", command=lambda: target["w"].event_generate("<<Cut>>"))
+    menu.add_command(label="Copiar", command=lambda: target["w"].event_generate("<<Copy>>"))
+    menu.add_command(label="Pegar", command=lambda: _paste_into(target["w"]))
+
+    def show(event):
+        target["w"] = event.widget
+        event.widget.focus_set()
+        menu.tk_popup(event.x_root, event.y_root)
+
+    # En macOS el clic derecho es Button-2 (y Ctrl+clic); en Windows, Button-3.
+    clicks = ("<Button-2>", "<Control-Button-1>") if sys.platform == "darwin" else ("<Button-3>",)
+    for click in clicks:
+        root.bind_class("Entry", click, show)
+
+
 def _notify(message: str) -> None:
     """Windows toast notification via PowerShell — no extra dependencies."""
     if sys.platform == "darwin":
@@ -313,6 +350,7 @@ class SetupWindow:
         self.root = Tk()
         self.root.title("Track Manager — Configuración")
         self.root.configure(bg=BG)
+        _enable_entry_menu(self.root)
         self.root.resizable(False, False)
         needs_setup = not cfg.get("token")
         self._center(440, 580 if needs_setup else 510)
@@ -354,8 +392,15 @@ class SetupWindow:
             Label(body, text="Copialo desde la web → Configuración → Agente de Descarga",
                   font=("Segoe UI", 8), bg=BG, fg=MUTED).pack(anchor="w", pady=(1, 5))
             self.token_var = StringVar(value=self.cfg.get("token", ""))
-            Entry(body, textvariable=self.token_var, show="•",
-                  font=("Segoe UI", 9), relief="solid", bd=1).pack(fill="x", ipady=4, pady=(0, 14))
+            token_row = Frame(body, bg=BG)
+            token_row.pack(fill="x", pady=(0, 14))
+            token_entry = Entry(token_row, textvariable=self.token_var, show="•",
+                                font=("Segoe UI", 9), relief="solid", bd=1)
+            token_entry.pack(side="left", fill="x", expand=True, ipady=4)
+            Button(token_row, text="Pegar", font=("Segoe UI", 9), relief="solid", bd=1,
+                   bg="white", cursor="hand2",
+                   command=lambda: (self.token_var.set(""), _paste_into(token_entry))
+                   ).pack(side="left", padx=(4, 0), ipady=4, ipadx=8)
         else:
             self.token_var = StringVar(value=self.cfg.get("token", ""))
 
@@ -448,6 +493,7 @@ class RunningWindow:
         self.root = Tk()
         self.root.title("Track Manager — Agente")
         self.root.configure(bg=BG)
+        _enable_entry_menu(self.root)
         self.root.resizable(True, True)
         self.root.minsize(460, 340)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -599,6 +645,10 @@ class RunningWindow:
         token_entry.pack(side="left", fill="x", expand=True, ipady=4)
         def _toggle_token():
             token_entry.config(show="" if token_entry.cget("show") == "•" else "•")
+        Button(token_row, text="Pegar", font=("Segoe UI", 9), relief="solid", bd=1,
+               bg="white", cursor="hand2",
+               command=lambda: (token_var.set(""), _paste_into(token_entry))
+               ).pack(side="left", padx=(4, 0), ipady=4, ipadx=8)
         Button(token_row, text="👁", font=("Segoe UI", 9), relief="solid", bd=1,
                bg="white", cursor="hand2",
                command=_toggle_token).pack(side="left", padx=(4, 0), ipady=4, ipadx=8)
