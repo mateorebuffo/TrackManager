@@ -38,11 +38,8 @@
         {% if agent_available %}
         <a href="/api/download-agent" class="btn btn-primary">⬇ Windows</a>
         {% endif %}
-        {% if agent_mac_arm %}
-        <a href="/api/download-agent?os=mac-arm" class="btn btn-primary">⬇ Mac (Apple Silicon)</a>
-        {% endif %}
-        {% if agent_mac_intel %}
-        <a href="/api/download-agent?os=mac-intel" class="btn btn-primary">⬇ Mac (Intel)</a>
+        {% if agent_mac_arm or agent_mac_intel %}
+        <a href="/agente/mac" class="btn btn-primary">⬇ Mac</a>
         {% endif %}
       </div>
       {% else %}
@@ -57,12 +54,8 @@
       </p>
       {% if agent_mac_arm or agent_mac_intel %}
       <p class="ob-text mt-2 mb-0">
-        <strong>Mac:</strong> ¿cuál es la tuya? Menú Apple → Acerca de esta Mac: si dice
-        <em>Chip Apple M…</em> es Apple Silicon; si dice <em>Procesador Intel</em>, es Intel.
-        Descomprimí el zip, arrastrá <strong>TrackManagerAgent</strong> a Aplicaciones y abrilo.
-        La primera vez macOS avisa que no puede verificar al desarrollador: andá a
-        <strong>Ajustes del Sistema → Privacidad y seguridad</strong> y tocá
-        <strong>Abrir igualmente</strong>. Es una sola vez.
+        <strong>Mac:</strong> el botón te lleva a elegir la versión para tu Mac
+        (Apple Silicon o Intel) y te explica cómo saber cuál es y cómo abrirlo.
       </p>
       {% endif %}
     </section>

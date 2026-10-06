@@ -357,19 +357,10 @@
           {% if agent_available %}
           <a href="/api/download-agent" class="btn btn-primary btn-sm">⬇ Windows</a>
           {% endif %}
-          {% if agent_mac_arm %}
-          <a href="/api/download-agent?os=mac-arm" class="btn btn-primary btn-sm">⬇ Mac (Apple Silicon)</a>
-          {% endif %}
-          {% if agent_mac_intel %}
-          <a href="/api/download-agent?os=mac-intel" class="btn btn-primary btn-sm">⬇ Mac (Intel)</a>
+          {% if agent_mac_arm or agent_mac_intel %}
+          <a href="/agente/mac" class="btn btn-primary btn-sm">⬇ Mac</a>
           {% endif %}
         </div>
-        {% if agent_mac_arm or agent_mac_intel %}
-        <p class="text-muted mb-3" style="font-size:0.78rem;">
-          ¿Cuál es tu Mac? Menú Apple → Acerca de esta Mac: si dice <em>Chip Apple M…</em>
-          es Apple Silicon; si dice <em>Procesador Intel</em>, es Intel.
-        </p>
-        {% endif %}
         {% else %}
         <p class="text-muted mb-3" style="font-size:0.78rem;">
           El agente aún no está disponible para descarga.<br>

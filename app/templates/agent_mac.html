@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Agente para Mac — Track Manager{% endblock %}
+
+{% block content %}
+<style>
+  .am { max-width: 760px; }
+  .am-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.25rem 0 1.75rem; }
+  .am-card { background: var(--tm-card); border: 1px solid var(--tm-border); border-radius: var(--tm-radius-lg);
+             padding: 1.25rem; display: flex; flex-direction: column; gap: .6rem; }
+  .am-card h5 { margin: 0; font-weight: 700; }
+  .am-card .am-which { color: var(--tm-muted); font-size: .85rem; flex: 1; }
+  .am-card .am-which em { color: var(--tm-text); font-style: normal; font-weight: 600; }
+  .am-box { background: var(--tm-card); border: 1px solid var(--tm-border); border-radius: var(--tm-radius-lg); padding: 1.25rem; margin-bottom: 1rem; }
+  .am-box h6 { font-weight: 700; margin-bottom: .6rem; }
+  .am-box ol { padding-left: 1.2rem; margin: 0; line-height: 1.65; }
+  @media (max-width: 640px) { .am-cards { grid-template-columns: 1fr; } }
+</style>
+
+<div class="am">
+  <a href="javascript:history.back()" class="btn btn-link btn-sm p-0 text-muted mb-2">← Volver</a>
+  <h4 class="tm-page-title mb-1">Agente para Mac</h4>
+  <p class="text-muted mb-0">Hay dos versiones, según el procesador de tu Mac. Si no sabés cuál tenés, mirá el recuadro de abajo: se averigua en 10 segundos.</p>
+
+  {% if agent_mac_arm or agent_mac_intel %}
+  <div class="am-cards">
+    {% if agent_mac_arm %}
+    <div class="am-card">
+      <h5>Apple Silicon</h5>
+      <div class="am-which">
+        Para Macs con chip <em>M1, M2, M3, M4</em> o posterior.
+        Son casi todas las Mac vendidas desde fines de 2020.
+      </div>
+      <a href="/api/download-agent?os=mac-arm" class="btn btn-primary">⬇ Descargar para Apple Silicon</a>
+    </div>
+    {% endif %}
+    {% if agent_mac_intel %}
+    <div class="am-card">
+      <h5>Intel</h5>
+      <div class="am-which">
+        Para Macs con <em>procesador Intel</em>: en general, las de 2020 o anteriores.
+      </div>
+      <a href="/api/download-agent?os=mac-intel" class="btn btn-primary">⬇ Descargar para Intel</a>
+    </div>
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="alert alert-warning my-3" style="font-size:.85rem;">
+    El agente para Mac todavía no está disponible para descargar. Avisale al administrador.
+  </div>
+  {% endif %}
+
+  <div class="am-box">
+    <h6>¿Cuál es mi Mac?</h6>
+    <ol>
+      <li>Tocá el menú <strong>Apple</strong> (la manzana, arriba a la izquierda) → <strong>Acerca de esta Mac</strong>.</li>
+      <li>Fijate en la línea <strong>Chip</strong> o <strong>Procesador</strong>:
+        <ul class="mt-1">
+          <li>Si dice <em>Apple M1</em>, <em>M2</em>, <em>M3</em>… → bajá <strong>Apple Silicon</strong>.</li>
+          <li>Si dice <em>Intel</em> (por ejemplo "Intel Core i5") → bajá <strong>Intel</strong>.</li>
+        </ul>
+      </li>
+    </ol>
+  </div>
+
+  <div class="am-box">
+    <h6>Después de bajarlo</h6>
+    <ol>
+      <li>Abrí el zip que se descargó (doble clic): aparece <strong>TrackManagerAgent</strong>.</li>
+      <li>Arrastralo a la carpeta <strong>Aplicaciones</strong> y abrilo desde ahí.</li>
+      <li>La primera vez macOS avisa que no puede verificar al desarrollador: andá a
+        <strong>Ajustes del Sistema → Privacidad y seguridad</strong> y tocá <strong>Abrir igualmente</strong>.
+        Es una sola vez.</li>
+      <li>Seguí con los <a href="/primeros-pasos">primeros pasos</a> para configurarlo.</li>
+    </ol>
+  </div>
+</div>
+{% endblock %}

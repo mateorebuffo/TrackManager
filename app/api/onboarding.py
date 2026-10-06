@@ -3,6 +3,7 @@ Asistente de primeros pasos — guía al usuario nuevo a instalar y configurar e
 
 GET  /primeros-pasos        — las 4 diapositivas
 POST /primeros-pasos/listo  — marcar como visto (Finalizar y Saltar usan el mismo)
+GET  /agente/mac            — elegir la descarga de Mac (Apple Silicon o Intel)
 GET  /ayuda                 — ayuda / preguntas frecuentes
 """
 from __future__ import annotations
@@ -62,6 +63,20 @@ def onboarding_page(
             "agent_mac_intel": bool(settings.agent_download_url_mac_intel),
             "v_config": _version("agente-configuracion.png"),
             "v_cuentas": _version("agente-cuentas.png"),
+        },
+    )
+
+
+@router.get("/agente/mac", response_class=HTMLResponse)
+def agent_mac_page(request: Request) -> HTMLResponse:
+    """Un solo botón "Mac" lleva acá: elegir entre Apple Silicon e Intel, y cómo saber cuál."""
+    from app.config import settings
+    return templates.TemplateResponse(
+        "agent_mac.html",
+        {
+            "request": request,
+            "agent_mac_arm": bool(settings.agent_download_url_mac_arm),
+            "agent_mac_intel": bool(settings.agent_download_url_mac_intel),
         },
     )
 

@@ -192,6 +192,21 @@ def test_page_shows_mac_buttons_only_when_configured(client, db_session, monkeyp
     monkeypatch.setattr(settings, "agent_download_url_mac_intel", "")
     _usuario(db_session, client)
 
+    # Un solo botón "Mac" que lleva a elegir; las dos descargas viven en /agente/mac.
     html = client.get("/primeros-pasos", headers=HOST).text
+    assert 'href="/agente/mac"' in html and "?os=mac-" not in html
+
+    html = client.get("/agente/mac", headers=HOST).text
     assert "?os=mac-arm" in html and "Abrir igualmente" in html
     assert "?os=mac-intel" not in html
+
+
+def test_no_mac_button_when_no_mac_build(client, db_session, monkeypatch):
+    from app.config import settings
+    monkeypatch.setattr(settings, "agent_download_url", "https://x/win.exe")
+    monkeypatch.setattr(settings, "agent_download_url_mac_arm", "")
+    monkeypatch.setattr(settings, "agent_download_url_mac_intel", "")
+    _usuario(db_session, client)
+
+    for page in ("/primeros-pasos", "/settings"):
+        assert 'href="/agente/mac"' not in client.get(page, headers=HOST).text
