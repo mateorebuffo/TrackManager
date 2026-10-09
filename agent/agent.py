@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+import logging.handlers
 import os
 import queue
 import sys
@@ -131,8 +132,14 @@ SAVE_PATH = APPDATA / "agent.json"
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[logging.FileHandler(LOG_PATH, encoding="utf-8")],
+    # Tope de ~15 MB en total: agent.log + 2 de respaldo de 5 MB
+    handlers=[logging.handlers.RotatingFileHandler(
+        LOG_PATH, maxBytes=5_000_000, backupCount=2, encoding="utf-8")],
 )
+# httpx loguea cada request en INFO: el polling cada 10s llenaba el archivo.
+# Los errores (WARNING) se siguen viendo, y los resultados de búsqueda ya los
+# loguea el propio agente.
+logging.getLogger("httpx").setLevel(logging.WARNING)
 log = logging.getLogger("agent")
 
 # ── Config ───────────────────────────────────────────────────────────────────
