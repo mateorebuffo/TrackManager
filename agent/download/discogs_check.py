@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 _BASE = "https://api.discogs.com/database/search"
 _HEADERS = {"User-Agent": "MusicCollectorMVP/1.0"}
 _TIMEOUT = 12
+_GENERIC_ARTISTS = {"unknown", "unknown artist", "various", "various artists"}
 
 
 def _parse(query: str) -> tuple[str, str]:
@@ -57,6 +58,11 @@ def exists(query: str) -> bool:
     'J6 - Biohazard' matching vinyls from the unrelated band 'Biohazard'.
     """
     artist, track = _parse(query)
+
+    # "Unknown Artist - Feelings" matchea cientos de releases que no son el tema
+    if artist.lower() in _GENERIC_ARTISTS:
+        logger.info("Discogs: artista genérico %r — no se chequea", artist)
+        return False
 
     if artist:
         # Targeted: must match both artist and track title on the same release

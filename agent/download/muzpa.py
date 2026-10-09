@@ -52,6 +52,7 @@ def search(query: str, sess: str) -> tuple[dict | None, str]:
       "found"      — downloadable MP3 track found
       "vinyl_only" — track exists but is vinyl-only (no downloadable MP3)
       "not_found"  — no results match the query
+      "error"      — Muzpa answered with an error (no se sabe si el track está)
     """
     try:
         resp = httpx.get(
@@ -59,7 +60,6 @@ def search(query: str, sess: str) -> tuple[dict | None, str]:
             params={
                 "mp3prefered": "true",
                 "page": 0,
-                "popular_order": "false",
                 "text": query,
             },
             headers={"Cookie": f"SESS={sess}"},
@@ -70,10 +70,10 @@ def search(query: str, sess: str) -> tuple[dict | None, str]:
         if e.response.status_code in (401, 403):
             raise AuthExpired("muzpa") from e
         logger.warning("Muzpa search HTTP error: %s", e)
-        return None, "not_found"
+        return None, "error"
     except httpx.RequestError as e:
         logger.warning("Muzpa search network error: %s", e)
-        return None, "not_found"
+        return None, "error"
 
     try:
         data = resp.json()

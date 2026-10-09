@@ -275,11 +275,44 @@ def test_muzpa_200_with_html_raises(monkey):
         raise AssertionError("200 con HTML no levantó AuthExpired")
 
 
-def test_muzpa_500_still_means_not_found(monkey):
-    """Un error del servidor NO es una credencial vencida: no frenar el agente."""
-    monkey(httpx, "get", _raise_status(500))
-    track, status = muzpa.search("cualquier track", "sess-ok")
-    assert track is None and status == "not_found"
+def test_muzpa_server_error_is_not_auth_nor_not_found(monkey):
+    """Un 400/500 NO es credencial vencida (no frenar el agente) ni "no está" (no quemar el track)."""
+    for code in (400, 500):
+        monkey(httpx, "get", _raise_status(code))
+        track, status = muzpa.search("cualquier track", "sess-ok")
+        assert track is None and status == "error", (code, status)
+
+
+def test_clean_query():
+    """Casos reales del log del 8/10/2026."""
+    c = orchestrator._clean_query
+    assert c("Jamback - Topic - Can't Resist") == "Jamback - Can't Resist"
+    assert c("Release - Topic - Afterimage") == "Release - Afterimage"
+    assert c("Jos Lok - It’s what you said") == "Jos Lok - It's what you said"
+    assert c("Emi Ömar - Zenro") == "Emi Ömar - Zenro"
+    assert c("Unknown -") == "" and c("Unknown Artist -") == ""
+    assert c("Chris Stussy - Deep Innocence") == "Chris Stussy - Deep Innocence"
+
+
+def test_muzpa_error_skips_discogs(monkey):
+    """Ayer: Muzpa daba 400 a todo y Discogs marcaba vinyl_only temas que Muzpa tenía."""
+    monkey(muzpa, "search", lambda *_a: (None, "error"))
+    def _no_discogs(*_a):
+        raise AssertionError("no debería consultar Discogs si Muzpa falló")
+    monkey(orchestrator.discogs_check, "exists", _no_discogs)
+    assert orchestrator.try_download("A - B", Path("."), {"muzpa_sess": "x"}) == "failed"
+
+
+def test_deezer_requires_title_match():
+    from download import deezer_dl
+    def t(artist, title):
+        return {"artist": {"name": artist}, "title": title}
+    sim = deezer_dl._similarity
+    assert sim("tINI - Port", t("TINI", "posta")) < deezer_dl._MIN_SIMILARITY
+    assert sim("Circus Operandi - Blah, Blah", t("Circus Operandi", "Kasablanca")) < deezer_dl._MIN_SIMILARITY
+    assert sim("Guy Contact - Euphoria Simulator", t("Guy Contact", "Euphoria Simulator")) >= deezer_dl._MIN_SIMILARITY
+    assert sim("Barut - Dont Stop", t("Barut", "Don't Stop")) >= deezer_dl._MIN_SIMILARITY
+    assert sim("Priku & Traumer - Operation", t("Traumer", "Operation")) >= deezer_dl._MIN_SIMILARITY
 
 
 def test_orchestrator_lets_auth_expired_through(monkey):

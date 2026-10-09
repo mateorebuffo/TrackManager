@@ -32,9 +32,25 @@ def _normalize(text: str) -> str:
     return re.sub(r"[^\w\s]", "", text.lower())
 
 
+_MIN_TITLE_SIMILARITY = 0.8
+_PARENS_RE = re.compile(r"\([^)]*\)|\[[^\]]*\]")
+
+
+def _core_title(text: str) -> str:
+    return " ".join(_normalize(_PARENS_RE.sub(" ", text)).split())
+
+
 def _similarity(query: str, track: dict) -> float:
     artist = track.get("artist", {}).get("name", "") if isinstance(track.get("artist"), dict) else ""
     title = track.get("title", "")
+
+    # El título tiene que coincidir por sí solo: un artista largo igual inflaba
+    # el score combinado ("tINI - Port" bajaba "TINI - posta").
+    if " - " in query:
+        q_title = _core_title(query.split(" - ", 1)[1])
+        if SequenceMatcher(None, q_title, _core_title(title)).ratio() < _MIN_TITLE_SIMILARITY:
+            return 0.0
+
     candidate = _normalize(f"{artist} {title}")
     score = SequenceMatcher(None, _normalize(query), candidate).ratio()
 

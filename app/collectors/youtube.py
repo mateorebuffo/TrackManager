@@ -231,8 +231,9 @@ class YouTubeCollector(BaseCollector):
             logger.debug("Skipping unavailable video: %s", video_id)
             return None
 
-        # Channel that uploaded the video (not the playlist owner)
-        raw_artist: str | None = snippet.get("videoOwnerChannelTitle") or None
+        # Channel that uploaded the video (not the playlist owner).
+        # Auto-generated music channels are "Artist - Topic".
+        raw_artist: str | None = (snippet.get("videoOwnerChannelTitle") or "").removesuffix(" - Topic") or None
 
         source_url = f"https://www.youtube.com/watch?v={video_id}"
 
