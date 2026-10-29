@@ -10,6 +10,8 @@ from __future__ import annotations
 import copy
 import logging
 import re
+import shutil
+import tempfile
 import threading
 from difflib import SequenceMatcher
 from pathlib import Path
@@ -115,31 +117,34 @@ def download_track(query: str, dest_folder: Path, arl: str) -> str:
         raise AuthExpired("deezer")
 
     dest_folder.mkdir(parents=True, exist_ok=True)
+    # Carpeta propia: los otros workers (Muzpa) escriben en dest_folder al mismo
+    # tiempo, y un diff de dest_folder agarraba sus archivos como si fueran de Deezer.
+    tmp_folder = Path(tempfile.mkdtemp(prefix=".deezer_", dir=dest_folder))
 
     dl_settings = copy.deepcopy(DEFAULT_SETTINGS)
-    dl_settings["downloadLocation"] = str(dest_folder)
+    dl_settings["downloadLocation"] = str(tmp_folder)
     dl_settings["overwriteFile"] = "y"
     dl_settings["createPlaylistFolder"] = False
     dl_settings["createArtistFolder"] = False
     dl_settings["createAlbumFolder"] = False
 
-    with _DEEZER_LOCK:
-        files_before = set(dest_folder.glob("*.mp3"))
-        try:
-            download_obj = generateDownloadObject(dz, track_url, "3")
-            downloader = Downloader(dz, download_obj, dl_settings)
-            downloader.start()
-        except Exception as e:
-            logger.warning("Deezer download error for %r: %s", query, e)
+    try:
+        with _DEEZER_LOCK:
+            try:
+                download_obj = generateDownloadObject(dz, track_url, "3")
+                downloader = Downloader(dz, download_obj, dl_settings)
+                downloader.start()
+            except Exception as e:
+                logger.warning("Deezer download error for %r: %s", query, e)
+                return "not_found"
+
+        new_files = list(tmp_folder.glob("*.mp3"))
+        if not new_files:
+            logger.warning("Deezer: no new file created for %r", query)
             return "not_found"
-        files_after = set(dest_folder.glob("*.mp3"))
-
-    new_files = files_after - files_before
-    if not new_files:
-        logger.warning("Deezer: no new file created for %r", query)
-        return "not_found"
-
-    new_file = next(iter(new_files))
+        new_file = new_files[0].replace(dest_folder / new_files[0].name)
+    finally:
+        shutil.rmtree(tmp_folder, ignore_errors=True)
     if not verify_mp3(new_file):
         logger.warning("Deezer: quality check failed for %r", query)
         return "low_quality"

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import re
+import unicodedata
 from difflib import SequenceMatcher
 from pathlib import Path
 
@@ -26,6 +27,39 @@ def _track_similarity(query: str, track: dict) -> float:
     """Compare query against the track filename (which Muzpa uses as display title)."""
     filename = track.get("filename") or track.get("title") or ""
     return SequenceMatcher(None, _normalize(query), _normalize(filename)).ratio()
+
+_PARENS_RE = re.compile(r"\([^)]*\)|\[[^\]]*\]")
+_ARTIST_SPLIT_RE = re.compile(r"\s*(?:&|,|\bfeat\.?|\bft\.?|\bx\b|\band\b|\bvs\.?)\s*", re.IGNORECASE)
+
+
+def _words(text: str) -> list[str]:
+    """Minúsculas, sin acentos ni puntuación: "Emi Ömar" == "Emi Omar", "Ki.Mi." == "kimi"."""
+    text = "".join(c for c in unicodedata.normalize("NFKD", text) if not unicodedata.combining(c))
+    return _normalize(text).split()
+
+
+def _matches(query: str, track: dict) -> bool:
+    """
+    ¿El track es el que se pidió? `satisfies` de Muzpa es muy laxo: para
+    "A to B - Merging" marcaba "Colyn - Merging Realities".
+    Exige que las palabras del título pedido estén en el título del track y que
+    alguno de los artistas pedidos aparezca entero en su artista.
+    """
+    if " - " not in query:
+        return True
+    q_artist, q_title = query.split(" - ", 1)
+    t_artist = track.get("artist") or ""
+    # La versión ("Dub Mix") viene aparte, en subtitle.
+    t_title = f"{track.get('title') or ''} {track.get('subtitle') or ''}".strip()
+    if not (t_artist or t_title):
+        t_artist = t_title = track.get("filename") or ""
+
+    if not set(_words(_PARENS_RE.sub(" ", q_title))) <= set(_words(t_title)):
+        return False
+    haystack = " " + " ".join(_words(f"{t_artist} {t_title}")) + " "
+    parts = [" ".join(_words(p)) for p in _ARTIST_SPLIT_RE.split(q_artist)]
+    return any(p and f" {p} " in haystack for p in parts)
+
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +143,12 @@ def search(query: str, sess: str) -> tuple[dict | None, str]:
         for t in all_tracks[:5]:  # log up to 5 results for reference
             logger.info("  Muzpa result: %r | satisfies=%s | vinyl=%s",
                         t.get("filename"), t.get("satisfies"), _is_vinyl_only(t))
+
+    rejected = [t for t in satisfying if not _matches(query, t)]
+    if rejected:
+        logger.info("Muzpa: descartados por no coincidir artista/título con %r: %s",
+                    query, [t.get("filename") for t in rejected])
+        satisfying = [t for t in satisfying if t not in rejected]
 
     # Pick the satisfying non-vinyl track most similar to the query.
     # Muzpa often marks entire EPs as satisfying — without ranking we'd
