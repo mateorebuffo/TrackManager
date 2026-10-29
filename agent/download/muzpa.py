@@ -2,7 +2,7 @@
 Muzpa search and download service.
 
 Search endpoint: GET https://srv.muzpa.com/a/ms/media/search
-Download endpoint: GET https://srv.muzpa.com/dwnld/track/{id}.mp3
+Download endpoint: GET https://srv.muzpa.com/a/ms/track/{id}/download/mp3
 Auth: session cookie SESS=...
 """
 from __future__ import annotations
@@ -30,7 +30,7 @@ def _track_similarity(query: str, track: dict) -> float:
 logger = logging.getLogger(__name__)
 
 _SEARCH_URL = "https://srv.muzpa.com/a/ms/media/search"
-_DOWNLOAD_URL = "https://srv.muzpa.com/dwnld/track/{id}.mp3?iframe"
+_DOWNLOAD_URL = "https://srv.muzpa.com/a/ms/track/{id}/download/mp3"
 
 
 def _is_vinyl_only(track: dict) -> bool:

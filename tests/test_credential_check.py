@@ -38,6 +38,15 @@ def test_muzpa_valid_session_reports_the_email():
     assert msg == f"{cc.CONNECTED} (dj@muzpa.com)"
 
 
+def test_muzpa_account_without_id_is_still_valid():
+    """Forma real desde oct 2026: Muzpa dejó de mandar "id" y "login"."""
+    account = {"email": "dj@muzpa.com", "rank": "user", "disabled": False}
+    with patch.object(httpx, "get", return_value=httpx.Response(200, json=account)):
+        ok, msg = cc.check_muzpa("abc123")
+    assert ok is True
+    assert msg == f"{cc.CONNECTED} (dj@muzpa.com)"
+
+
 def test_muzpa_falls_back_to_login_when_there_is_no_email():
     account = {**_MUZPA_OK, "email": None}
     with patch.object(httpx, "get", return_value=httpx.Response(200, json=account)):

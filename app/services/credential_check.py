@@ -55,7 +55,8 @@ def check_muzpa(sess: str) -> tuple[bool, str]:
         data = resp.json()
     except Exception:
         return False, "Sesión expirada o inválida. Reconectá Muzpa."
-    if not isinstance(data, dict) or not data.get("id"):
+    # En oct 2026 Muzpa sacó "id" de la respuesta; con email alcanza para saber que es una cuenta.
+    if not isinstance(data, dict) or not (data.get("id") or data.get("email")):
         return False, "Sesión expirada o inválida. Reconectá Muzpa."
     if data.get("disabled"):
         return False, "La cuenta de Muzpa está deshabilitada."
