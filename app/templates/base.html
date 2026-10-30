@@ -301,6 +301,7 @@
     {% if request.state.user is defined and request.state.user %}
       {% set nav_user = request.state.user %}
       {% if nav_user.is_admin %}
+        <a href="/analitica" class="tm-nav-link" data-path="/analitica">Analítica</a>
         <a href="/admin/users" class="tm-nav-link" data-path="/admin">Usuarios</a>
         <a href="/debug/events" class="tm-nav-link" data-path="/debug">Logs</a>
       {% endif %}

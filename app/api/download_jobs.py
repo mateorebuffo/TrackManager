@@ -13,13 +13,12 @@ GET  /api/download-agent              — redirect to the agent download URL
 """
 from __future__ import annotations
 
-import hashlib
 import secrets
 
 from app.utils.rate_limit import UserRateLimiter
 
 _token_limiter = UserRateLimiter(calls=5, window=3600)  # 5 rotaciones por hora
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import RedirectResponse
@@ -129,43 +128,8 @@ def get_credential_status(
     Muzpa, Deezer y SoundCloud — ~40 requests por minuto a cada uno, al pedo y
     buen camino para que te bloqueen.
     """
-    from app.models.user_settings import UserSettings
     from app.services import credential_check
-
-    us = db.query(UserSettings).filter_by(user_id=user.id).first()
-    out: dict = {}
-
-    for svc, (column, _fn) in credential_check.SERVICES.items():
-        if service and svc != service:
-            continue
-        value = (getattr(us, column, "") or "") if us else ""
-        if not value:
-            out[svc] = {"ok": False, "connected": False, "msg": "Sin conectar."}
-            continue
-        ok, msg = credential_check.check(svc, value)
-        out[svc] = {"ok": ok, "connected": True, "msg": msg}
-
-    # YouTube es OAuth, no una cookie: no hay valor que validar, se pregunta al
-    # servicio de tokens (que además refresca solo si hace falta).
-    if not service or service == "youtube":
-        from app.services import youtube_auth
-        if not youtube_auth.is_connected(db, user.id):
-            out["youtube"] = {"ok": False, "connected": False, "msg": "Sin conectar."}
-        else:
-            try:
-                access_token = youtube_auth.get_valid_access_token(db, user.id)
-            except RuntimeError as e:
-                out["youtube"] = {"ok": False, "connected": True, "msg": str(e)}
-            else:
-                ok, msg = credential_check.check_youtube(access_token)
-                out["youtube"] = {
-                    "ok": ok, "connected": True, "msg": msg,
-                    # Huella del token, para que "Cambiar cuenta" en el agente pueda
-                    # esperar uno NUEVO. Sin esto la ventana se cierra al primer poll
-                    # con el token viejo, antes de que Google pregunte nada.
-                    "token_id": hashlib.sha256(access_token.encode()).hexdigest()[:12],
-                }
-    return out
+    return credential_check.credential_status(db, user.id, service)
 
 
 @router.post("/api/me/credentials")
@@ -247,6 +211,16 @@ def get_pending_jobs(
     """Return pending jobs for the authenticated agent."""
     from app.api.auto_download import _cancel_stale_jobs
     _cancel_stale_jobs(db, user.id)
+
+    # El agente pregunta cada pocos segundos: anotar que está vivo, pero escribir
+    # en la base como mucho cada 2 minutos. Lo lee la analítica del admin.
+    now = datetime.now(timezone.utc)
+    seen = user.agent_seen_at
+    if seen is not None and seen.tzinfo is None:
+        seen = seen.replace(tzinfo=timezone.utc)
+    if seen is None or now - seen > timedelta(minutes=2):
+        user.agent_seen_at = now
+        db.commit()
 
     jobs = (
         db.query(DownloadJob)

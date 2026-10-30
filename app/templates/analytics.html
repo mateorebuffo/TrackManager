@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %}Analítica — Track Manager{% endblock %}
+
+{% block content %}
+<style>
+  .hc-card { border-left: 4px solid var(--hc); height: 100%; }
+  .hc-ok         { --hc: #16a34a; }
+  .hc-con_fallas { --hc: #d97706; }
+  .hc-caido      { --hc: #dc2626; }
+  .hc-sin_datos  { --hc: #94a3b8; }
+  .hc-dot { width: .7rem; height: .7rem; border-radius: 50%; background: var(--hc); display: inline-block; }
+  .hc-label { font-size: .75rem; font-weight: 600; color: var(--hc); }
+  .hc-meta { font-size: .72rem; color: var(--tm-muted); }
+  .hc-num { font-size: 1.8rem; font-weight: 700; line-height: 1; }
+  .hc-section { font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+                color: var(--tm-muted); margin: 2rem 0 .75rem; }
+</style>
+
+{% set LABELS = {"ok": "Funciona", "con_fallas": "Con fallas", "caido": "Caído", "sin_datos": "Sin datos"} %}
+
+<div class="d-flex align-items-center gap-3 mb-2">
+  <h1 class="tm-page-title mb-0">Analítica</h1>
+  <span class="hc-meta">Última prueba de servicios: {{ last_run }}</span>
+  <form method="POST" action="/analitica/probar" class="mb-0 ms-auto">
+    <button type="submit" class="btn btn-sm btn-primary">↻ Probar ahora</button>
+  </form>
+</div>
+
+{% if probado %}
+<div class="alert alert-success py-2">Servicios y cuentas probados recién.</div>
+{% elif espera %}
+<div class="alert alert-warning py-2">Ya se probó hace menos de 5 minutos. Esperá un poco antes de volver a probar.</div>
+{% endif %}
+
+<!-- ── A. Salud del sistema ─────────────────────────────────────────────── -->
+<div class="hc-section">Salud del sistema</div>
+
+<div class="row g-3">
+  {% for s in services %}
+  <div class="col-12 col-md-6 col-xl">
+    <div class="card hc-card hc-{{ s.status }}">
+      <div class="card-body">
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <span class="hc-dot"></span>
+          <strong>{{ s.name }}</strong>
+          <span class="hc-label ms-auto">{{ LABELS[s.status] }}</span>
+        </div>
+        <div style="font-size:.8rem">{{ s.detail }}</div>
+        {% for sig in s.signals %}
+          <div style="font-size:.75rem" class="text-warning-emphasis mt-1">⚠ {{ sig }}</div>
+        {% endfor %}
+        <div class="hc-meta mt-2">Probado {{ s.tested }} · funcionó por última vez {{ s.worked }}</div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-12 col-lg-4">
+    <div class="card h-100">
+      <div class="card-header">Agentes de descarga</div>
+      <div class="card-body">
+        <div class="hc-num">{{ agents.online }} <span style="font-size:1rem;color:var(--tm-muted)">/ {{ agents.total }}</span></div>
+        <div class="hc-meta mb-2">conectados ahora{% if agents.online_users %}: {{ agents.online_users | join(", ") }}{% endif %}</div>
+        {% if agents.forgotten %}
+          <div style="font-size:.8rem" class="fw-semibold mt-3">Con tracks esperando y el agente cerrado:</div>
+          <ul class="mb-0 ps-3" style="font-size:.8rem">
+            {% for a in agents.forgotten %}
+              <li>{{ a.user }}: {{ a.pending }} tracks, se conectó {{ a.seen }}</li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div style="font-size:.8rem" class="text-success">Ningún alumno tiene descargas esperando a un agente cerrado.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-4">
+    <div class="card h-100">
+      <div class="card-header">Descargas trabadas</div>
+      <div class="card-body">
+        {% if stuck %}
+          <div class="hc-num text-warning">{{ stuck | length }}</div>
+          <ul class="mb-0 ps-3 mt-2" style="font-size:.8rem">
+            {% for j in stuck[:6] %}
+              <li><strong>{{ j.user }}</strong> — {{ j.query }} <span class="hc-meta">({{ j.status }}, {{ j.since }})</span></li>
+            {% endfor %}
+          </ul>
+          {% if stuck | length > 6 %}<div class="hc-meta mt-1">y {{ stuck | length - 6 }} más</div>{% endif %}
+        {% else %}
+          <div class="hc-num text-success">0</div>
+          <div class="hc-meta">Nada trabado: ninguna descarga en curso hace más de 30 min ni esperando más de un día.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-4">
+    <div class="card h-100">
+      <div class="card-header">Errores de las últimas 24 h</div>
+      <div class="card-body">
+        {% if errors %}
+          <table class="table table-sm mb-0" style="font-size:.8rem">
+            {% for e in errors %}
+            <tr>
+              <td><a href="/debug/events?event_type={{ e.type }}&level=error" class="text-decoration-none" title="{{ e.type }}">{{ e.label }}</a></td>
+              <td class="text-end fw-semibold">{{ e.count }}</td>
+              <td class="text-end hc-meta">{{ e.last }}</td>
+            </tr>
+            {% endfor %}
+          </table>
+        {% else %}
+          <div class="hc-num text-success">0</div>
+          <div class="hc-meta">Sin errores en el último día.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── B. Alumnos con problemas ─────────────────────────────────────────── -->
+<div class="hc-section">Alumnos con problemas</div>
+
+<div class="row g-3">
+  <div class="col-12 col-xl-7">
+    <div class="card h-100">
+      {% if problems %}
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead class="table-dark">
+            <tr><th style="width:160px">Alumno</th><th>Qué le pasa</th></tr>
+          </thead>
+          <tbody>
+            {% for p in problems %}
+            <tr>
+              <td class="fw-semibold">{{ p.user }}</td>
+              <td>
+                {% for msg in p.problems %}
+                  <span class="badge text-bg-light border me-1 mb-1" style="font-weight:500;white-space:normal;text-align:left">{{ msg }}</span>
+                {% endfor %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="card-body text-success">Ningún alumno tiene problemas detectados.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-12 col-xl-5">
+    <div class="card h-100">
+      <div class="card-header d-flex">
+        Reportes de los alumnos
+        <a href="/debug/reports" class="ms-auto text-decoration-none" style="font-size:.8rem">Ver todos →</a>
+      </div>
+      <div class="card-body">
+        <div class="d-flex gap-4 mb-3">
+          <div><div class="hc-num">{{ reports.open_total }}</div><div class="hc-meta">sin resolver</div></div>
+          <div><div class="hc-num">{{ reports.avg_days if reports.avg_days is not none else "—" }}</div><div class="hc-meta">días promedio para resolver</div></div>
+        </div>
+        {% if reports.rows %}
+        <table class="table table-sm mb-0" style="font-size:.75rem">
+          <thead><tr><th>Categoría</th><th class="text-end">Abiertos</th><th class="text-end">Revisados</th><th class="text-end">Resueltos</th></tr></thead>
+          {% for r in reports.rows %}
+          <tr>
+            <td style="white-space:nowrap">{{ r.label }}</td>
+            <td class="text-end {% if r.open %}fw-semibold text-danger{% endif %}">{{ r.open }}</td>
+            <td class="text-end">{{ r.reviewed }}</td>
+            <td class="text-end">{{ r.resolved }}</td>
+          </tr>
+          {% endfor %}
+        </table>
+        {% else %}
+        <div class="hc-meta">Todavía no hay reportes.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

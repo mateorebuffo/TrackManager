@@ -14,6 +14,7 @@ class User(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     api_token = Column(String(64), unique=True, nullable=True)
+    agent_seen_at = Column(DateTime, nullable=True)  # último pedido del agente (analítica)
 
     settings = relationship("UserSettings", back_populates="user", uselist=False)
 

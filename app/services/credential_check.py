@@ -8,6 +8,7 @@ Cada check devuelve (ok, msg). `msg` se muestra tal cual al usuario.
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 
 import httpx
@@ -169,6 +170,66 @@ SERVICES = {
 def check(service: str, value: str) -> tuple[bool, str]:
     _column, fn = SERVICES[service]
     return fn(value)
+
+
+def plan_checks(db, user_id: int, service: str | None = None) -> tuple[dict, list]:
+    """
+    Separar lo que se sabe sin red de lo que hay que preguntarle a cada servicio.
+
+    Devuelve (resultados_ya_sabidos, pendientes), con pendientes como
+    [(servicio, función_sin_argumentos, extras)]. Así el agente los corre uno
+    tras otro y la analítica los corre en paralelo para todos los alumnos sin
+    compartir la sesión de la base entre hilos: la base se lee acá, antes.
+    """
+    from app.models.user_settings import UserSettings
+    from app.services import youtube_auth
+
+    us = db.query(UserSettings).filter_by(user_id=user_id).first()
+    out: dict = {}
+    pending: list = []
+
+    for svc, (column, _fn) in SERVICES.items():
+        if service and svc != service:
+            continue
+        value = (getattr(us, column, "") or "") if us else ""
+        if not value:
+            out[svc] = {"ok": False, "connected": False, "msg": "Sin conectar."}
+        else:
+            # `check` se busca al llamar, no al armar: los tests lo parchean.
+            pending.append((svc, lambda s=svc, v=value: check(s, v), {}))
+
+    # YouTube es OAuth, no una cookie: no hay valor que validar, se pregunta al
+    # servicio de tokens (que además refresca solo si hace falta).
+    if not service or service == "youtube":
+        if not youtube_auth.is_connected(db, user_id):
+            out["youtube"] = {"ok": False, "connected": False, "msg": "Sin conectar."}
+        else:
+            try:
+                access_token = youtube_auth.get_valid_access_token(db, user_id)
+            except RuntimeError as e:
+                out["youtube"] = {"ok": False, "connected": True, "msg": str(e)}
+            else:
+                # Huella del token, para que "Cambiar cuenta" en el agente pueda
+                # esperar uno NUEVO. Sin esto la ventana se cierra al primer poll
+                # con el token viejo, antes de que Google pregunte nada.
+                extra = {"token_id": hashlib.sha256(access_token.encode()).hexdigest()[:12]}
+                pending.append(("youtube", lambda t=access_token: check_youtube(t), extra))
+
+    return out, pending
+
+
+def credential_status(db, user_id: int, service: str | None = None) -> dict:
+    """Estado de las cuentas de un usuario, validadas contra cada servicio real."""
+    out, pending = plan_checks(db, user_id, service)
+    for svc, run, extra in pending:
+        ok, msg = run()
+        out[svc] = {"ok": ok, "connected": True, "msg": msg, **extra}
+    return out
+
+
+def is_service_error(msg: str) -> bool:
+    """El servicio no respondió bien (no es que la sesión del usuario venció)."""
+    return msg.startswith(("Error de conexión", "Respuesta inesperada"))
 
 
 def normalize(service: str, value: str) -> str:
