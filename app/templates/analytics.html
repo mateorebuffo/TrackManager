@@ -21,8 +21,9 @@
 <div class="d-flex align-items-center gap-3 mb-2">
   <h1 class="tm-page-title mb-0">Analítica</h1>
   <span class="hc-meta">Última prueba de servicios: {{ last_run }}</span>
-  <form method="POST" action="/analitica/probar" class="mb-0 ms-auto">
-    <button type="submit" class="btn btn-sm btn-primary">↻ Probar ahora</button>
+  <form method="POST" action="/analitica/probar" class="mb-0 ms-auto"
+        onsubmit="showLoading('Probando servicios… puede tardar unos segundos')">
+    <button type="submit" class="btn btn-sm btn-primary">↻ Probar servicios ahora</button>
   </form>
 </div>
 
