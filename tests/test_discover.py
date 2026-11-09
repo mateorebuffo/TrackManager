@@ -121,3 +121,16 @@ def test_un_solo_tema_no_acapara_las_recomendaciones():
     items += [{"name": "stussy", "seed": "Chris Stussy - Blueprint"}]
     top = discovery._spread(items, 4, lambda it: it["seed"])
     assert [it["name"] for it in top] == ["swoy0", "swoy1", "stussy", "swoy2"]
+
+
+def test_las_semillas_salen_de_los_productores_que_mas_bajo(db_session, client, monkeypatch, limpio):
+    """Antes eran los últimos 50 bajados: recomendaba "porque bajaste Swoy" y no por Sublee."""
+    uid = _tester(db_session).id
+    for i in range(4):
+        _track(db_session, uid, "Sublee", f"Tema {i}")
+    _track(db_session, uid, "Swoy", "Another Life")  # el más nuevo, pero con un solo tema
+    enviadas = []
+    monkeypatch.setattr(discovery, "_cosine", lambda seeds: enviadas.extend(seeds) or [])
+    discovery.recommend(db_session, uid)
+    assert enviadas[:3] == ["Sublee - Tema 3", "Sublee - Tema 2", "Sublee - Tema 1"]
+    assert enviadas[3] == "Swoy - Another Life" and "Sublee - Tema 0" in enviadas

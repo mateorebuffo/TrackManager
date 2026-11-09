@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 import re
 import time
-from collections import Counter
+from collections import Counter, defaultdict
 
 import httpx
 from sqlalchemy.orm import Session
@@ -33,6 +33,7 @@ _DISAMBIGUATION_RE = re.compile(r"\s*\(\d+\)$")  # Discogs: "Phonica (2)"
 TOP = 10
 PER_SEED = 2          # recomendaciones por tema bajado, para que no lo acapare uno solo
 SEEDS = 50            # máximo de /search/bulk
+SEEDS_PER_PRODUCER = 3  # 50 semillas = los ~17 productores que más bajó
 DISCOGS_CALLS = 40    # por refresco: Discogs da 25-60 req/min
 LABEL_CANDIDATES = 20
 CACHE_SECONDS = 24 * 3600
@@ -72,6 +73,19 @@ def _tally(names) -> list[tuple[str, int]]:
     for n in names:
         counts.setdefault(n.casefold(), [n, 0])[1] += 1
     return sorted(((n, c) for n, c in counts.values()), key=lambda x: -x[1])
+
+
+def _seed_rows(rows: list[tuple[NormalizedTrack, SourceTrack]]) -> list[tuple[NormalizedTrack, SourceTrack]]:
+    """
+    Semillas para Cosine: temas de los productores que más bajó, en el orden
+    del ranking, para que "porque bajaste…" salga de ahí. Atrás, el resto.
+    """
+    by_artist: dict[str, list] = defaultdict(list)
+    for row in rows:
+        for a in split_artists(row[0].normalized_artist):
+            by_artist[a.casefold()].append(row)
+    top = _tally(a for nt, _ in rows for a in split_artists(nt.normalized_artist))
+    return [r for name, _ in top for r in by_artist[name.casefold()][:SEEDS_PER_PRODUCER]] + rows
 
 
 def rankings(db: Session, user_id: int) -> dict:
@@ -158,7 +172,7 @@ def recommend(db: Session, user_id: int) -> dict:
     if not rows:
         return {"producers": [], "labels": []}
     seeds: dict[str, SourceTrack] = {}
-    for nt, st in rows:
+    for nt, st in _seed_rows(rows):
         if nt.normalized_artist and nt.normalized_title:
             seeds.setdefault(f"{nt.normalized_artist} - {nt.normalized_title}", st)
         if len(seeds) == SEEDS:
