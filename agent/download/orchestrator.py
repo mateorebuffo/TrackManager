@@ -7,7 +7,8 @@ Order:
   3. Bandcamp  (presence check → bandcamp_only)
   4. Discogs   (presence check → vinyl_only)
 
-Returns job status: completed | vinyl_only | not_found | failed
+Returns (job status, label): status is completed | vinyl_only | not_found | failed;
+label is the release's label when the store gives it.
 """
 from __future__ import annotations
 
@@ -36,12 +37,12 @@ def _clean_query(query: str) -> str:
     return q
 
 
-def try_download(query: str, dest: Path, settings: dict) -> str:
+def try_download(query: str, dest: Path, settings: dict) -> tuple[str, str | None]:
     """
     settings: dict with muzpa_sess, deezer_arl, download_full_eps,
               folder_organize_mode (from /api/me/settings).
 
-    Returns: completed | vinyl_only | not_found | failed
+    Returns: (completed | vinyl_only | not_found | failed, sello o None)
     """
     muzpa_sess        = settings.get("muzpa_sess", "")
     deezer_arl        = settings.get("deezer_arl", "")
@@ -50,7 +51,7 @@ def try_download(query: str, dest: Path, settings: dict) -> str:
     clean = _clean_query(query)
     if not clean:
         logger.info("Query sin título %r — not_found sin buscar", query)
-        return "not_found"
+        return "not_found", None
     query = clean
 
     found_low_quality = False
@@ -65,7 +66,7 @@ def try_download(query: str, dest: Path, settings: dict) -> str:
                 # Always attempt download even if flagged vinyl_only — flag is sometimes wrong
                 path = muzpa.download(track["id"], track["filename"], dest, muzpa_sess)
                 if verify_mp3(path):
-                    return "completed"
+                    return "completed", (track.get("label") or {}).get("nm")
                 found_low_quality = True
                 logger.info("Muzpa: low quality for %r, trying Deezer", query)
         except AuthExpired:
@@ -81,10 +82,10 @@ def try_download(query: str, dest: Path, settings: dict) -> str:
             if download_full_eps and bool(_EP_RE.search(query)):
                 result, _ = deezer_dl.download_album(query, dest, deezer_arl)
                 if result == "downloaded":
-                    return "completed"
-            result = deezer_dl.download_track(query, dest, deezer_arl)
+                    return "completed", None
+            result, label = deezer_dl.download_track(query, dest, deezer_arl)
             if result == "downloaded":
-                return "completed"
+                return "completed", label
             elif result == "low_quality":
                 found_low_quality = True
         except AuthExpired:
@@ -106,17 +107,17 @@ def try_download(query: str, dest: Path, settings: dict) -> str:
     # reencola) que dejar que Discogs lo marque vinyl_only.
     if muzpa_error:
         logger.info("Muzpa falló para %r y Deezer no lo bajó — failed", query)
-        return "failed"
+        return "failed", None
 
     # ── 4. Discogs presence check ─────────────────────────────────────────────
     try:
         if discogs_check.exists(query):
             logger.info("Discogs: found %r — marking as vinyl_only", query)
-            return "vinyl_only"
+            return "vinyl_only", None
     except Exception:
         logger.exception("Discogs check error for %r", query)
 
     if found_low_quality:
-        return "not_found"
+        return "not_found", None
 
-    return "not_found"
+    return "not_found", None

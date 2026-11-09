@@ -50,6 +50,11 @@ class Settings(BaseSettings):
     google_api_key: str = ""
     google_cse_id: str = ""
 
+    # /descubrir: recomendaciones por similitud de audio (cosine.club/account/api)
+    # y sello de cada release (Discogs; sin token anda, pero con 25 req/min en vez de 60).
+    cosine_api_key: str = ""
+    discogs_token: str = ""
+
     # Deduplication thresholds
     dedup_strong_match_score: float = 90.0
     dedup_weak_match_score: float = 75.0

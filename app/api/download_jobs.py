@@ -33,7 +33,7 @@ from app.models.normalized_track import NormalizedTrack
 from app.models.review_item import ReviewItem, TrackStatus
 from app.models.source_track import SourceTrack
 from app.models.user import User
-from app.services import log_service
+from app.services import discovery, log_service
 
 router = APIRouter(tags=["download-jobs"])
 
@@ -190,6 +190,7 @@ def download_agent(
 class CompletePayload(BaseModel):
     status: str  # completed | not_found | vinyl_only | bandcamp_only | failed
     error: str | None = None
+    label: str | None = None  # sello, si la tienda lo dio (se recorta al guardar)
 
 
 def _get_job_for_agent(job_id: int, db: Session, user: User) -> DownloadJob:
@@ -367,6 +368,8 @@ def complete_job(
     item = db.query(ReviewItem).filter(ReviewItem.id == job.review_id).first()
     if item:
         item.status = status_map[payload.status]
+        if payload.status == "completed":
+            discovery.set_label(item.normalized_track.source_track, payload.label)
 
     db.commit()
 

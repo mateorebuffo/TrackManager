@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Descubrir — Track Manager{% endblock %}
+
+{% block content %}
+<style>
+  .ds-section { font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+                color: var(--tm-muted); margin: 2rem 0 .75rem; }
+  .ds-meta { font-size: .75rem; color: var(--tm-muted); }
+  .ds-row { display: grid; grid-template-columns: 1.6rem 1fr auto; gap: .5rem; align-items: center;
+            padding: .35rem 0; font-size: .875rem; }
+  .ds-pos { color: var(--tm-muted); font-variant-numeric: tabular-nums; text-align: right; }
+  .ds-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ds-bar { height: 4px; border-radius: 2px; background: var(--tm-primary); opacity: .55; margin-top: .2rem; }
+  .ds-count { font-weight: 600; font-variant-numeric: tabular-nums; }
+</style>
+
+<h1 class="tm-page-title mb-1">Descubrir</h1>
+<p class="ds-meta mb-0">Lo que más bajaste, y productores y sellos que suenan parecido y todavía no tenés.</p>
+
+{% macro ranking(rows, empty) %}
+  {% if rows %}
+    {% set top = rows[0][1] %}
+    {% for name, count in rows %}
+    <div class="ds-row">
+      <span class="ds-pos">{{ loop.index }}</span>
+      <div class="ds-name" title="{{ name }}">
+        {{ name }}
+        <div class="ds-bar" style="width: {{ (count / top * 100) | round(0) }}%"></div>
+      </div>
+      <span class="ds-count">{{ count }}</span>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="ds-meta">{{ empty }}</div>
+  {% endif %}
+{% endmacro %}
+
+<div class="ds-section">Lo que más bajaste</div>
+{% if total == 0 %}
+  <div class="card"><div class="card-body ds-meta">
+    Todavía no bajaste ningún track. Cuando el agente descargue tus primeros temas, acá vas a ver tus productores y sellos.
+  </div></div>
+{% else %}
+<div class="row g-3">
+  <div class="col-12 col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">Productores</div>
+      <div class="card-body">{{ ranking(producers, "Sin datos todavía.") }}</div>
+    </div>
+  </div>
+  <div class="col-12 col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">Sellos</div>
+      <div class="card-body">
+        {{ ranking(labels, "Todavía no sabemos el sello de tus tracks.") }}
+        {% if unlabeled %}
+          <div class="ds-meta mt-2">{{ unlabeled }} de {{ total }} tracks sin sello conocido. Se van completando solos al buscar recomendaciones y con cada descarga nueva.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="ds-section">Para descubrir</div>
+<div id="ds-recs">
+  <div class="card"><div class="card-body ds-meta">
+    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+    Buscando productores y sellos parecidos a lo que bajaste… puede tardar unos segundos.
+  </div></div>
+</div>
+
+<script>
+fetch('/descubrir/recomendaciones')
+  .then(r => { if (!r.ok) throw new Error(r.status); return r.text(); })
+  .then(html => { document.getElementById('ds-recs').innerHTML = html; })
+  .catch(() => {
+    document.getElementById('ds-recs').innerHTML =
+      '<div class="alert alert-warning py-2">No se pudieron cargar las recomendaciones. Recargá la página en un rato.</div>';
+  });
+</script>
+{% endif %}
+{% endblock %}

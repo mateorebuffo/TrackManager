@@ -200,3 +200,14 @@ def _normalize_for_fingerprint(text: str) -> str:
     text = text.lower()
     text = re.sub(r"[^\w\s]", "", text)
     return normalize_whitespace(text)
+
+
+# "A & B", "A feat. B", "A x B": cada productor cuenta por separado.
+# ponytail: también parte dúos como "Above & Beyond"; lista de excepciones si molesta.
+_ARTIST_SPLIT_RE = re.compile(r"\s*(?:&|,|\bfeat\.?|\bft\.?|\bx\b|\bvs\.?)\s*", re.IGNORECASE)
+_GENERIC_ARTISTS = {"unknown", "unknown artist", "various", "various artists"}
+
+
+def split_artists(artist: str | None) -> list[str]:
+    parts = (a.strip() for a in _ARTIST_SPLIT_RE.split(artist or ""))
+    return [a for a in parts if a and a.casefold() not in _GENERIC_ARTISTS]

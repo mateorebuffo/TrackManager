@@ -300,8 +300,17 @@ def test_muzpa_error_skips_discogs(monkey):
     def _no_discogs(*_a):
         raise AssertionError("no debería consultar Discogs si Muzpa falló")
     monkey(orchestrator.discogs_check, "exists", _no_discogs)
-    assert orchestrator.try_download("A - B", Path("."), {"muzpa_sess": "x"}) == "failed"
+    assert orchestrator.try_download("A - B", Path("."), {"muzpa_sess": "x"}) == ("failed", None)
 
+
+def test_muzpa_download_returns_label(monkey):
+    """Muzpa trae el sello en cada track: {"label": {"id": 16299, "nm": "TRAX Records"}}."""
+    track = {"id": 1, "filename": "Mr. Fingers - Can You Feel It.mp3",
+             "label": {"id": 16299, "nm": "TRAX Records"}}
+    monkey(muzpa, "search", lambda *_a: (track, "found"))
+    monkey(muzpa, "download", lambda *_a: Path("x.mp3"))
+    monkey(orchestrator, "verify_mp3", lambda _p: True)
+    assert orchestrator.try_download("Mr. Fingers - Can You Feel It", Path("."), {"muzpa_sess": "x"}) == ("completed", "TRAX Records")
 
 def test_deezer_requires_title_match():
     from download import deezer_dl
@@ -601,3 +610,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+

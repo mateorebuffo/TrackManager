@@ -198,7 +198,7 @@ def _dest_folder(base: Path, organize: str, liked_at: str | None = None, collect
 
 # ── Download ──────────────────────────────────────────────────────────────────
 
-def download_track(query: str, cfg: dict, user_settings: dict, liked_at: str | None = None, collected_at: str | None = None) -> str:
+def download_track(query: str, cfg: dict, user_settings: dict, liked_at: str | None = None, collected_at: str | None = None) -> tuple[str, str | None]:
     dest = _dest_folder(Path(cfg["download_dir"]),
                         cfg.get("folder_organize_mode", "none"),
                         liked_at, collected_at)
@@ -300,11 +300,11 @@ def api_start(cfg: dict, job_id: int) -> None:
     except Exception:
         pass
 
-def api_complete(cfg: dict, job_id: int, status: str) -> None:
+def api_complete(cfg: dict, job_id: int, status: str, label: str | None = None) -> None:
     try:
         httpx.post(f"{API_URL}/api/download-jobs/{job_id}/complete",
                    headers=_headers(cfg),
-                   json={"status": status},
+                   json={"status": status, "label": label},
                    timeout=10)
     except Exception:
         pass
@@ -1043,7 +1043,7 @@ class RunningWindow:
         self.q.put(("start", job["id"]))
         api_start(self.cfg, job["id"])
         try:
-            result = download_track(job["query"], self.cfg, user_settings,
+            result, label = download_track(job["query"], self.cfg, user_settings,
                                     job.get("liked_at"), job.get("collected_at"))
         except AuthExpired as e:
             # A propósito NO se llama api_complete: el job queda in_progress y el
@@ -1053,7 +1053,7 @@ class RunningWindow:
             self.running = False
             self.q.put(("creds_expired", e.service))
             return
-        api_complete(self.cfg, job["id"], result)
+        api_complete(self.cfg, job["id"], result, label)
         self.q.put(("finish", job["id"], result))
 
     def _worker(self) -> None:

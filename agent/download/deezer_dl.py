@@ -70,10 +70,22 @@ logger = logging.getLogger(__name__)
 _DEEZER_LOCK = threading.Lock()
 
 
-def download_track(query: str, dest_folder: Path, arl: str) -> str:
+def _album_label(album_id) -> str | None:
+    """Sello del álbum (la búsqueda de Deezer no lo trae)."""
+    try:
+        resp = httpx.get(f"https://api.deezer.com/album/{album_id}", timeout=15)
+        resp.raise_for_status()
+        return resp.json().get("label") or None
+    except Exception as e:
+        logger.warning("Deezer: no se pudo leer el sello del álbum %s: %s", album_id, e)
+        return None
+
+
+def download_track(query: str, dest_folder: Path, arl: str) -> tuple[str, str | None]:
     """
     Search Deezer for query and download the best match as MP3 320.
-    Returns 'downloaded', 'low_quality', or 'not_found'.
+    Returns (result, label): result is 'downloaded', 'low_quality', or 'not_found';
+    label is the release's label when the download worked.
     """
     try:
         from deezer import Deezer
@@ -82,7 +94,7 @@ def download_track(query: str, dest_folder: Path, arl: str) -> str:
         from deemix.settings import DEFAULTS as DEFAULT_SETTINGS
     except ImportError:
         logger.warning("deemix not installed — skipping Deezer download")
-        return "not_found"
+        return "not_found", None
 
     # Search via Deezer public API (no auth needed)
     try:
@@ -95,18 +107,18 @@ def download_track(query: str, dest_folder: Path, arl: str) -> str:
         tracks = resp.json().get("data") or []
     except Exception as e:
         logger.warning("Deezer search failed: %s", e)
-        return "not_found"
+        return "not_found", None
 
     if not tracks:
         logger.info("Deezer: no results for %r", query)
-        return "not_found"
+        return "not_found", None
 
     # Pick the best-matching result above the similarity threshold
     best = max(tracks, key=lambda t: _similarity(query, t))
     score = _similarity(query, best)
     if score < _MIN_SIMILARITY:
         logger.info("Deezer: best match score %.2f too low for %r — skipping", score, query)
-        return "not_found"
+        return "not_found", None
 
     track = best
     track_url = f"https://www.deezer.com/track/{track['id']}"
@@ -136,21 +148,21 @@ def download_track(query: str, dest_folder: Path, arl: str) -> str:
                 downloader.start()
             except Exception as e:
                 logger.warning("Deezer download error for %r: %s", query, e)
-                return "not_found"
+                return "not_found", None
 
         new_files = list(tmp_folder.glob("*.mp3"))
         if not new_files:
             logger.warning("Deezer: no new file created for %r", query)
-            return "not_found"
+            return "not_found", None
         new_file = new_files[0].replace(dest_folder / new_files[0].name)
     finally:
         shutil.rmtree(tmp_folder, ignore_errors=True)
     if not verify_mp3(new_file):
         logger.warning("Deezer: quality check failed for %r", query)
-        return "low_quality"
+        return "low_quality", None
 
     logger.info("Deezer download complete: %s", new_file.name)
-    return "downloaded"
+    return "downloaded", _album_label((track.get("album") or {}).get("id"))
 
 
 def _album_similarity(query: str, album: dict) -> float:
