@@ -22,6 +22,7 @@ def sin_red(monkeypatch):
     """Ningún test sale a internet: todos los servicios responden OK."""
     monkeypatch.setattr(credential_check, "check", lambda svc, v: (True, "Cuenta conectada"))
     monkeypatch.setattr(health, "_ping_discogs", lambda: (True, "Responde"))
+    monkeypatch.setattr(health, "_ping_cosine", lambda: (True, "Responde"))
 
 
 def _checks(db):
@@ -79,6 +80,7 @@ def test_la_sesion_vencida_aparece_en_el_alumno(db_session, client, monkeypatch)
     monkeypatch.setattr(credential_check, "check",
                         lambda svc, v: (False, "Token expirado o inválido. Reconectá SoundCloud."))
     monkeypatch.setattr(health, "_ping_discogs", lambda: (True, "Responde"))
+    monkeypatch.setattr(health, "_ping_cosine", lambda: (True, "Responde"))
     health.run_checks(db_session)
 
     probs = {p["user"]: p["problems"] for p in health.user_problems(db_session)}
@@ -138,3 +140,13 @@ def test_pendiente_trabada_solo_si_el_agente_anda_y_no_la_toma(db_session, clien
                                created_at=NOW - timedelta(hours=1)))
     db_session.commit()
     assert [j["query"] for j in health.stuck_jobs(db_session)] == ["vieja"]
+
+
+
+def test_cosine_sin_key_aparece_caido(db_session, client, monkeypatch):
+    monkeypatch.setattr(credential_check, "check", lambda svc, v: (True, "Cuenta conectada"))
+    monkeypatch.setattr(health, "_ping_discogs", lambda: (True, "Responde"))
+    monkeypatch.setattr(health.settings, "cosine_api_key", "")  # sin key no sale a la red
+    health.run_checks(db_session)
+    cosine = next(s for s in health.service_status(db_session) if s["service"] == "cosine")
+    assert cosine["status"] == "caido" and "COSINE_API_KEY" in cosine["detail"]

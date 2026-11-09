@@ -18,6 +18,7 @@ import httpx
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.models.app_event import AppEvent, EventLevel
 from app.models.download_job import DownloadJob, JobStatus
 from app.models.user import User
@@ -33,6 +34,7 @@ SERVICES = {
     "soundcloud": "SoundCloud",
     "youtube": "YouTube",
     "discogs": "Discogs",
+    "cosine": "Cosine Club",
 }
 STALE_AFTER = timedelta(hours=12)       # prueba automática al abrir la pantalla
 AGENT_ONLINE = timedelta(minutes=2)     # el agente pregunta cada pocos segundos
@@ -94,6 +96,25 @@ def _ping_discogs() -> tuple[bool, str]:
     return True, "Responde"
 
 
+def _ping_cosine() -> tuple[bool, str]:
+    """Las recomendaciones de /descubrir. Prueba la key de la app, no la de un alumno."""
+    if not settings.cosine_api_key:
+        return False, "Falta configurar COSINE_API_KEY en Railway."
+    try:
+        r = httpx.get("https://cosine.club/api/v1/search", params={"q": "test", "limit": 1}, timeout=10,
+                      headers={"Authorization": f"Bearer {settings.cosine_api_key}",
+                               "User-Agent": "TrackManager/1.0"})
+    except httpx.HTTPError as e:
+        return False, f"Error de conexión: {e}"
+    if r.status_code == 401:
+        return False, "La API key no es válida: revisá COSINE_API_KEY."
+    if r.status_code == 429:
+        return False, "Llegó al límite de 120 consultas por minuto."
+    if r.status_code != 200:
+        return False, f"Respuesta inesperada: {r.status_code}."
+    return True, "Responde"
+
+
 def last_run(db: Session) -> datetime | None:
     return _aware(db.query(func.max(AppEvent.created_at))
                   .filter(AppEvent.event_type == "health_check").scalar())
@@ -139,7 +160,9 @@ def run_checks(db: Session) -> None:
 
     with ThreadPoolExecutor(max_workers=4) as pool:
         futures = [(uid, svc, pool.submit(run)) for uid, svc, run in tasks]
-        discogs = pool.submit(_ping_discogs)
+        # Servicios sin cuenta de alumno: una sola prueba con la de la app.
+        pings = {svc: pool.submit(fn) for svc, fn in
+                 (("discogs", _ping_discogs), ("cosine", _ping_cosine))}
         for uid, svc, fut in futures:
             try:
                 ok, msg = fut.result()
@@ -147,7 +170,7 @@ def run_checks(db: Session) -> None:
                 logger.exception("Health check %s failed for user %s", svc, uid)
                 ok, msg = False, f"Error de conexión: {e}"
             by_user[uid][svc] = {"ok": ok, "connected": True, "msg": msg}
-        discogs_ok, discogs_msg = discogs.result()
+        pinged = {svc: fut.result() for svc, fut in pings.items()}
 
     for uid, results in by_user.items():
         problems = [s for s, r in results.items()
@@ -160,8 +183,9 @@ def run_checks(db: Session) -> None:
         )
 
     for svc, name in SERVICES.items():
-        if svc == "discogs":
-            status, detail = ("ok", "Responde.") if discogs_ok else ("caido", discogs_msg)
+        if svc in pinged:
+            ok, msg = pinged[svc]
+            status, detail = ("ok", "Responde.") if ok else ("caido", msg)
         else:
             status, detail = _classify([r[svc] for r in by_user.values() if svc in r])
         level = {"caido": "error", "con_fallas": "warning"}.get(status, "info")
