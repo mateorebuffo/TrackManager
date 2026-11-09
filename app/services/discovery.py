@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import re
 import time
+from collections import Counter
 
 import httpx
 from sqlalchemy.orm import Session
@@ -30,6 +31,7 @@ _RELEASE_RE = re.compile(r"discogs\.com/release/(\d+)")
 _DISAMBIGUATION_RE = re.compile(r"\s*\(\d+\)$")  # Discogs: "Phonica (2)"
 
 TOP = 10
+PER_SEED = 2          # recomendaciones por tema bajado, para que no lo acapare uno solo
 SEEDS = 50            # máximo de /search/bulk
 DISCOGS_CALLS = 40    # por refresco: Discogs da 25-60 req/min
 LABEL_CANDIDATES = 20
@@ -120,6 +122,20 @@ def _discogs_release(link: str | None, budget: list[int]) -> dict | None:
     return found
 
 
+def _spread(items: list[dict], n: int, seed_of) -> list[dict]:
+    """
+    Los n primeros, con como mucho PER_SEED por semilla. El score de Cosine no
+    se compara bien entre semillas: un tema con vecinos muy parecidos (todos
+    0.9+) se quedaba con toda la lista. Si no alcanza, se completa con el resto.
+    """
+    picked, rest, per = [], [], Counter()
+    for it in items:
+        seed = seed_of(it)
+        (picked if per[seed] < PER_SEED else rest).append(it)
+        per[seed] += 1
+    return (picked + rest)[:n]
+
+
 def _cosine(seeds: list[str]) -> list[dict]:
     r = httpx.post(
         _COSINE_BULK,
@@ -153,6 +169,7 @@ def recommend(db: Session, user_id: int) -> dict:
         logger.exception("Cosine Club falló para el usuario %s", user_id)
         return {"error": "Cosine Club no respondió. Probá de nuevo en un rato."}
 
+    logger.info("Cosine: %d de %d temas encontrados (usuario %s)", len(results), len(seeds), user_id)
     budget = [DISCOGS_CALLS]
     # De paso, completar el sello de lo que ya bajó (tracks previos al agente con sello).
     for res in results:
@@ -192,7 +209,7 @@ def recommend(db: Session, user_id: int) -> dict:
             p["score"] += t["score"]
 
     labels: dict[str, dict] = {}
-    for t in ranked[:LABEL_CANDIDATES]:
+    for t in _spread(ranked, LABEL_CANDIDATES, lambda t: t["because"]):
         rel = _discogs_release(t.get("external_link"), budget)
         if not rel or rel["label"].casefold() in known_labels:
             continue
@@ -200,8 +217,10 @@ def recommend(db: Session, user_id: int) -> dict:
         lab["score"] += t["score"]
 
     out = {
-        "producers": sorted(producers.values(), key=lambda p: -p["score"])[:TOP],
-        "labels": sorted(labels.values(), key=lambda p: -p["score"])[:TOP],
+        "producers": _spread(sorted(producers.values(), key=lambda p: -p["score"]), TOP,
+                             lambda p: p["track"]["because"]),
+        "labels": _spread(sorted(labels.values(), key=lambda p: -p["score"]), TOP,
+                          lambda p: p["track"]["because"]),
     }
     if budget[0] > 0:  # si Discogs cortó, el próximo refresco completa los sellos
         _recs[user_id] = (time.time(), out)

@@ -113,3 +113,11 @@ def test_el_agente_manda_el_sello_al_completar(client, db_session):
     assert r.status_code == 200
     db_session.refresh(st)
     assert st.raw_metadata_json["label"] == "TRAX Records"
+
+
+def test_un_solo_tema_no_acapara_las_recomendaciones():
+    """Swoy - Another Life tenía 10 vecinos con 0.9+ y llenaba toda la lista."""
+    items = [{"name": f"swoy{i}", "seed": "Swoy - Another Life"} for i in range(8)]
+    items += [{"name": "stussy", "seed": "Chris Stussy - Blueprint"}]
+    top = discovery._spread(items, 4, lambda it: it["seed"])
+    assert [it["name"] for it in top] == ["swoy0", "swoy1", "stussy", "swoy2"]
