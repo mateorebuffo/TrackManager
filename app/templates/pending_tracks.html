@@ -38,9 +38,13 @@
   .copy-track { cursor: copy; }
   .copy-track:hover { color: var(--tm-primary); }
   .tm-channel { color: var(--tm-muted); font-size: 0.72rem; display: block; }
-  .tm-actions { white-space: nowrap; text-align: right; }
+  /* Fija a la derecha: si la tabla se pasa de ancho, los botones no se cortan. */
+  .tm-actions { white-space: nowrap; text-align: right; width: 1%; position: sticky; right: 0; background: #fff; box-shadow: -8px 0 8px -8px rgba(15,23,42,.12); }
+  .table-hover > tbody > tr:hover > .tm-actions { background: #f8fafc; }
+  .tm-row-focus > .tm-actions { background: #eef2ff; }
   .tm-actions .btn { margin-left: 2px; }
   .tm-actions form { display: inline; }
+  #tracks-table > :not(caption) > * > * { padding: 0.55rem 0.6rem; }
   .tm-dup { color: #b45309; font-weight: 600; text-decoration: none; }
 
   /* ── Banner de bienvenida ───────────────────────────────────── */
@@ -500,7 +504,7 @@ function dismissSetupBanner(){
                     onclick="openEditModal(this)"><i class="bi bi-pencil"></i></button>
           {% endif %}
           <a href="/debug/track/{{ row.review_id }}" class="btn btn-outline-secondary btn-sm btn-icon"
-             aria-label="Historial y reportar problema" data-bs-toggle="tooltip" data-bs-title="Historial / reportar problema"><i class="bi bi-clock-history"></i></a>
+             aria-label="Reportar un problema con este track" data-bs-toggle="tooltip" data-bs-title="Reportar un problema (y ver el historial)"><i class="bi bi-flag"></i></a>
           {% if row.status == "pending" %}
             <form method="POST" action="/review/{{ row.review_id }}/discard/form" class="tm-discard"
                   onsubmit="_setToast('Track descartado', 'warning', {url: '/review/{{ row.review_id }}/pending/form'})">
