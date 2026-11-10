@@ -14,11 +14,11 @@
 
 {% set SOURCES = {"soundcloud": "SoundCloud", "youtube": "YouTube", "spotify": "Spotify", "traxsource": "Traxsource"} %}
 
-<a href="/descubrir" class="ds-back">← Volver a Descubrir</a>
+<a href="/descubrir" class="ds-back"><i class="bi bi-arrow-left"></i> Volver a Descubrir</a>
 
 <div class="ds-kind">{{ kind }}</div>
-<h1 class="tm-page-title mb-1">{{ name }}</h1>
-<p class="ds-meta">{{ tracks | length }} track{{ "" if tracks | length == 1 else "s" }} bajado{{ "" if tracks | length == 1 else "s" }}</p>
+<h1 class="tm-page-title">{{ name }}</h1>
+<p class="tm-page-sub mb-3">{{ tracks | length }} track{{ "" if tracks | length == 1 else "s" }} bajado{{ "" if tracks | length == 1 else "s" }}</p>
 
 <div class="card">
   {% if tracks %}
@@ -43,7 +43,7 @@
                  title="Abrir en {{ SOURCES.get(t.source, t.source) }}">
                 {% if t.source in ("soundcloud", "youtube", "spotify") %}
                   <img src="/static/icons/{{ t.source }}.svg" alt="{{ SOURCES[t.source] }}">
-                {% else %}↗{% endif %}
+                {% else %}<i class="bi bi-box-arrow-up-right"></i>{% endif %}
               </a>
             {% endif %}
           </td>

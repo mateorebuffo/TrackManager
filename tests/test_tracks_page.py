@@ -72,13 +72,13 @@ def test_non_admin_is_not_told_to_press_a_spotify_button(client, db_session):
     inofensivo.
     """
     html = _entrar(db_session, client, admin=False)
-    assert "↻ Spotify" not in html
-    assert "↻ SoundCloud" in html  # el mensaje sigue ahí, sin Spotify
+    assert "Importar Spotify" not in html and "Conectar Spotify" not in html
+    assert "Conectar SoundCloud" in html or "Importar SoundCloud" in html
 
 
 def test_admin_is_still_told_about_spotify(client, db_session):
     html = _entrar(db_session, client, admin=True)
-    assert "↻ Spotify" in html
+    assert "Importar Spotify" in html or "Conectar Spotify" in html
 
 
 def test_setup_banner_points_at_the_wizard(client, db_session):

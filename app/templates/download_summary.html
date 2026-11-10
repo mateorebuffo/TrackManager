@@ -27,9 +27,12 @@
 </style>
 
 {# ── Header ────────────────────────────────────────────────────── #}
-<div class="d-flex align-items-center justify-content-between mb-4 gap-3 flex-wrap">
-  <h4 class="tm-page-title mb-0">Resumen de descarga</h4>
-  <a href="/tracks/download-queue" class="btn btn-outline-secondary btn-sm">← Volver a la cola</a>
+<div class="d-flex align-items-end justify-content-between mb-4 gap-3 flex-wrap">
+  <div>
+    <h1 class="tm-page-title">Resumen de descarga</h1>
+    <p class="tm-page-sub">Lo que bajó, y qué hacer con lo que no se encontró.</p>
+  </div>
+  <a href="/tracks/download-queue" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Volver a la cola</a>
 </div>
 
 {# ── Stat cards ────────────────────────────────────────────────── #}
@@ -82,7 +85,7 @@
      class="d-none position-sticky bg-white border rounded-3 shadow-sm px-3 py-2 mb-3 d-flex align-items-center gap-3"
      style="top:60px;z-index:100;">
   <span id="selection-count" class="fw-semibold small text-muted">0 seleccionados</span>
-  <button type="submit" class="btn btn-success btn-sm">↗ Armar cola</button>
+  <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-download"></i> Armar cola</button>
   <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearAll()">Deseleccionar</button>
 </div>
 
@@ -118,7 +121,7 @@
       <td class="action-btns">
         <div class="d-flex flex-wrap gap-1">
           <form method="POST" action="/auto-download/{{ row.review_id }}/form" class="d-inline">
-            <button class="btn btn-primary btn-sm">⬇ Auto</button>
+            <button class="btn btn-primary btn-sm"><i class="bi bi-download"></i> Auto</button>
           </form>
           <a href="{{ row.url_muzpa }}" target="_blank" rel="noopener"
              class="btn btn-outline-secondary btn-sm search-btn"
@@ -135,26 +138,26 @@
           <button type="button" class="btn btn-outline-secondary btn-sm search-btn"
                   data-query="{{ row.search_query }}"
                   data-key="soulseek-{{ row.review_id }}"
-                  onclick="copySoulseek(this)" title="Copiar para Soulseek">⧉ SS</button>
+                  onclick="copySoulseek(this)" data-bs-toggle="tooltip" data-bs-title="Copiar el nombre para pegar en Soulseek"><i class="bi bi-clipboard"></i> Soulseek</button>
         </div>
       </td>
       <td class="action-btns">
         <div class="d-flex gap-1">
           <form method="POST" action="/review/{{ row.review_id }}/downloaded/form">
             <input type="hidden" name="next" value="{{ request.url }}">
-            <button class="btn btn-success btn-sm" title="Marcar como descargado">✓</button>
+            <button class="btn btn-success btn-sm btn-icon" aria-label="Marcar como descargado" data-bs-toggle="tooltip" data-bs-title="Lo conseguí: marcar como descargado"><i class="bi bi-check-lg"></i></button>
           </form>
           <form method="POST" action="/review/{{ row.review_id }}/not-found/form">
             <input type="hidden" name="next" value="{{ request.url }}">
-            <button class="btn btn-outline-secondary btn-sm" title="No encontrado">✕</button>
+            <button class="btn btn-outline-secondary btn-sm btn-icon" aria-label="Marcar como no encontrado" data-bs-toggle="tooltip" data-bs-title="No encontrado"><i class="bi bi-x-lg"></i></button>
           </form>
           <form method="POST" action="/review/{{ row.review_id }}/bandcamp-only/form">
             <input type="hidden" name="next" value="{{ request.url }}">
-            <button class="btn btn-outline-secondary btn-sm" style="background:#dbeafe;border-color:#bfdbfe;color:#1e40af;" title="Solo Bandcamp">BC</button>
+            <button class="btn btn-outline-secondary btn-sm" style="background:#dbeafe;border-color:#bfdbfe;color:#1e40af;" aria-label="Marcar como solo Bandcamp" data-bs-toggle="tooltip" data-bs-title="Solo Bandcamp">BC</button>
           </form>
           <form method="POST" action="/review/{{ row.review_id }}/vinyl-only/form">
             <input type="hidden" name="next" value="{{ request.url }}">
-            <button class="btn btn-outline-secondary btn-sm" style="background:#fef3c7;border-color:#fde68a;color:#92400e;" title="Solo vinilo">LP</button>
+            <button class="btn btn-outline-secondary btn-sm" style="background:#fef3c7;border-color:#fde68a;color:#92400e;" aria-label="Marcar como solo vinilo" data-bs-toggle="tooltip" data-bs-title="Solo vinilo">LP</button>
           </form>
         </div>
       </td>
@@ -239,7 +242,7 @@
     <ul class="list-group list-group-flush" style="border-radius:var(--tm-radius-lg);overflow:hidden;">
       {% for row in summary.downloaded %}
       <li class="list-group-item py-2" style="font-size:0.84rem;">
-        <span style="color:var(--tm-success);margin-right:0.4rem;">✓</span>{{ row.label }}
+        <i class="bi bi-check-lg" style="color:var(--tm-success);margin-right:0.4rem;"></i>{{ row.label }}
       </li>
       {% endfor %}
     </ul>
@@ -248,7 +251,7 @@
 {% endif %}
 
 {% if total == 0 %}
-<div class="alert alert-info">No había tracks en cola para procesar.</div>
+<div class="tm-empty"><i class="bi bi-inbox"></i><h5>No había nada para procesar</h5><p>La cola estaba vacía cuando arrancó la descarga.</p></div>
 {% endif %}
 
 <script>

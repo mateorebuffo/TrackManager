@@ -1,14 +1,22 @@
 {% extends "base.html" %}
 {% block title %}Primeros pasos — Track Manager{% endblock %}
 
+{# Sin la nav completa: durante los primeros pasos no hay a dónde ir todavía. #}
+{% block nav %}
+<nav class="tm-nav" style="justify-content:center;">
+  <a href="/" class="tm-brand" style="margin:0;"><img class="tm-brand-icon" src="/static/icons/logo.svg" alt="" /> Track Manager</a>
+</nav>
+{% endblock %}
+
 {% block content %}
 <style>
-  .ob-card { max-width: 720px; margin: 0 auto; border-radius: var(--tm-radius-lg);
-             border: 1px solid var(--tm-border); box-shadow: var(--tm-shadow); }
+  .tm-content { min-height: calc(100vh - 52px); display: flex; align-items: center; justify-content: center; }
+  .ob-card { width: 100%; max-width: 720px; margin: 0 auto; border-radius: var(--tm-radius-lg); background: var(--tm-card);
+             border: 1px solid var(--tm-border); box-shadow: var(--tm-shadow-md); }
   .ob-body { padding: 2rem 2.25rem 1.5rem; }
   .ob-step { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .08em;
              color: var(--tm-muted); font-weight: 600; }
-  .ob-title { font-size: 1.5rem; font-weight: 700; margin: .35rem 0 .75rem; }
+  .ob-title { font-family: var(--tm-display); font-size: 1.35rem; font-weight: 700; margin: .35rem 0 .75rem; letter-spacing: -0.01em; }
   .ob-text { font-size: 0.92rem; color: var(--tm-muted); line-height: 1.6; }
   .ob-shot { display: block; max-width: 100%; height: auto; margin: 1rem auto;
              border: 1px solid var(--tm-border); border-radius: var(--tm-radius); }
@@ -16,7 +24,7 @@
              gap: 1rem; padding: 1rem 2.25rem 1.5rem; border-top: 1px solid var(--tm-border); }
   .ob-dots { display: flex; gap: .4rem; }
   .ob-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--tm-border); }
-  .ob-dot.on { background: var(--tm-accent, #2563eb); }
+  .ob-dot.on { background: var(--tm-primary); }
   .ob-slide { display: none; }
   .ob-slide.on { display: block; }
 </style>
@@ -36,10 +44,10 @@
       {% if agent_available or agent_mac_arm or agent_mac_intel %}
       <div class="d-flex flex-wrap gap-2">
         {% if agent_available %}
-        <a href="/api/download-agent" class="btn btn-primary">⬇ Windows</a>
+        <a href="/api/download-agent" class="btn btn-primary"><i class="bi bi-windows"></i> Descargar para Windows</a>
         {% endif %}
         {% if agent_mac_arm or agent_mac_intel %}
-        <a href="/agente/mac" class="btn btn-primary">⬇ Mac</a>
+        <a href="/agente/mac" class="btn btn-primary"><i class="bi bi-apple"></i> Descargar para Mac</a>
         {% endif %}
       </div>
       {% else %}
@@ -103,7 +111,7 @@
     {# ── 3. Vincular cuentas ────────────────────────────────────── #}
     <section class="ob-slide" data-slide="3">
       <div class="ob-step">Paso 3 de 4</div>
-      <div class="ob-title">Ya casi — vinculá tus cuentas</div>
+      <div class="ob-title">Ya casi: vinculá tus cuentas</div>
       <p class="ob-text">
         Apenas inicies el agente se abre solo este panel, porque todavía no tenés ninguna
         cuenta vinculada.
@@ -154,9 +162,9 @@
 
     <div class="d-flex gap-2">
       <button type="button" class="btn btn-outline-secondary btn-sm d-none"
-              id="ob-atras" onclick="obIr(-1)">Atrás</button>
+              id="ob-atras" onclick="obIr(-1)"><i class="bi bi-arrow-left"></i> Atrás</button>
       <button type="button" class="btn btn-primary btn-sm" id="ob-listo"
-              onclick="obIr(1)">Listo</button>
+              onclick="obIr(1)">Siguiente <i class="bi bi-arrow-right"></i></button>
       <form method="POST" action="/primeros-pasos/listo" class="m-0 d-none" id="ob-fin">
         <button type="submit" class="btn btn-primary btn-sm">Finalizar</button>
       </form>

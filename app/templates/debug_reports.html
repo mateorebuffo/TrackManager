@@ -2,12 +2,13 @@
 {% block title %}Reportes de problemas — Track Manager{% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center gap-3 mb-4">
-  <h1 class="tm-page-title mb-0">Reportes de problemas</h1>
+<div class="mb-4">
+  <h1 class="tm-page-title">Reportar</h1>
+  <p class="tm-page-sub">¿Algo anda mal? Contá qué tocaste, qué esperabas y qué pasó. Cuanto más concreto, más rápido se arregla.</p>
 </div>
 
 {% if submitted %}
-<div class="alert alert-success py-2 mb-3">Reporte enviado correctamente.</div>
+<div class="alert alert-success py-2 mb-3"><i class="bi bi-check-circle-fill me-1"></i> Reporte enviado. Gracias.</div>
 {% endif %}
 
 <!-- Submit new report -->
@@ -16,25 +17,25 @@
   <div class="card-body">
     <form method="POST" action="/debug/reports" class="row g-3">
       <div class="col-md-2">
-        <label class="form-label">Track ID (opcional)</label>
-        <input type="number" name="track_id" class="form-control form-control-sm"
-               placeholder="Review ID">
+        <label class="form-label" for="rep-track">Track (opcional)</label>
+        <input type="number" name="track_id" id="rep-track" class="form-control form-control-sm"
+               placeholder="Nº del track" data-bs-toggle="tooltip" data-bs-title="Lo ves en el historial del track (el relojito en su fila)">
       </div>
       <div class="col-md-3">
-        <label class="form-label">Categoría</label>
-        <select name="category" class="form-select form-select-sm">
+        <label class="form-label" for="rep-cat">Categoría</label>
+        <select name="category" id="rep-cat" class="form-select form-select-sm">
           {% for val, label in categories %}
             <option value="{{ val }}">{{ label }}</option>
           {% endfor %}
         </select>
       </div>
       <div class="col-md-5">
-        <label class="form-label">Descripción</label>
-        <textarea name="description" class="form-control form-control-sm" rows="2"
-                  placeholder="Describe el problema…" required></textarea>
+        <label class="form-label" for="rep-desc">Descripción</label>
+        <textarea name="description" id="rep-desc" class="form-control form-control-sm" rows="2"
+                  placeholder="Qué tocaste, qué esperabas y qué pasó…" required></textarea>
       </div>
       <div class="col-md-2 d-flex align-items-end">
-        <button type="submit" class="btn btn-sm btn-danger w-100">Enviar</button>
+        <button type="submit" class="btn btn-sm btn-primary w-100"><i class="bi bi-send"></i> Enviar</button>
       </div>
     </form>
   </div>
@@ -121,6 +122,6 @@
 </div>
 <p class="text-muted mt-2" style="font-size:0.78rem">{{ reports | length }} reporte(s).</p>
 {% else %}
-<div class="card card-body text-muted text-center py-4">No hay reportes.</div>
+<div class="tm-empty"><i class="bi bi-chat-square-text"></i><h5>No hay reportes</h5><p>Cuando mandes uno, acá vas a ver en qué estado está.</p></div>
 {% endif %}
 {% endblock %}

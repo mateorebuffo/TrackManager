@@ -1,72 +1,78 @@
 {% extends "base.html" %}
 
-{% block title %}Cola de Descarga — Track Manager{% endblock %}
+{% block title %}Cola de descarga — Track Manager{% endblock %}
 
 {% block content %}
+<style>
+  .tm-batch { display: block; text-decoration: none; color: inherit; background: #fff; border: 1px solid var(--tm-border); border-radius: var(--tm-radius); padding: .6rem .9rem; transition: box-shadow .15s, border-color .15s; }
+  .tm-batch:hover { box-shadow: var(--tm-shadow-md); border-color: #c7d2fe; color: inherit; }
+  .tm-batch .badge { font-size: .74rem; font-weight: 600; padding: .4em .75em; }
+</style>
 
 {# ── Header ────────────────────────────────────────────────────── #}
-<div class="d-flex align-items-center justify-content-between mb-4 gap-3 flex-wrap">
-  <div class="d-flex align-items-center gap-2">
-    <h4 class="tm-page-title mb-0">Cola de Descarga</h4>
-    <span class="badge s-queued" style="font-size:0.75rem;padding:.3em .65em;">{{ rows | length }}</span>
+<div class="d-flex align-items-end justify-content-between mb-3 gap-3 flex-wrap">
+  <div>
+    <h1 class="tm-page-title">Descargas</h1>
+    <p class="tm-page-sub">Lo que elegiste bajar. Con el agente abierto, tocá «Auto-descargar todo» y se encarga solo.</p>
   </div>
   <div class="d-flex gap-2 flex-wrap">
-    <a href="/tracks/pending" class="btn btn-outline-secondary btn-sm">← Volver</a>
     <form method="POST" action="/auto-download/all/form"
-          onsubmit="return confirm('¿Auto-descargar todos los tracks en cola? Puede tardar varios minutos.')">
+          onsubmit="return confirmSubmit(this, 'Se van a buscar y descargar {{ queued_count }} track{{ 's' if queued_count != 1 else '' }}. Puede tardar varios minutos; el agente tiene que estar abierto.', {title:'¿Descargar todo?', label:'Descargar'})">
       <button class="btn btn-primary btn-sm"
-        {% if queued_count == 0 %}disabled title="No hay tracks en cola"
-        {% elif not has_muzpa and not has_deezer %}disabled title="Configurá Muzpa o Deezer primero"
+        {% if queued_count == 0 %}disabled data-bs-toggle="tooltip" data-bs-title="No hay tracks en cola"
+        {% elif not has_muzpa and not has_deezer %}disabled data-bs-toggle="tooltip" data-bs-title="Vinculá Muzpa o Deezer en el agente primero"
         {% endif %}>
-        ⬇ Auto-descargar todo
+        <i class="bi bi-download"></i> Auto-descargar todo
       </button>
     </form>
+    {% if rows %}
     <form method="POST" action="/tracks/download-queue/reset-all"
-          onsubmit="return confirm('¿Volver todos los tracks a pendiente?')">
-      <button class="btn btn-outline-danger btn-sm">↩ Vaciar cola</button>
+          onsubmit="return confirmSubmit(this, 'Todos los tracks vuelven a Pendiente. No se pierde nada.', {title:'¿Vaciar la cola?', label:'Vaciar', danger:true})">
+      <button class="btn btn-outline-danger btn-sm"><i class="bi bi-arrow-counterclockwise"></i> Vaciar cola</button>
     </form>
+    {% endif %}
   </div>
 </div>
+
+{% with active='queue' %}{% include "_download_tabs.html" %}{% endwith %}
 
 {% if request.query_params.get('empty') %}
 <div class="alert alert-warning alert-dismissible fade show mb-3 py-2" role="alert">
   No hay tracks en cola para descargar.
-  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
 </div>
 {% endif %}
 
 {% if not has_muzpa and not has_deezer %}
 <div class="alert alert-danger mb-3" role="alert">
+  <i class="bi bi-exclamation-triangle-fill me-1"></i>
   <strong>No podés auto-descargar todavía.</strong>
-  No tenés configurado ni Muzpa ni Deezer/Deemix. El sistema necesita al menos uno de los dos para poder descargar tracks.
-  <a href="/settings" class="alert-link ms-1">Ir a Configuración →</a>
+  No tenés vinculado ni Muzpa ni Deezer. Hace falta al menos uno de los dos, y se vinculan desde el agente.
+  <a href="/primeros-pasos" class="alert-link ms-1">Ver cómo <i class="bi bi-arrow-right"></i></a>
 </div>
 {% elif not has_muzpa %}
 <div class="alert alert-warning mb-3" role="alert">
-  <strong>Solo tenés Deezer configurado.</strong>
-  Podés descargar, pero algunos tracks que están en Muzpa y no en Deezer se van a perder. Sumando Muzpa obtenés mejores resultados de descarga ya que ambas plataformas tienen catálogos distintos y se complementan.
-  <a href="/settings" class="alert-link ms-1">Configurar Muzpa →</a>
+  <strong>Solo tenés Deezer vinculado.</strong>
+  Podés descargar, pero los tracks que están en Muzpa y no en Deezer se van a perder. Los dos catálogos se complementan.
 </div>
 {% elif not has_deezer %}
 <div class="alert alert-warning mb-3" role="alert">
-  <strong>Solo tenés Muzpa configurado.</strong>
-  Podés descargar, pero algunos tracks que están en Deezer y no en Muzpa se van a perder. Sumando Deezer/Deemix obtenés mejores resultados de descarga ya que ambas plataformas tienen catálogos distintos y se complementan.
-  <a href="/settings" class="alert-link ms-1">Configurar Deezer →</a>
+  <strong>Solo tenés Muzpa vinculado.</strong>
+  Podés descargar, pero los tracks que están en Deezer y no en Muzpa se van a perder. Los dos catálogos se complementan.
 </div>
 {% endif %}
 
 {% if rows %}
 
-
 {# ── Track table ───────────────────────────────────────────────── #}
 <div class="table-responsive">
-<table class="table table-hover table-sm align-middle bg-white">
+<table class="table table-hover align-middle bg-white">
   <thead class="table-dark">
     <tr>
-      <th>#</th>
+      <th style="width:48px;">#</th>
       <th>Track</th>
       <th>Estado</th>
-      <th></th>
+      <th><span class="visually-hidden">Acciones</span></th>
     </tr>
   </thead>
   <tbody>
@@ -75,46 +81,42 @@
       <td class="text-muted small">{{ loop.index }}</td>
       <td>
         <div class="d-flex align-items-center gap-2">
-          {% if row.nt_id %}
-            <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0" title="Editar metadata"
-                    data-nt-id="{{ row.nt_id }}"
-                    data-artist="{{ row.artist }}"
-                    data-title="{{ row.title_only }}"
-                    data-version="{{ row.version or '' }}"
-                    data-channel="{{ row.channel }}"
-                    data-raw-title="{{ row.raw_title }}"
-                    onclick="openEditModal(this)" style="padding:0.2rem 0.45rem;line-height:1;">✎</button>
-          {% endif %}
           {% if row.source_url and row.source_url != "#" %}
             <a href="{{ row.source_url }}" target="_blank" rel="noopener"
-               style="font-size:0.855rem;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;">
+               style="max-width:520px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;">
               {{ row.label }}
             </a>
           {% else %}
-            <span style="font-size:0.855rem;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;">
+            <span style="max-width:520px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;">
               {{ row.label }}
             </span>
           {% endif %}
         </div>
       </td>
       <td>
-        {% if row.status == "queued" %}
-          <span class="badge s-queued">En cola</span>
-        {% elif row.status == "downloaded" %}
-          <span class="badge s-downloaded">Descargado</span>
-        {% elif row.status == "not_found" %}
-          <span class="badge s-not_found">No encontrado</span>
-        {% elif row.status == "vinyl_only" %}
-          <span class="badge s-vinyl">Solo vinilo</span>
-        {% elif row.status == "bandcamp_only" %}
-          <span class="badge s-bandcamp">Solo Bandcamp</span>
+        {% if row.status == "queued" %}<span class="badge s-queued">En cola</span>
+        {% elif row.status == "downloaded" %}<span class="badge s-downloaded">Descargado</span>
+        {% elif row.status == "not_found" %}<span class="badge s-not_found">No encontrado</span>
+        {% elif row.status == "vinyl_only" %}<span class="badge s-vinyl">Solo vinilo</span>
+        {% elif row.status == "bandcamp_only" %}<span class="badge s-bandcamp">Solo Bandcamp</span>
         {% endif %}
       </td>
-      <td style="white-space:nowrap;">
+      <td class="action-btns text-end" style="white-space:nowrap;">
+        {% if row.nt_id %}
+          <button type="button" class="btn btn-outline-secondary btn-sm btn-icon" aria-label="Editar artista y título"
+                  data-bs-toggle="tooltip" data-bs-title="Editar artista y título"
+                  data-nt-id="{{ row.nt_id }}"
+                  data-artist="{{ row.artist }}"
+                  data-title="{{ row.title_only }}"
+                  data-version="{{ row.version or '' }}"
+                  data-channel="{{ row.channel }}"
+                  data-raw-title="{{ row.raw_title }}"
+                  onclick="openEditModal(this)"><i class="bi bi-pencil"></i></button>
+        {% endif %}
         <form method="POST" action="/review/{{ row.review_id }}/requeue/form">
-          <button class="btn btn-outline-secondary btn-sm"
-                  data-toast="Vuelto a pendiente" data-toast-type="info"
-                  title="Quitar de la cola">↩</button>
+          <button class="btn btn-outline-secondary btn-sm btn-icon"
+                  data-toast="Quitado de la cola" data-toast-type="info"
+                  aria-label="Quitar de la cola" data-bs-toggle="tooltip" data-bs-title="Quitar de la cola (vuelve a Pendiente)"><i class="bi bi-x-lg"></i></button>
         </form>
       </td>
     </tr>
@@ -125,8 +127,6 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  restoreSearched();
-
   const saved = sessionStorage.getItem('queue_scroll');
   if (saved) { window.scrollTo(0, parseInt(saved)); sessionStorage.removeItem('queue_scroll'); }
 
@@ -144,33 +144,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-
-function markSearched(btn) {
-  localStorage.setItem('searched:' + btn.dataset.key, '1');
-  btn.style.background = '#e0f2fe';
-  btn.style.borderColor = '#7dd3fc';
-  btn.style.color = '#0369a1';
-}
-
-function restoreSearched() {
-  document.querySelectorAll('.search-btn').forEach(btn => {
-    if (localStorage.getItem('searched:' + btn.dataset.key)) {
-      btn.style.background = '#e0f2fe';
-      btn.style.borderColor = '#7dd3fc';
-      btn.style.color = '#0369a1';
-    }
-  });
-}
-
-function copySoulseek(btn) {
-  markSearched(btn);
-  navigator.clipboard.writeText(btn.dataset.query).then(() => {
-    const orig = btn.textContent;
-    btn.textContent = '¡Copiado!';
-    setTimeout(() => btn.textContent = orig, 1500);
-  });
-}
-
 function openEditModal(btn) {
   document.getElementById('edit-form').action = '/tracks/' + btn.dataset.ntId + '/edit-metadata';
   document.getElementById('edit-channel').textContent   = btn.dataset.channel;
@@ -183,13 +156,13 @@ function openEditModal(btn) {
 </script>
 
 {# ── Edit metadata modal ───────────────────────────────────────── #}
-<div class="modal fade" id="editModal" tabindex="-1">
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalTitle">
   <div class="modal-dialog">
     <div class="modal-content">
       <form method="POST" id="edit-form">
         <div class="modal-header">
-          <h5 class="modal-title">Editar metadata</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          <h5 class="modal-title" id="editModalTitle">Editar artista y título</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
         </div>
         <div class="modal-body">
           <div class="mb-2">
@@ -202,15 +175,15 @@ function openEditModal(btn) {
           </div>
           <hr>
           <div class="mb-3">
-            <label class="form-label">Artista</label>
+            <label class="form-label" for="edit-artist">Artista</label>
             <input type="text" name="artist" id="edit-artist" class="form-control">
           </div>
           <div class="mb-3">
-            <label class="form-label">Título</label>
+            <label class="form-label" for="edit-title">Título</label>
             <input type="text" name="title" id="edit-title" class="form-control">
           </div>
           <div class="mb-1">
-            <label class="form-label">Versión</label>
+            <label class="form-label" for="edit-version">Versión</label>
             <input type="text" name="version" id="edit-version" class="form-control"
                    placeholder="ej: Original Mix, Remix…">
           </div>
@@ -225,26 +198,26 @@ function openEditModal(btn) {
 </div>
 
 {% else %}
-<div class="alert alert-info">
-  No hay tracks en la cola. Seleccioná tracks desde
-  <a href="/tracks/pending" class="alert-link">Tracks</a> y tocá "Armar cola de descarga".
+<div class="tm-empty">
+  <i class="bi bi-download"></i>
+  <h5>La cola está vacía</h5>
+  <p>Marcá en <strong>Tracks</strong> los temas que querés bajar y tocá «Armar cola de descarga». Después volvés acá y los descargás todos de una.</p>
+  <a href="/tracks/pending?status=pending" class="btn btn-primary btn-sm"><i class="bi bi-music-note-list"></i> Ir a los tracks pendientes</a>
 </div>
 {% endif %}
 
 {# ── Colas anteriores ──────────────────────────────────────────── #}
 {% if batches %}
 <div class="mt-4">
-  <h6 class="text-muted text-uppercase fw-semibold mb-2" style="font-size:0.72rem;letter-spacing:.07em;">Colas anteriores</h6>
+  <div class="tm-section mt-4">Colas anteriores</div>
   <div class="d-flex flex-column gap-2">
     {% for b in batches %}
-    <a href="/auto-download/jobs?batch_id={{ b.batch_id }}"
-       class="text-decoration-none d-block rounded border px-3 py-2 bg-white"
-       style="transition:box-shadow .15s;" onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,.08)'" onmouseout="this.style.boxShadow=''">
+    <a href="/auto-download/jobs?batch_id={{ b.batch_id }}" class="tm-batch">
       <div class="d-flex align-items-center gap-3 flex-wrap">
 
         {# Date + total #}
         <div style="min-width:130px;">
-          <div class="fw-semibold text-dark" style="font-size:.875rem;">
+          <div class="fw-semibold" style="font-size:.875rem;">
             {{ b.started_at.strftime('%d/%m/%Y') if b.started_at else '—' }}
           </div>
           <div class="text-muted" style="font-size:.75rem;">
@@ -255,49 +228,39 @@ function openEditModal(btn) {
         {# Status badges — only show non-zero #}
         <div class="d-flex flex-wrap gap-2 ms-auto">
           {% if b.completed %}
-          <span class="badge rounded-pill px-3 py-2"
-                style="background:#dcfce7;color:#166534;font-size:.8rem;font-weight:600;"
-                onclick="event.preventDefault();location.href='/auto-download/jobs?batch_id={{ b.batch_id }}&status_filter=completed'">
-            ✓ {{ b.completed }} descargados
+          <span class="badge s-downloaded" onclick="event.preventDefault();location.href='/auto-download/jobs?batch_id={{ b.batch_id }}&status_filter=completed'">
+            <i class="bi bi-check-lg"></i> {{ b.completed }} descargados
           </span>
           {% endif %}
           {% if b.not_found %}
-          <span class="badge rounded-pill px-3 py-2"
-                style="background:#f1f5f9;color:#475569;font-size:.8rem;font-weight:600;"
-                onclick="event.preventDefault();location.href='/auto-download/jobs?batch_id={{ b.batch_id }}&status_filter=not_found'">
-            ✕ {{ b.not_found }} no encontrados
+          <span class="badge s-not_found" onclick="event.preventDefault();location.href='/auto-download/jobs?batch_id={{ b.batch_id }}&status_filter=not_found'">
+            {{ b.not_found }} no encontrados
           </span>
           {% endif %}
           {% if b.vinyl_only %}
-          <span class="badge rounded-pill px-3 py-2"
-                style="background:#f3e8ff;color:#6b21a8;font-size:.8rem;font-weight:600;"
-                onclick="event.preventDefault();location.href='/auto-download/jobs?batch_id={{ b.batch_id }}&status_filter=vinyl_only'">
-            💿 {{ b.vinyl_only }} solo vinilo
+          <span class="badge s-vinyl" onclick="event.preventDefault();location.href='/auto-download/jobs?batch_id={{ b.batch_id }}&status_filter=vinyl_only'">
+            {{ b.vinyl_only }} solo vinilo
           </span>
           {% endif %}
           {% if b.bandcamp_only %}
-          <span class="badge rounded-pill px-3 py-2"
-                style="background:#dbeafe;color:#1e40af;font-size:.8rem;font-weight:600;"
-                onclick="event.preventDefault();location.href='/auto-download/jobs?batch_id={{ b.batch_id }}&status_filter=bandcamp_only'">
-            BC {{ b.bandcamp_only }} solo Bandcamp
+          <span class="badge s-bandcamp" onclick="event.preventDefault();location.href='/auto-download/jobs?batch_id={{ b.batch_id }}&status_filter=bandcamp_only'">
+            {{ b.bandcamp_only }} solo Bandcamp
           </span>
           {% endif %}
           {% if b.failed %}
-          <span class="badge rounded-pill px-3 py-2"
-                style="background:#fee2e2;color:#991b1b;font-size:.8rem;font-weight:600;"
-                onclick="event.preventDefault();location.href='/auto-download/jobs?batch_id={{ b.batch_id }}&status_filter=failed'">
-            ⚠ {{ b.failed }} errores
+          <span class="badge s-not_found" onclick="event.preventDefault();location.href='/auto-download/jobs?batch_id={{ b.batch_id }}&status_filter=failed'">
+            <i class="bi bi-exclamation-triangle-fill"></i> {{ b.failed }} errores
           </span>
           {% endif %}
           {% if b.pending or b.in_progress %}
-          <span class="badge rounded-pill px-3 py-2"
-                style="background:#fef9c3;color:#854d0e;font-size:.8rem;font-weight:600;">
-            ⏳ {{ b.pending + b.in_progress }} pendientes
+          <span class="badge s-queued">
+            <i class="bi bi-hourglass-split"></i> {{ b.pending + b.in_progress }} pendientes
           </span>
           {% endif %}
           {% if not b.completed and not b.not_found and not b.vinyl_only and not b.bandcamp_only and not b.failed and not b.pending and not b.in_progress %}
           <span class="text-muted small">Sin resultados</span>
           {% endif %}
+          <i class="bi bi-chevron-right text-muted"></i>
         </div>
 
       </div>

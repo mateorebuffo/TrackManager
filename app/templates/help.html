@@ -31,8 +31,8 @@
 
 <div class="d-flex flex-wrap align-items-end justify-content-between gap-3 mb-4">
   <div>
-    <h4 class="tm-page-title mb-1">Ayuda</h4>
-    <div class="text-muted small">Cómo se usa cada parte de Track Manager, paso a paso.</div>
+    <h1 class="tm-page-title">Ayuda</h1>
+    <p class="tm-page-sub">Cómo se usa cada parte de Track Manager, paso a paso.</p>
   </div>
   <input type="search" id="hp-q" class="form-control form-control-sm hp-search"
          placeholder="Buscar en la ayuda… (ej: duplicado, agente, vinilo)" aria-label="Buscar en la ayuda">
@@ -62,8 +62,8 @@
           <ol>
             <li><strong>Importás</strong> tus likes de SoundCloud y tu playlist de YouTube desde la pantalla <span class="ui">Tracks</span> con los botones de SoundCloud y YouTube.</li>
             <li><strong>Revisás</strong> la lista: descartás lo que no querés y corregís nombres si hace falta. Los repetidos ya vienen marcados.</li>
-            <li><strong>Armás la cola</strong>: seleccionás los tracks y tocás <span class="ui">↗ Armar cola de descarga</span>.</li>
-            <li><strong>Descargás</strong>: en <span class="ui">Cola</span> tocás <span class="ui">⬇ Auto-descargar todo</span> y el agente baja los temas a tu carpeta.</li>
+            <li><strong>Armás la cola</strong>: seleccionás los tracks y tocás <span class="ui">Armar cola de descarga</span>.</li>
+            <li><strong>Descargás</strong>: en <span class="ui">Cola</span> tocás <span class="ui">Auto-descargar todo</span> y el agente baja los temas a tu carpeta.</li>
           </ol>
           <div class="hp-tip">Si es tu primera vez, empezá por <a href="/primeros-pasos">los primeros pasos</a>: ahí se instala el agente y se vinculan las cuentas.</div>
         </div>
@@ -79,10 +79,10 @@
         <div class="hp-body">
           <ol>
             <li>Andá a <span class="ui">Tracks</span>.</li>
-            <li>Tocá el botón naranja de SoundCloud con <span class="ui">↻</span>.</li>
+            <li>Tocá <span class="ui">Importar SoundCloud</span>, arriba a la derecha.</li>
             <li>Esperá a que termine: los temas nuevos aparecen en la pestaña <span class="ui">Pendiente</span>.</li>
           </ol>
-          Si el botón muestra <span class="ui">+</span> en vez de <span class="ui">↻</span>, todavía no vinculaste SoundCloud: se hace desde el agente (ver <a href="#agente">El agente y las cuentas</a>).
+          Si el botón dice <span class="ui">Conectar SoundCloud</span>, todavía no vinculaste SoundCloud: se hace desde el agente (ver <a href="#agente">El agente y las cuentas</a>).
         </div>
       </details>
 
@@ -90,9 +90,9 @@
         <summary>¿Cómo importo desde YouTube?</summary>
         <div class="hp-body">
           <ol>
-            <li>La primera vez, tocá el botón rojo de YouTube con <span class="ui">+</span> y elegí una de tus playlists.</li>
-            <li>Desde ahí, el botón pasa a <span class="ui">↻</span>: tocalo cada vez que quieras traer lo nuevo de esa playlist.</li>
-            <li>Para cambiar de playlist, abrí la flechita al lado del botón y elegí <span class="ui">☰ Elegir playlist…</span>.</li>
+            <li>La primera vez, tocá <span class="ui">Elegir playlist de YouTube</span> y elegí una de tus playlists.</li>
+            <li>Desde ahí, el botón pasa a <span class="ui">Importar YouTube</span>: tocalo cada vez que quieras traer lo nuevo de esa playlist.</li>
+            <li>Para cambiar de playlist, abrí la flechita al lado del botón y elegí <span class="ui">Elegir playlist…</span>.</li>
           </ol>
           <div class="hp-tip">En YouTube se importa desde una <strong>playlist</strong>, no desde los "Me gusta". Lo más práctico es armar una playlist tuya (por ejemplo "Para descargar") y guardar ahí los temas que te gusten, en vez de tocar "Me gusta".</div>
           <div class="hp-tip">Si la playlist es de otro usuario, puede fallar al importar. Lo más seguro es usar una playlist tuya.</div>
@@ -128,11 +128,11 @@
         <div class="hp-body">
           <ul>
             <li><strong>Buscar:</strong> escribí un artista o título en el buscador y apretá Enter.</li>
-            <li><strong>Por plataforma:</strong> tocá el logo de SoundCloud o YouTube para ver solo esos temas. <span class="ui">Todos</span> los vuelve a mostrar.</li>
-            <li><strong>Por fecha:</strong> tocá <span class="ui">📅</span>, elegí <em>Desde</em> y <em>Hasta</em> y tocá <span class="ui">Aplicar</span>.</li>
+            <li><strong>Por plataforma:</strong> tocá el logo de SoundCloud o YouTube para ver solo esos temas. <span class="ui">Todas</span> los vuelve a mostrar.</li>
+            <li><strong>Por fecha:</strong> tocá <span class="ui">Fecha</span>, elegí <em>Desde</em> y <em>Hasta</em> y tocá <span class="ui">Aplicar</span>.</li>
             <li><strong>Ordenar:</strong> con el menú desplegable (por fecha de like, de importación, artista o título), o tocando el nombre de la columna.</li>
           </ul>
-          Los filtros activos aparecen como etiquetas debajo. Cada una tiene una <span class="ui">✕</span> para sacarla, o <span class="ui">✕ Limpiar todo</span> para sacarlas todas.
+          Los filtros activos aparecen como etiquetas debajo. Cada una tiene una cruz para sacarla, o <span class="ui">Limpiar todo</span> para sacarlas todas. También podés buscar en toda tu colección desde el buscador de la barra de arriba.
         </div>
       </details>
 
@@ -140,10 +140,11 @@
         <summary>¿Cómo descarto lo que no quiero?</summary>
         <div class="hp-body">
           <ul>
-            <li><strong>Uno solo:</strong> tocá la <span class="ui">✕</span> roja al final de la fila.</li>
-            <li><strong>Varios:</strong> marcá las casillas de la izquierda y tocá <span class="ui">✕ Descartar</span> arriba de la tabla.</li>
+            <li><strong>Uno solo:</strong> tocá la cruz roja al final de la fila.</li>
+            <li><strong>Varios:</strong> marcá las casillas de la izquierda y tocá <span class="ui">Descartar</span> en la barra oscura que aparece arriba.</li>
           </ul>
-          Lo descartado va a la pestaña <span class="ui">Descartado</span>. Si te arrepentís, buscalo ahí y tocá <span class="ui">↩</span> para devolverlo a pendiente.
+          Al descartar aparece un aviso con <span class="ui">Deshacer</span> por unos segundos. Si ya pasó, lo descartado está en la pestaña <span class="ui">Descartado</span>: buscalo ahí y tocá <span class="ui">Volver a pendiente</span>.
+          <div class="hp-tip"><strong>Atajos de teclado</strong> en la tabla: <span class="ui">J</span> / <span class="ui">K</span> para moverte entre filas, <span class="ui">X</span> para marcar, <span class="ui">D</span> para descartar y <span class="ui">P</span> para escuchar el tema sin salir de la página.</div>
         </div>
       </details>
 
@@ -151,7 +152,7 @@
         <summary>El artista o el título vinieron mal. ¿Cómo los corrijo?</summary>
         <div class="hp-body">
           <ol>
-            <li>Tocá <span class="ui">✎</span> en la fila del tema.</li>
+            <li>Tocá el lápiz (<span class="ui">Editar artista y título</span>) en la fila del tema.</li>
             <li>Corregí <em>Artista</em>, <em>Título</em> o <em>Versión</em> (por ejemplo "Original Mix" o "Remix"). Abajo ves el título original, tal como venía de la plataforma.</li>
             <li>Tocá <span class="ui">Guardar</span>.</li>
           </ol>
@@ -176,9 +177,9 @@
         <div class="hp-body">
           <ol>
             <li>En <span class="ui">Tracks</span>, pestaña <span class="ui">Pendiente</span>, marcá las casillas de los temas que querés. La casilla de arriba de todo marca todos.</li>
-            <li>Tocá <span class="ui">↗ Armar cola de descarga</span>.</li>
+            <li>Tocá <span class="ui">Armar cola de descarga</span> en la barra que aparece al marcar.</li>
             <li>Vas a la pantalla <span class="ui">Cola</span>, donde ves todo lo que está listo para bajar. El número al lado de <span class="ui">Cola</span>, arriba, te dice cuántos hay.</li>
-            <li>Con el agente abierto, tocá <span class="ui">⬇ Auto-descargar todo</span>.</li>
+            <li>Con el agente abierto, tocá <span class="ui">Auto-descargar todo</span>. El puntito al lado de «Agente», arriba a la derecha, te dice si está conectado.</li>
           </ol>
           Vas a ver el progreso en vivo. Cuando termina, aparece un resumen con cuántos se descargaron y cuáles no se encontraron.
         </div>
@@ -195,8 +196,8 @@
         <summary>Me equivoqué al armar la cola. ¿Cómo la deshago?</summary>
         <div class="hp-body">
           <ul>
-            <li><strong>Un tema:</strong> en <span class="ui">Tracks</span>, pestaña <span class="ui">En cola</span>, tocá <span class="ui">↩</span> en esa fila.</li>
-            <li><strong>Toda la cola:</strong> en <span class="ui">Cola</span>, tocá <span class="ui">↩ Vaciar cola</span>. Todo vuelve a pendiente y no se pierde nada.</li>
+            <li><strong>Un tema:</strong> en <span class="ui">Cola</span>, tocá la cruz al final de esa fila.</li>
+            <li><strong>Toda la cola:</strong> en <span class="ui">Cola</span>, tocá <span class="ui">Vaciar cola</span>. Todo vuelve a pendiente y no se pierde nada.</li>
           </ul>
           Si la descarga ya arrancó, en la pantalla de progreso podés tocar <span class="ui">Cancelar cola</span> para frenar lo que todavía no se bajó.
         </div>
@@ -205,7 +206,7 @@
       <details>
         <summary>¿Puedo ver descargas anteriores?</summary>
         <div class="hp-body">
-          Sí. Abajo de todo en <span class="ui">Cola</span> está <em>Colas anteriores</em>: cada tarjeta es una tanda de descarga con sus números. Tocala para ver el detalle, o tocá un número (por ejemplo "no encontrados") para ver solo esos temas.
+          Sí. En <span class="ui">Cola</span>, la pestaña <span class="ui">Última descarga e historial</span> muestra cómo le fue a la última tanda. Abajo de la cola están las <em>Colas anteriores</em>: tocá una para ver el detalle, o tocá un número (por ejemplo "no encontrados") para ver solo esos temas.
         </div>
       </details>
     </section>
@@ -218,7 +219,7 @@
         <summary>¿Por qué un tema quedó "No encontrado", "Solo vinilo" o "Solo Bandcamp"?</summary>
         <div class="hp-body">
           <ul>
-            <li><span class="badge s-not_found">No encontrado</span> no apareció en ninguna de las plataformas de descarga. A veces es un nombre mal escrito: probá corregirlo con <span class="ui">✎</span> y reintentá.</li>
+            <li><span class="badge s-not_found">No encontrado</span> no apareció en ninguna de las plataformas de descarga. A veces es un nombre mal escrito: probá corregirlo con el lápiz y reintentá.</li>
             <li><span class="badge s-vinyl">Solo vinilo</span> el tema existe, pero solo salió en vinilo y no hay archivo digital para bajar.</li>
             <li><span class="badge s-bandcamp">Solo Bandcamp</span> está a la venta en Bandcamp, que no permite descarga automática. Si lo querés, lo comprás ahí.</li>
           </ul>
@@ -228,15 +229,15 @@
       <details>
         <summary>¿Cómo lo busco a mano?</summary>
         <div class="hp-body">
-          En el resumen de la descarga, cada tema no encontrado tiene botones de búsqueda: <span class="ui">Muzpa</span>, <span class="ui">Deemix</span>, <span class="ui">Bandcamp</span> y <span class="ui">Discogs</span> abren la búsqueda de ese tema en cada sitio, y <span class="ui">⧉ SS</span> copia el nombre listo para pegar en Soulseek. Los botones que ya usaste quedan marcados, para que no busques dos veces en el mismo lugar.
-          <div class="hp-tip">Si lo conseguiste por tu cuenta, tocá <span class="ui">✓</span> para marcarlo como descargado y que no te lo vuelva a pedir.</div>
+          En el resumen de la descarga, cada tema no encontrado tiene botones de búsqueda: <span class="ui">Muzpa</span>, <span class="ui">Deemix</span>, <span class="ui">Bandcamp</span> y <span class="ui">Discogs</span> abren la búsqueda de ese tema en cada sitio, y <span class="ui">Soulseek</span> copia el nombre listo para pegar ahí. Los botones que ya usaste quedan marcados, para que no busques dos veces en el mismo lugar.
+          <div class="hp-tip">Si lo conseguiste por tu cuenta, tocá el tilde verde para marcarlo como descargado y que no te lo vuelva a pedir.</div>
         </div>
       </details>
 
       <details>
         <summary>¿Cómo reintento un tema?</summary>
         <div class="hp-body">
-          En <span class="ui">Tracks</span>, buscalo en su pestaña (<em>No encontrado</em>, <em>Solo vinilo</em>, etc.) y tocá <span class="ui">↺</span> para mandarlo de nuevo a la cola. Para varios a la vez, marcá las casillas y tocá <span class="ui">↗ Armar cola de descarga</span>. Sirve sobre todo después de corregir el nombre, o si pasó un tiempo y el tema salió en digital.
+          En <span class="ui">Tracks</span>, buscalo en su pestaña (<em>No encontrado</em>, <em>Solo vinilo</em>, etc.) y tocá <span class="ui">Volver a la cola de descarga</span> para mandarlo de nuevo. Para varios a la vez, marcá las casillas y tocá <span class="ui">Armar cola de descarga</span>. Sirve sobre todo después de corregir el nombre, o si pasó un tiempo y el tema salió en digital.
         </div>
       </details>
     </section>
@@ -259,7 +260,7 @@
           <ol>
             <li>Bajalo desde <a href="/primeros-pasos">los primeros pasos</a> (hay versión para Windows y para Mac).</li>
             <li>Abrilo. La primera vez se abre solo la ventana de configuración.</li>
-            <li>Pegá tu <strong>token</strong>: lo copiás desde los primeros pasos o desde <span class="ui">Config</span>, con <span class="ui">Copiar</span>. Si no tenés uno, tocá <span class="ui">Generar token</span>.</li>
+            <li>Pegá tu <strong>token</strong>: lo copiás desde los primeros pasos o desde <span class="ui">Configuración</span>, con <span class="ui">Copiar</span>. Si no tenés uno, tocá <span class="ui">Generar token</span>.</li>
             <li>Elegí la <strong>carpeta de descarga</strong> y cómo organizarla (todo junto o por fecha).</li>
             <li>Tocá <span class="ui">Iniciar agente →</span>.</li>
           </ol>
@@ -283,7 +284,7 @@
       <details>
         <summary>¿Cambié de computadora o perdí el token?</summary>
         <div class="hp-body">
-          Bajá el agente en la computadora nueva y configuralo de nuevo con tu token, que está en <span class="ui">Config</span>. Si generás un token nuevo, el anterior deja de funcionar: acordate de pegar el nuevo en el agente.
+          Bajá el agente en la computadora nueva y configuralo de nuevo con tu token, que está en <span class="ui">Configuración</span>. Si generás un token nuevo, el anterior deja de funcionar: acordate de pegar el nuevo en el agente.
         </div>
       </details>
     </section>
@@ -301,7 +302,7 @@
             <tr><td><span class="badge s-vinyl">Solo vinilo</span></td><td>Existe, pero no hay versión digital.</td></tr>
             <tr><td><span class="badge s-bandcamp">Solo Bandcamp</span></td><td>Solo se consigue comprándolo en Bandcamp.</td></tr>
             <tr><td><span class="badge s-set">Set</span></td><td>Dura más de 35 minutos: es un set o mix, no se descarga.</td></tr>
-            <tr><td><span class="badge s-discarded">Descartado</span></td><td>Lo sacaste vos. Se puede recuperar con <span class="ui">↩</span>.</td></tr>
+            <tr><td><span class="badge s-discarded">Descartado</span></td><td>Lo sacaste vos. Se puede recuperar con <span class="ui">Volver a pendiente</span>.</td></tr>
           </tbody>
         </table>
       </div>
@@ -324,7 +325,7 @@
       <details>
         <summary>Toqué "Auto-descargar" y no baja nada</summary>
         <div class="hp-body">
-          Casi siempre es que <strong>el agente está cerrado</strong>. Abrilo y las descargas arrancan solas. Si sigue sin bajar, revisá en el agente que las cuentas estén en verde y que el token sea el mismo que figura en <span class="ui">Config</span>.
+          Casi siempre es que <strong>el agente está cerrado</strong>: fijate el puntito al lado de «Agente», arriba a la derecha. Abrilo y las descargas arrancan solas. Si sigue sin bajar, revisá en el agente que las cuentas estén en verde y que el token sea el mismo que figura en <span class="ui">Configuración</span>.
         </div>
       </details>
 
@@ -343,7 +344,7 @@
         <summary>Algo anda mal. ¿Cómo lo reporto?</summary>
         <div class="hp-body">
           <ul>
-            <li><strong>Problema con un tema puntual:</strong> tocá <span class="ui">🔔</span> en su fila. Ves su historial y podés reportarlo desde ahí.</li>
+            <li><strong>Problema con un tema puntual:</strong> tocá el relojito (<span class="ui">Historial</span>) en su fila. Ves su historial y podés reportarlo desde ahí.</li>
             <li><strong>Cualquier otra cosa:</strong> andá a <span class="ui">Reportar</span> en el menú de arriba, describí qué pasó y tocá <span class="ui">Enviar</span>.</li>
           </ul>
           Cuanto más concreto (qué tocaste, qué esperabas y qué pasó), más rápido se arregla.

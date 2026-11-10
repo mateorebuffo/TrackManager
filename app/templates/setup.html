@@ -88,16 +88,16 @@
     {% endif %}
     <form method="POST" action="/setup">
       <div class="mb-form">
-        <label class="auth-label">Usuario</label>
-        <input type="text" name="username" class="auth-input" autofocus required autocomplete="username">
+        <label class="auth-label" for="setup-username">Usuario</label>
+        <input type="text" name="username" id="setup-username" class="auth-input" autofocus required autocomplete="username">
       </div>
       <div class="mb-form">
-        <label class="auth-label">Contraseña</label>
-        <input type="password" name="password" class="auth-input" required autocomplete="new-password">
+        <label class="auth-label" for="setup-password">Contraseña</label>
+        <input type="password" name="password" id="setup-password" class="auth-input" required autocomplete="new-password">
       </div>
       <div class="mb-form-lg">
-        <label class="auth-label">Repetir contraseña</label>
-        <input type="password" name="password2" class="auth-input" required autocomplete="new-password">
+        <label class="auth-label" for="setup-password2">Repetir contraseña</label>
+        <input type="password" name="password2" id="setup-password2" class="auth-input" required autocomplete="new-password">
       </div>
       <button type="submit" class="auth-btn">Crear administrador</button>
     </form>

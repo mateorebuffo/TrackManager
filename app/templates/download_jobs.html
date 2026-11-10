@@ -1,28 +1,34 @@
 {% extends "base.html" %}
-{% block title %}Auto-descarga{% endblock %}
+{% block title %}Última descarga — Track Manager{% endblock %}
 {% block content %}
-<div class="container-fluid py-4" style="max-width:1200px;">
+<div>
 
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <div class="d-flex align-items-center gap-3">
-      <h4 class="mb-0">Auto-descarga</h4>
-      {% if batch_id and batch_id != latest_batch_id %}
-      <span class="badge bg-secondary">Cola #{{ batch_id }}</span>
-      <a href="/auto-download/jobs" class="btn btn-outline-secondary btn-sm">Ver última</a>
-      {% endif %}
+  <div class="d-flex align-items-end justify-content-between mb-3 gap-3 flex-wrap">
+    <div>
+      <h1 class="tm-page-title">Descargas
+        {% if batch_id and batch_id != latest_batch_id %}<span class="badge s-pending align-middle" style="font-family:var(--tm-body);font-size:.72rem;">Cola #{{ batch_id }}</span>{% endif %}
+      </h1>
+      <p class="tm-page-sub">Cómo le fue a la última tanda, y qué hacer con lo que no se encontró.</p>
     </div>
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 align-items-center">
+      {% if batch_id and batch_id != latest_batch_id %}
+      <a href="/auto-download/jobs" class="btn btn-outline-secondary btn-sm">Ver la última</a>
+      {% endif %}
       <button id="btn-cancel-queue" class="btn btn-outline-danger btn-sm d-none" onclick="cancelAllPending()">
-        Cancelar cola (<span id="cancel-queue-count">0</span>)
+        <i class="bi bi-stop-circle"></i> Cancelar cola (<span id="cancel-queue-count">0</span>)
       </button>
-      <a href="/tracks/download-queue" class="btn btn-outline-secondary btn-sm">← Cola</a>
+      {% if not token %}
+      <a href="/settings#agente" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pc-display"></i> Configurar agente</a>
+      {% endif %}
     </div>
   </div>
 
+  {% with active='jobs' %}{% include "_download_tabs.html" %}{% endwith %}
+
   {% if enqueued %}
   <div class="alert alert-success alert-dismissible fade show" id="enqueued-alert" role="alert">
-    ✅ <strong>{{ enqueued }} track(s)</strong> agregados a la cola. El agente los descargará automáticamente.
-    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    <i class="bi bi-check-circle-fill me-1"></i> <strong>{{ enqueued }} track{{ 's' if enqueued != 1 else '' }}</strong> agregados a la cola. El agente los va a descargar solo.
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
   </div>
   {% endif %}
 
@@ -34,7 +40,7 @@
   {# ── Resumen / tarjetas clickeables ─────────────────────────────── #}
   {% set total_done = completed_count + not_found_count + vinyl_only_count + bandcamp_only_count + failed_count %}
   <div class="card mb-4" id="summary-card" {% if total_done == 0 %}style="display:none"{% endif %}>
-    <div class="card-header fw-semibold">Resumen de la descarga</div>
+    <div class="card-header">Resumen de la descarga</div>
     <div class="card-body pb-2">
       <div class="row g-3 text-center" id="summary-row">
 
@@ -87,7 +93,7 @@
   } %}
   <div class="d-flex justify-content-between align-items-center mb-3">
     <span class="fw-semibold">{{ filter_label.get(active_filter, active_filter) }} — {{ filter_rows | length }} tracks</span>
-    <a href="?batch_id={{ batch_id }}" class="btn btn-outline-secondary btn-sm">✕ Limpiar filtro</a>
+    <a href="?batch_id={{ batch_id }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-x-lg"></i> Limpiar filtro</a>
   </div>
 
   <div class="table-responsive mb-4">
@@ -108,14 +114,14 @@
         <td>
           <div class="d-flex align-items-center gap-2">
             {% if row.nt_id %}
-              <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0" title="Editar metadata"
+              <button type="button" class="btn btn-outline-secondary btn-sm btn-icon flex-shrink-0" aria-label="Editar artista y título" data-bs-toggle="tooltip" data-bs-title="Editar artista y título"
                       data-nt-id="{{ row.nt_id }}"
                       data-artist="{{ row.artist }}"
                       data-title="{{ row.title_only }}"
                       data-version="{{ row.version or '' }}"
                       data-channel="{{ row.channel }}"
                       data-raw-title="{{ row.raw_title }}"
-                      onclick="openEditModal(this)" style="padding:0.2rem 0.45rem;line-height:1;">✎</button>
+                      onclick="openEditModal(this)"><i class="bi bi-pencil"></i></button>
             {% endif %}
             {% if row.source_url and row.source_url != "#" %}
               <a href="{{ row.source_url }}" target="_blank" rel="noopener"
@@ -145,7 +151,7 @@
         <td class="action-btns" style="white-space:nowrap;">
           <div class="d-flex flex-nowrap gap-1">
             <form method="POST" action="/auto-download/{{ row.review_id }}/form" class="d-inline">
-              <button class="btn btn-primary btn-sm" title="Buscar y descargar automáticamente">⬇ Auto</button>
+              <button class="btn btn-primary btn-sm" data-bs-toggle="tooltip" data-bs-title="Buscar y descargar automáticamente"><i class="bi bi-download"></i> Auto</button>
             </form>
             <a href="{{ row.url_muzpa }}" target="_blank" rel="noopener"
                class="btn btn-outline-secondary btn-sm search-btn"
@@ -162,34 +168,32 @@
             <button type="button" class="btn btn-outline-secondary btn-sm search-btn"
                     data-query="{{ row.search_query }}"
                     data-key="soulseek-{{ row.review_id }}"
-                    onclick="copySoulseek(this)" title="Copiar para Soulseek">⧉ SS</button>
+                    onclick="copySoulseek(this)" data-bs-toggle="tooltip" data-bs-title="Copiar el nombre para pegar en Soulseek"><i class="bi bi-clipboard"></i> Soulseek</button>
           </div>
         </td>
         <td class="action-btns" style="white-space:nowrap;">
           <div class="d-flex flex-nowrap gap-1">
             <form method="POST" action="/review/{{ row.review_id }}/downloaded/form">
-              <button class="btn btn-success btn-sm"
-                      data-toast="✓ Descargado" data-toast-type="success">✓</button>
+              <button class="btn btn-success btn-sm btn-icon" aria-label="Marcar como descargado" data-bs-toggle="tooltip" data-bs-title="Lo conseguí: marcar como descargado"
+                      data-toast="Marcado como descargado" data-toast-type="success"><i class="bi bi-check-lg"></i></button>
             </form>
             <form method="POST" action="/review/{{ row.review_id }}/not-found/form">
-              <button class="btn btn-outline-secondary btn-sm"
-                      data-toast="Marcado como no encontrado" data-toast-type="info"
-                      title="No se encuentra">✕</button>
+              <button class="btn btn-outline-secondary btn-sm btn-icon" aria-label="Marcar como no encontrado" data-bs-toggle="tooltip" data-bs-title="No se encuentra"
+                      data-toast="Marcado como no encontrado" data-toast-type="info"><i class="bi bi-x-lg"></i></button>
             </form>
             <form method="POST" action="/review/{{ row.review_id }}/vinyl-only/form">
               <button class="btn btn-outline-secondary btn-sm" style="background:#fef3c7;border-color:#fde68a;color:#92400e;"
                       data-toast="Marcado como solo vinilo" data-toast-type="warning"
-                      title="Solo vinilo">💿</button>
+                      aria-label="Marcar como solo vinilo" data-bs-toggle="tooltip" data-bs-title="Solo vinilo">LP</button>
             </form>
             <form method="POST" action="/review/{{ row.review_id }}/bandcamp-only/form">
               <button class="btn btn-outline-secondary btn-sm" style="background:#dbeafe;border-color:#bfdbfe;color:#1e40af;"
                       data-toast="Marcado como solo Bandcamp" data-toast-type="info"
-                      title="Solo Bandcamp">BC</button>
+                      aria-label="Marcar como solo Bandcamp" data-bs-toggle="tooltip" data-bs-title="Solo Bandcamp">BC</button>
             </form>
             <form method="POST" action="/review/{{ row.review_id }}/requeue/form">
-              <button class="btn btn-outline-secondary btn-sm"
-                      data-toast="Vuelto a pendiente" data-toast-type="info"
-                      title="Quitar de la cola">↩</button>
+              <button class="btn btn-outline-secondary btn-sm btn-icon" aria-label="Volver a pendiente" data-bs-toggle="tooltip" data-bs-title="Volver a pendiente"
+                      data-toast="Vuelto a pendiente" data-toast-type="info"><i class="bi bi-arrow-counterclockwise"></i></button>
             </form>
           </div>
         </td>
@@ -200,30 +204,19 @@
   </div>
   {% endif %}
 
-  {# ── Token ─────────────────────────────────────────────────────── #}
-  <div class="card mb-4">
-    <div class="card-body py-3 d-flex align-items-center gap-3 flex-wrap">
-      <span class="text-muted small fw-semibold" style="white-space:nowrap;">Token del agente</span>
-      {% if token %}
-      <div class="input-group input-group-sm flex-grow-1" style="max-width:420px;">
-        <input type="password" class="form-control font-monospace" id="token-field" value="{{ token }}" readonly>
-        <button class="btn btn-outline-secondary" type="button" onclick="toggleToken()">👁</button>
-        <button class="btn btn-outline-secondary" type="button" onclick="copyToken()">Copiar</button>
-      </div>
-      <div class="text-success small d-none" id="copy-confirm">¡Copiado!</div>
-      {% else %}
-      <span class="text-muted small">Sin token —</span>
-      {% endif %}
-      <a href="/settings#agente" class="btn btn-outline-secondary btn-sm ms-auto">⚙️ Configurar agente</a>
-    </div>
+  {% if not jobs and not active_filter %}
+  <div class="tm-empty">
+    <i class="bi bi-clock-history"></i>
+    <h5>Todavía no hubo descargas</h5>
+    <p>Cuando mandes una cola a descargar, acá vas a ver cómo le fue a cada track y qué hacer con los que no se encontraron.</p>
+    <a href="/tracks/download-queue" class="btn btn-primary btn-sm"><i class="bi bi-list-check"></i> Ver la cola</a>
   </div>
+  {% endif %}
 
   {# ── Historial (solo cuando no hay filtro activo) ────────────────── #}
   {% if not active_filter and jobs %}
   <div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-      <span class="fw-semibold">Historial</span>
-    </div>
+    <div class="card-header">Historial de esta cola</div>
     <div class="table-responsive">
       <table class="table table-sm table-hover mb-0">
         <thead class="table-light">
@@ -242,22 +235,22 @@
         </thead>
         <tbody id="historial-tbody" data-page="0">
           {% set badge = {
-            "pending":       ("secondary", "Pendiente"),
-            "in_progress":   ("warning",   "Descargando…"),
-            "completed":     ("success",   "Completado"),
-            "not_found":     ("secondary", "No encontrado"),
-            "vinyl_only":    ("info",      "Solo vinilo"),
-            "bandcamp_only": ("primary",   "Solo Bandcamp"),
-            "failed":        ("danger",    "Error"),
-            "cancelled":     ("secondary", "Cancelado"),
+            "pending":       ("s-pending",    "Pendiente"),
+            "in_progress":   ("s-queued",     "Descargando…"),
+            "completed":     ("s-downloaded", "Descargado"),
+            "not_found":     ("s-not_found",  "No encontrado"),
+            "vinyl_only":    ("s-vinyl",      "Solo vinilo"),
+            "bandcamp_only": ("s-bandcamp",   "Solo Bandcamp"),
+            "failed":        ("s-not_found",  "Error"),
+            "cancelled":     ("s-discarded",  "Cancelado"),
           } %}
           {% for job in jobs %}
           <tr>
             <td style="max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
                 title="{{ job.query }}">{{ job.query }}</td>
             <td>
-              {% set b = badge.get(job.status, ("secondary", job.status)) %}
-              <span class="badge bg-{{ b[0] }}">{{ b[1] }}</span>
+              {% set b = badge.get(job.status, ("s-pending", job.status)) %}
+              <span class="badge {{ b[0] }}">{{ b[1] }}</span>
             </td>
             <td class="text-muted small">
               {{ job.updated_at.strftime('%d/%m %H:%M') if job.updated_at else '—' }}
@@ -269,8 +262,8 @@
       <div id="historial-pagination" class="d-flex align-items-center justify-content-between px-3 py-2 border-top" style="font-size:0.82rem;display:none!important;">
         <span id="pagination-info" class="text-muted"></span>
         <div class="d-flex gap-2">
-          <button class="btn btn-outline-secondary btn-sm" id="btn-prev" onclick="changePage(-1)">← Anterior</button>
-          <button class="btn btn-outline-secondary btn-sm" id="btn-next" onclick="changePage(1)">Siguiente →</button>
+          <button class="btn btn-outline-secondary btn-sm" id="btn-prev" onclick="changePage(-1)"><i class="bi bi-chevron-left"></i> Anterior</button>
+          <button class="btn btn-outline-secondary btn-sm" id="btn-next" onclick="changePage(1)">Siguiente <i class="bi bi-chevron-right"></i></button>
         </div>
       </div>
     </div>
@@ -281,7 +274,7 @@
 
 <script>
 async function cancelAllPending() {
-  if (!confirm('¿Cancelar todos los jobs pendientes y en progreso?')) return;
+  if (!(await tmConfirm('Se frenan las descargas que todavía no empezaron. Lo que ya bajó se mantiene.', {title:'¿Cancelar la cola?', label:'Cancelar descargas', danger:true}))) return;
   try {
     const res = await fetch('/api/download-jobs/cancel-all-pending', {method: 'POST'});
     if (!res.ok) {
@@ -295,16 +288,6 @@ async function cancelAllPending() {
   } catch (err) {
     showError('Error al cancelar la cola', err.message || 'No se pudo conectar con el servidor.');
   }
-}
-
-function toggleToken() {
-  const f = document.getElementById('token-field');
-  f.type = f.type === 'password' ? 'text' : 'password';
-}
-function copyToken() {
-  navigator.clipboard.writeText(document.getElementById('token-field').value);
-  document.getElementById('copy-confirm').classList.remove('d-none');
-  setTimeout(() => document.getElementById('copy-confirm').classList.add('d-none'), 2000);
 }
 
 function filterHistorial(q) {
@@ -354,13 +337,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 (function() {
   const BADGE = {
-    pending:       ['secondary', 'Pendiente'],
-    in_progress:   ['warning',   'Descargando…'],
-    completed:     ['success',   'Completado'],
-    not_found:     ['secondary', 'No encontrado'],
-    vinyl_only:    ['info',      'Solo vinilo'],
-    bandcamp_only: ['primary',   'Solo Bandcamp'],
-    failed:        ['danger',    'Error'],
+    pending:       ['s-pending',    'Pendiente'],
+    in_progress:   ['s-queued',     'Descargando…'],
+    completed:     ['s-downloaded', 'Descargado'],
+    not_found:     ['s-not_found',  'No encontrado'],
+    vinyl_only:    ['s-vinyl',      'Solo vinilo'],
+    bandcamp_only: ['s-bandcamp',   'Solo Bandcamp'],
+    failed:        ['s-not_found',  'Error'],
+    cancelled:     ['s-discarded',  'Cancelado'],
   };
 
   const PAGE_SIZE = 50;
@@ -389,10 +373,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const page = filtered.slice(_currentPage * PAGE_SIZE, (_currentPage + 1) * PAGE_SIZE);
 
     tbody.innerHTML = page.map(j => {
-      const [cls, lbl] = BADGE[j.status] || ['secondary', j.status];
+      const [cls, lbl] = BADGE[j.status] || ['s-pending', j.status];
       return `<tr>
         <td style="max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${j.query}">${j.query}</td>
-        <td><span class="badge bg-${cls}">${lbl}</span></td>
+        <td><span class="badge ${cls}">${lbl}</span></td>
         <td class="text-muted small">${j.updated_at}</td>
       </tr>`;
     }).join('');
@@ -433,19 +417,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (d.in_progress > 0) {
           alertEl.innerHTML = `<div class="alert alert-warning d-flex align-items-center gap-2 mb-3">
             <div class="spinner-border spinner-border-sm" role="status"></div>
-            El agente está descargando <strong>${d.in_progress}</strong> track(s) ahora mismo.
+            El agente está descargando <strong>${d.in_progress}</strong> track${d.in_progress !== 1 ? 's' : ''} ahora mismo.
             ${d.pending > 0 ? `<span class="ms-1">· ${d.pending} en cola.</span>` : ''}
           </div>`;
         } else if (d.pending > 0) {
           alertEl.innerHTML = `<div class="alert alert-info mb-3">
-            ⏳ <strong>${d.pending}</strong> track(s) esperando. Asegurate de que el agente esté corriendo.
+            <i class="bi bi-hourglass-split me-1"></i> <strong>${d.pending}</strong> track${d.pending !== 1 ? 's' : ''} esperando. Asegurate de que el agente esté abierto.
           </div>`;
         } else {
           alertEl.innerHTML = '';
           if (_agentWasActive && enqueuedAlert && enqueuedAlert.classList.contains('show')) {
             enqueuedAlert.querySelector('button')?.remove();
             enqueuedAlert.className = 'alert alert-success fade show mb-4';
-            enqueuedAlert.innerHTML = `✅ <strong>El agente terminó su trabajo.</strong> Todos los tracks fueron procesados. <a href="?" class="alert-link ms-2">Ver resumen</a>`;
+            enqueuedAlert.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> <strong>El agente terminó.</strong> Todos los tracks fueron procesados. <a href="?" class="alert-link ms-2">Ver resumen</a>`;
           }
         }
 
@@ -499,8 +483,8 @@ document.addEventListener('DOMContentLoaded', () => {
     <div class="modal-content">
       <form method="POST" id="edit-form">
         <div class="modal-header">
-          <h5 class="modal-title">Editar metadata</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          <h5 class="modal-title">Editar artista y título</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
         </div>
         <div class="modal-body">
           <div class="mb-2">

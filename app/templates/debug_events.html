@@ -1,14 +1,15 @@
 {% extends "base.html" %}
-{% block title %}App Events — Track Manager{% endblock %}
+{% block title %}Logs — Track Manager{% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center gap-3 mb-4">
-  <h1 class="tm-page-title mb-0">App Events</h1>
-  <form method="POST" action="/debug/cleanup" class="mb-0 ms-auto">
-    <button type="submit" class="btn btn-sm btn-outline-danger"
-            onclick="return confirm('Eliminar eventos expirados según política de retención?')">
-      Limpiar expirados
-    </button>
+<div class="d-flex align-items-end gap-3 mb-4 flex-wrap">
+  <div>
+    <h1 class="tm-page-title">Logs</h1>
+    <p class="tm-page-sub">Eventos del sistema. Retención: info 30 días · warning 60 · error 180.</p>
+  </div>
+  <form method="POST" action="/debug/cleanup" class="mb-0 ms-auto"
+        onsubmit="return confirmSubmit(this, 'Se borran los eventos que ya pasaron su tiempo de retención.', {title: '¿Limpiar expirados?', label: 'Limpiar', danger: true})">
+    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash3"></i> Limpiar expirados</button>
   </form>
 </div>
 
@@ -98,11 +99,8 @@
     </table>
   </div>
 </div>
-<p class="text-muted mt-2" style="font-size:0.78rem">
-  Mostrando {{ events | length }} evento(s).
-  Política de retención: info 30d · warning 60d · error 180d
-</p>
+<p class="text-muted mt-2" style="font-size:0.78rem">Mostrando {{ events | length }} evento{{ 's' if events | length != 1 else '' }}.</p>
 {% else %}
-<div class="card card-body text-muted text-center py-4">No hay eventos registrados.</div>
+<div class="tm-empty"><i class="bi bi-journal-text"></i><h5>No hay eventos</h5><p>Con estos filtros no se registró nada todavía.</p></div>
 {% endif %}
 {% endblock %}

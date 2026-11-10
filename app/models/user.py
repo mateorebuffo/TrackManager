@@ -18,5 +18,14 @@ class User(Base):
 
     settings = relationship("UserSettings", back_populates="user", uselist=False)
 
+    @property
+    def agent_online(self) -> bool:
+        """Mismo criterio que la analítica (health.AGENT_ONLINE); lo usa el indicador de la nav."""
+        from datetime import timedelta
+        if not self.agent_seen_at:
+            return False
+        seen = self.agent_seen_at if self.agent_seen_at.tzinfo else self.agent_seen_at.replace(tzinfo=timezone.utc)
+        return datetime.now(timezone.utc) - seen <= timedelta(minutes=2)
+
     def __repr__(self) -> str:
         return f"<User id={self.id} username={self.username!r} admin={self.is_admin}>"

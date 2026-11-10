@@ -18,12 +18,14 @@
 
 {% set LABELS = {"ok": "Funciona", "con_fallas": "Con fallas", "caido": "Caído", "sin_datos": "Sin datos"} %}
 
-<div class="d-flex align-items-center gap-3 mb-2">
-  <h1 class="tm-page-title mb-0">Analítica</h1>
-  <span class="hc-meta">Última prueba de servicios: {{ last_run }}</span>
+<div class="d-flex align-items-end gap-3 mb-2 flex-wrap">
+  <div>
+    <h1 class="tm-page-title">Analítica</h1>
+    <p class="tm-page-sub">Salud de los servicios y qué alumnos necesitan una mano. Última prueba: {{ last_run }}.</p>
+  </div>
   <form method="POST" action="/analitica/probar" class="mb-0 ms-auto"
-        onsubmit="showLoading('Probando servicios… puede tardar unos segundos')">
-    <button type="submit" class="btn btn-sm btn-primary">↻ Probar servicios ahora</button>
+        onsubmit="showLoading('Probando servicios…', 'Puede tardar unos segundos.')">
+    <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-arrow-clockwise"></i> Probar servicios ahora</button>
   </form>
 </div>
 
@@ -36,25 +38,26 @@
 <!-- ── A. Salud del sistema ─────────────────────────────────────────────── -->
 <div class="hc-section">Salud del sistema</div>
 
+{# Primero lo caído, después lo que falla, al final lo que anda. #}
 <div class="row g-3">
-  {% for s in services %}
-  <div class="col-12 col-md-6 col-xl">
+  {% for st in ["caido", "con_fallas", "sin_datos", "ok"] %}{% for s in services if s.status == st %}
+  <div class="col-12 col-md-6 col-xl-4 col-xxl">
     <div class="card hc-card hc-{{ s.status }}">
       <div class="card-body">
-        <div class="d-flex align-items-center gap-2 mb-1">
+        <div class="d-flex align-items-center gap-2">
           <span class="hc-dot"></span>
-          <strong>{{ s.name }}</strong>
-          <span class="hc-label ms-auto">{{ LABELS[s.status] }}</span>
+          <strong style="white-space:nowrap;">{{ s.name }}</strong>
         </div>
+        <div class="hc-label mb-1">{{ LABELS[s.status] }}</div>
         <div style="font-size:.8rem">{{ s.detail }}</div>
         {% for sig in s.signals %}
-          <div style="font-size:.75rem" class="text-warning-emphasis mt-1">⚠ {{ sig }}</div>
+          <div style="font-size:.75rem" class="text-warning-emphasis mt-1"><i class="bi bi-exclamation-triangle-fill"></i> {{ sig }}</div>
         {% endfor %}
         <div class="hc-meta mt-2">Probado {{ s.tested }} · funcionó por última vez {{ s.worked }}</div>
       </div>
     </div>
   </div>
-  {% endfor %}
+  {% endfor %}{% endfor %}
 </div>
 
 <div class="row g-3 mt-1">
@@ -157,7 +160,7 @@
     <div class="card h-100">
       <div class="card-header d-flex">
         Reportes de los alumnos
-        <a href="/debug/reports" class="ms-auto text-decoration-none" style="font-size:.8rem">Ver todos →</a>
+        <a href="/debug/reports" class="ms-auto text-decoration-none" style="font-size:.8rem;text-transform:none;letter-spacing:0;">Ver todos <i class="bi bi-arrow-right"></i></a>
       </div>
       <div class="card-body">
         <div class="d-flex gap-4 mb-3">

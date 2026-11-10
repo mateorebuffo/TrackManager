@@ -18,9 +18,9 @@
 </style>
 
 <div class="am">
-  <a href="javascript:history.back()" class="btn btn-link btn-sm p-0 text-muted mb-2">← Volver</a>
-  <h4 class="tm-page-title mb-1">Agente para Mac</h4>
-  <p class="text-muted mb-0">Hay dos versiones, según el procesador de tu Mac. Si no sabés cuál tenés, mirá el recuadro de abajo: se averigua en 10 segundos.</p>
+  <a href="javascript:history.back()" class="btn btn-link btn-sm p-0 text-muted mb-2"><i class="bi bi-arrow-left"></i> Volver</a>
+  <h1 class="tm-page-title">Agente para Mac</h1>
+  <p class="tm-page-sub">Hay dos versiones, según el procesador de tu Mac. Si no sabés cuál tenés, mirá el recuadro de abajo: se averigua en 10 segundos.</p>
 
   {% if agent_mac_arm or agent_mac_intel %}
   <div class="am-cards">
@@ -31,7 +31,7 @@
         Para Macs con chip <em>M1, M2, M3, M4</em> o posterior.
         Son casi todas las Mac vendidas desde fines de 2020.
       </div>
-      <a href="/api/download-agent?os=mac-arm" class="btn btn-primary">⬇ Descargar para Apple Silicon</a>
+      <a href="/api/download-agent?os=mac-arm" class="btn btn-primary"><i class="bi bi-download"></i> Descargar para Apple Silicon</a>
     </div>
     {% endif %}
     {% if agent_mac_intel %}
@@ -40,7 +40,7 @@
       <div class="am-which">
         Para Macs con <em>procesador Intel</em>: en general, las de 2020 o anteriores.
       </div>
-      <a href="/api/download-agent?os=mac-intel" class="btn btn-primary">⬇ Descargar para Intel</a>
+      <a href="/api/download-agent?os=mac-intel" class="btn btn-primary"><i class="bi bi-download"></i> Descargar para Intel</a>
     </div>
     {% endif %}
   </div>

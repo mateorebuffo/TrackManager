@@ -5,8 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{% block title %}Track Manager{% endblock %}</title>
   <link rel="icon" type="image/svg+xml" href="/static/icons/logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
         integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <style>
     /* ── Design tokens ───────────────────────────────────────── */
     :root {
@@ -28,13 +32,19 @@
       --tm-radius-lg:   12px;
       --tm-shadow:      0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.04);
       --tm-shadow-md:   0 4px 16px rgba(0,0,0,.08);
+      --tm-display:     "Unbounded", "Arial Black", system-ui, sans-serif;
+      --tm-body:        "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+      /* Colores de marca de las plataformas */
+      --tm-sc: #c84b00;  --tm-sc-bg: #fff3e0;  --tm-sc-bd: #fed7aa;
+      --tm-sp: #065f46;  --tm-sp-bg: #d1fae5;  --tm-sp-bd: #a7f3d0;
+      --tm-yt: #991b1b;  --tm-yt-bg: #fee2e2;  --tm-yt-bd: #fecaca;
     }
 
     /* ── Base ────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; }
     body {
       background: var(--tm-bg);
-      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      font-family: var(--tm-body);
       color: var(--tm-text);
       font-size: 0.9rem;
       line-height: 1.5;
@@ -54,9 +64,10 @@
       border-bottom: 1px solid rgba(255,255,255,.04);
     }
     .tm-brand {
+      font-family: var(--tm-display);
       font-weight: 700;
-      font-size: 0.95rem;
-      letter-spacing: -0.2px;
+      font-size: 0.85rem;
+      letter-spacing: -0.01em;
       color: #fff;
       text-decoration: none;
       display: flex;
@@ -65,6 +76,7 @@
       flex-shrink: 0;
       margin-right: 0.75rem;
     }
+    .tm-brand:hover { color: #fff; }
     .tm-brand-icon {
       width: 28px; height: 28px;
       background: var(--tm-primary);
@@ -75,7 +87,7 @@
     .tm-nav-spacer { flex: 1; }
     .tm-nav-links { display: flex; align-items: center; gap: 0.15rem; }
     .tm-nav-link {
-      color: rgba(255,255,255,.55);
+      color: rgba(255,255,255,.6);
       text-decoration: none;
       font-size: 0.84rem;
       font-weight: 500;
@@ -89,15 +101,15 @@
     .tm-nav-link.tm-active { background: rgba(255,255,255,.1); color: #fff; }
     .tm-nav-sep { width: 1px; height: 18px; background: rgba(255,255,255,.1); margin: 0 0.35rem; flex-shrink: 0; }
     .tm-nav-user {
-      color: rgba(255,255,255,.38);
+      color: rgba(255,255,255,.72);
       font-size: 0.79rem;
       padding: 0 0.4rem;
       white-space: nowrap;
     }
     .tm-btn-logout {
       background: transparent;
-      border: 1px solid rgba(255,255,255,.14);
-      color: rgba(255,255,255,.55);
+      border: 1px solid rgba(255,255,255,.18);
+      color: rgba(255,255,255,.72);
       font-size: 0.79rem;
       font-weight: 500;
       padding: 0.28rem 0.6rem;
@@ -107,9 +119,7 @@
       line-height: 1;
     }
     .tm-btn-logout:hover { background: rgba(239,68,68,.15); border-color: rgba(239,68,68,.35); color: #f87171; }
-    .tm-queue-chip {
-      display: inline-flex; align-items: center; gap: 0.35rem;
-    }
+    .tm-queue-chip { display: inline-flex; align-items: center; gap: 0.35rem; }
     .tm-queue-count {
       background: var(--tm-warning);
       color: #000;
@@ -120,6 +130,29 @@
       border-radius: 999px;
       margin-left: 2px;
     }
+    /* Buscador global: manda a Tracks con status=all */
+    .tm-nav-search { position: relative; margin: 0 0.5rem; }
+    .tm-nav-search input {
+      width: 190px; height: 30px;
+      background: rgba(255,255,255,.07);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 6px;
+      color: #fff; font-size: 0.8rem;
+      padding: 0 0.6rem 0 1.8rem;
+      transition: width .15s, background .15s;
+    }
+    .tm-nav-search input::placeholder { color: rgba(255,255,255,.4); }
+    .tm-nav-search input:focus { outline: none; width: 260px; background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.25); }
+    .tm-nav-search .bi { position: absolute; left: 0.55rem; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,.45); font-size: 0.8rem; pointer-events: none; }
+    /* Indicador del agente */
+    .tm-agent {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      color: rgba(255,255,255,.6); font-size: 0.76rem; font-weight: 500;
+      text-decoration: none; padding: 0.3rem 0.6rem; border-radius: 6px; white-space: nowrap;
+    }
+    .tm-agent:hover { color: #fff; background: rgba(255,255,255,.07); }
+    .tm-agent::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #f87171; box-shadow: 0 0 0 3px rgba(248,113,113,.2); }
+    .tm-agent.on::before { background: #34d399; box-shadow: 0 0 0 3px rgba(52,211,153,.2); }
 
     /* ── Content wrapper ─────────────────────────────────────── */
     .tm-content {
@@ -130,11 +163,18 @@
 
     /* ── Page header ─────────────────────────────────────────── */
     .tm-page-title {
-      font-size: 1.1rem;
+      font-family: var(--tm-display);
+      font-size: 1.45rem;
       font-weight: 700;
-      letter-spacing: -0.2px;
+      letter-spacing: -0.01em;
+      line-height: 1.2;
       color: var(--tm-text);
       margin: 0;
+    }
+    .tm-page-sub { color: var(--tm-muted); font-size: 0.875rem; margin: 0.25rem 0 0; }
+    .tm-section {
+      font-size: .74rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+      color: var(--tm-muted); margin: 2rem 0 .75rem;
     }
 
     /* ── Cards ───────────────────────────────────────────────── */
@@ -158,7 +198,7 @@
 
     /* ── Tables ──────────────────────────────────────────────── */
     .table {
-      font-size: 0.855rem;
+      font-size: 0.875rem;
       margin-bottom: 0;
     }
     .table thead th {
@@ -170,11 +210,20 @@
       border-bottom-width: 1px;
       white-space: nowrap;
     }
-    .table > :not(caption) > * > * { padding: 0.5rem 0.8rem; vertical-align: middle; }
-    .table-dark { background: #1e293b; }
-    .table-dark th { color: rgba(255,255,255,.7); background: #1e293b; border-color: rgba(255,255,255,.06); }
+    .table > :not(caption) > * > * { padding: 0.55rem 0.8rem; vertical-align: middle; }
+    /* Cabecera clara: el bloque negro pesaba más que los datos. Se mantiene la clase
+       table-dark para no tocar cada template. */
+    .table > thead.table-dark, .table > thead.table-light {
+      --bs-table-bg: #f8fafc;
+      --bs-table-color: var(--tm-muted);
+      --bs-table-border-color: var(--tm-border);
+      color: var(--tm-muted);
+    }
+    .table-dark th, .table-light th { color: var(--tm-muted); background: #f8fafc; border-color: var(--tm-border); }
+    .table-dark a { color: var(--tm-text); }
     .table-hover > tbody > tr:hover > * { background: #f8fafc; }
-    .table.bg-white { border-radius: var(--tm-radius-lg); overflow: hidden; box-shadow: var(--tm-shadow); }
+    .table.bg-white { border-radius: var(--tm-radius-lg); overflow: hidden; box-shadow: var(--tm-shadow); border: 1px solid var(--tm-border); }
+    .table-responsive { border-radius: var(--tm-radius-lg); }
 
     /* ── Buttons ─────────────────────────────────────────────── */
     .btn {
@@ -189,18 +238,32 @@
       font-size: 0.78rem;
       border-radius: 6px;
     }
+    .btn .bi { font-size: 1em; vertical-align: -0.1em; }
+    .btn-icon { padding: 0.3rem 0.5rem; line-height: 1; }
+    .btn-icon .bi { font-size: 0.95rem; }
     .btn-primary   { background: var(--tm-primary);  border-color: var(--tm-primary); }
-    .btn-primary:hover   { background: var(--tm-primary-h); border-color: var(--tm-primary-h); }
+    .btn-primary:hover, .btn-primary:focus   { background: var(--tm-primary-h); border-color: var(--tm-primary-h); }
     .btn-success   { background: var(--tm-success);  border-color: var(--tm-success); }
     .btn-success:hover   { background: var(--tm-success-h); border-color: var(--tm-success-h); }
     .btn-danger    { background: var(--tm-danger);   border-color: var(--tm-danger); }
     .btn-danger:hover    { background: var(--tm-danger-h);  border-color: var(--tm-danger-h); }
     .btn-outline-primary { border-color: #c7d2fe; color: var(--tm-primary); }
     .btn-outline-primary:hover { background: #eef2ff; border-color: var(--tm-primary); color: var(--tm-primary-h); }
-    .btn-outline-secondary { border-color: var(--tm-border); color: var(--tm-muted); }
+    .btn-outline-secondary { border-color: var(--tm-border); color: var(--tm-muted); background: #fff; }
     .btn-outline-secondary:hover { background: #f1f5f9; border-color: #cbd5e1; color: var(--tm-text); }
     .btn-outline-danger { border-color: #fecaca; color: var(--tm-danger); }
     .btn-outline-danger:hover { background: #fef2f2; border-color: var(--tm-danger); color: var(--tm-danger-h); }
+    /* Botones de plataforma (importar / filtrar) */
+    .btn-src { font-weight: 600; display: inline-flex; align-items: center; gap: .4rem; border: 1px solid transparent; }
+    .btn-src-sc { background: var(--tm-sc-bg); color: var(--tm-sc); border-color: var(--tm-sc-bd); }
+    .btn-src-sp { background: var(--tm-sp-bg); color: var(--tm-sp); border-color: var(--tm-sp-bd); }
+    .btn-src-yt { background: var(--tm-yt-bg); color: var(--tm-yt); border-color: var(--tm-yt-bd); }
+    .btn-src-sc:hover { color: var(--tm-sc); border-color: var(--tm-sc); }
+    .btn-src-sp:hover { color: var(--tm-sp); border-color: var(--tm-sp); }
+    .btn-src-yt:hover { color: var(--tm-yt); border-color: var(--tm-yt); }
+    .btn-src.active.btn-src-sc { background: var(--tm-sc); color: #fff; border-color: var(--tm-sc); }
+    .btn-src.active.btn-src-sp { background: var(--tm-sp); color: #fff; border-color: var(--tm-sp); }
+    .btn-src.active.btn-src-yt { background: var(--tm-yt); color: #fff; border-color: var(--tm-yt); }
 
     /* ── Badges ──────────────────────────────────────────────── */
     .badge {
@@ -222,9 +285,9 @@
     .s-discarded  { background: #f8fafc; color: #94a3b8; border: 1px solid var(--tm-border); }
 
     /* Source badges */
-    .src-sc  { background: #fff3e0; color: #c84b00; }
-    .src-sp  { background: #d1fae5; color: #065f46; }
-    .src-yt  { background: #fee2e2; color: #991b1b; }
+    .src-sc  { background: var(--tm-sc-bg); color: var(--tm-sc); }
+    .src-sp  { background: var(--tm-sp-bg); color: var(--tm-sp); }
+    .src-yt  { background: var(--tm-yt-bg); color: var(--tm-yt); }
     .src-tx  { background: #e0f2fe; color: #075985; }
 
     /* ── Form controls ───────────────────────────────────────── */
@@ -240,6 +303,10 @@
     }
     .form-control-sm, .form-select-sm { border-radius: 6px; }
     .form-label { font-size: 0.82rem; font-weight: 600; color: var(--tm-text); margin-bottom: 0.3rem; }
+    .form-check-input, input[type="checkbox"] { width: 17px; height: 17px; cursor: pointer; }
+    .form-check-input:checked { background-color: var(--tm-primary); border-color: var(--tm-primary); }
+    .form-check-input:focus { box-shadow: 0 0 0 3px rgba(99,102,241,.2); border-color: var(--tm-primary); }
+    :focus-visible { outline: 2px solid var(--tm-primary); outline-offset: 2px; }
 
     /* ── Modals ──────────────────────────────────────────────── */
     .modal-content { border-radius: 14px; border: 1px solid var(--tm-border); box-shadow: var(--tm-shadow-md); }
@@ -252,6 +319,15 @@
     .alert-success { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
     .alert-danger  { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
     .alert-info    { background: #f0f9ff; border-color: #bae6fd; color: #075985; }
+
+    /* ── Empty state ─────────────────────────────────────────── */
+    .tm-empty {
+      background: var(--tm-card); border: 1px dashed #cbd5e1; border-radius: var(--tm-radius-lg);
+      padding: 3rem 1.5rem; text-align: center;
+    }
+    .tm-empty > .bi { font-size: 2rem; color: #a5b4fc; display: block; margin-bottom: .6rem; }
+    .tm-empty h5 { font-weight: 700; font-size: 1rem; margin-bottom: .3rem; }
+    .tm-empty p { color: var(--tm-muted); max-width: 42em; margin: 0 auto .9rem; }
 
     /* ── Misc ────────────────────────────────────────────────── */
     .action-btns form { display: inline; }
@@ -268,18 +344,30 @@
     a:hover { color: var(--tm-primary-h); }
     hr { border-color: var(--tm-border); opacity: 1; }
     .text-muted { color: var(--tm-muted) !important; }
+    .tooltip { font-family: var(--tm-body); font-size: 0.75rem; }
 
     /* ── Progress ────────────────────────────────────────────── */
     .progress { border-radius: 999px; background: #e2e8f0; }
     .progress-bar { border-radius: 999px; }
 
     /* ── Platform icons ─────────────────────────────────────── */
+    /* Se pintan con currentColor vía mask, en vez de filtros sobre <img>. */
     .pi { display:inline-block; width:1em; height:1em; vertical-align:-.15em; flex-shrink:0; }
     .pi img { width:100%; height:100%; object-fit:contain; display:block; }
+    .pi-sc, .pi-sp, .pi-yt {
+      background: currentColor;
+      -webkit-mask: var(--pi) center / contain no-repeat;
+              mask: var(--pi) center / contain no-repeat;
+    }
+    .pi-sc { --pi: url(/static/icons/soundcloud.svg); }
+    .pi-sp { --pi: url(/static/icons/spotify.svg); }
+    .pi-yt { --pi: url(/static/icons/youtube.svg); }
   </style>
+  {% block head %}{% endblock %}
 </head>
 <body>
 
+{% block nav %}
 <nav class="tm-nav">
   <a href="/" class="tm-brand">
     <img class="tm-brand-icon" src="/static/icons/logo.svg" alt="" />
@@ -287,6 +375,11 @@
   </a>
   <div class="tm-nav-spacer"></div>
   <div class="tm-nav-links">
+    <form class="tm-nav-search" method="GET" action="/tracks/pending" role="search">
+      <input type="hidden" name="status" value="all">
+      <i class="bi bi-search" aria-hidden="true"></i>
+      <input type="search" name="q" placeholder="Buscar tracks…" aria-label="Buscar en todos tus tracks">
+    </form>
     <a href="/tracks/pending" class="tm-nav-link" data-path="/tracks">Tracks</a>
     <a href="/tracks/download-queue" class="tm-nav-link tm-queue-chip" data-path="/tracks/download-queue">
       Cola
@@ -296,17 +389,24 @@
       {% endif %}
     </a>
     <a href="/descubrir" class="tm-nav-link" data-path="/descubrir">Descubrir</a>
-    <a href="/settings" class="tm-nav-link" data-path="/settings">Config</a>
+    <a href="/settings" class="tm-nav-link" data-path="/settings">Configuración</a>
     <a href="/ayuda" class="tm-nav-link" data-path="/ayuda">Ayuda</a>
     <a href="/debug/reports" class="tm-nav-link" data-path="/debug/reports">Reportar</a>
     {% if request.state.user is defined and request.state.user %}
       {% set nav_user = request.state.user %}
       {% if nav_user.is_admin %}
+        <div class="tm-nav-sep"></div>
         <a href="/analitica" class="tm-nav-link" data-path="/analitica">Analítica</a>
         <a href="/admin/users" class="tm-nav-link" data-path="/admin">Usuarios</a>
-        <a href="/debug/events" class="tm-nav-link" data-path="/debug">Logs</a>
+        <a href="/debug/events" class="tm-nav-link" data-path="/debug/events">Logs</a>
       {% endif %}
       <div class="tm-nav-sep"></div>
+      {% set agent_on = nav_user.agent_online %}
+      <a href="/settings#agente" class="tm-agent {% if agent_on %}on{% endif %}"
+         data-bs-toggle="tooltip"
+         data-bs-title="{% if agent_on %}El agente está abierto y conectado.{% else %}El agente no está conectado: abrilo en tu computadora para que las descargas funcionen.{% endif %}">
+        Agente {% if agent_on %}conectado{% else %}desconectado{% endif %}
+      </a>
       <span class="tm-nav-user">{{ nav_user.username }}</span>
       <form method="POST" action="/logout" class="mb-0">
         <button type="submit" class="tm-btn-logout">Salir</button>
@@ -314,6 +414,7 @@
     {% endif %}
   </div>
 </nav>
+{% endblock %}
 
 <div class="tm-content">
   {% block content %}{% endblock %}
@@ -324,11 +425,15 @@
 <!-- ── Loading overlay ──────────────────────────────────────────── -->
 <div id="tm-loading-overlay"
      style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9000;align-items:center;justify-content:center;">
-  <div style="background:#fff;border-radius:14px;padding:1.75rem 2.25rem;display:flex;flex-direction:column;align-items:center;gap:1rem;box-shadow:0 24px 48px rgba(0,0,0,.3);min-width:200px;text-align:center;">
+  <div style="background:#fff;border-radius:14px;padding:1.75rem 2.25rem;display:flex;flex-direction:column;align-items:center;gap:0.9rem;box-shadow:0 24px 48px rgba(0,0,0,.3);min-width:300px;max-width:380px;text-align:center;">
     <div class="spinner-border" style="color:#6366f1;width:2rem;height:2rem;flex-shrink:0;" role="status">
       <span class="visually-hidden">Cargando…</span>
     </div>
-    <div id="tm-loading-msg" style="font-size:0.875rem;font-weight:500;color:#1e293b;">Cargando…</div>
+    <div id="tm-loading-msg" style="font-size:0.9rem;font-weight:600;color:#1e293b;">Cargando…</div>
+    <div class="progress w-100" style="height:6px;">
+      <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%;background:#6366f1;"></div>
+    </div>
+    <div id="tm-loading-hint" style="font-size:0.78rem;color:#64748b;display:none;"></div>
   </div>
 </div>
 
@@ -337,8 +442,8 @@
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header" style="border-bottom:1px solid #fecaca;">
-        <h5 class="modal-title" style="color:var(--tm-danger);">⚠ <span id="tm-error-title">Error</span></h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <h5 class="modal-title" style="color:var(--tm-danger);"><i class="bi bi-exclamation-triangle-fill me-1"></i> <span id="tm-error-title">Error</span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
       <div class="modal-body">
         <p id="tm-error-msg" style="font-size:0.875rem;margin:0;white-space:pre-wrap;"></p>
@@ -350,17 +455,35 @@
   </div>
 </div>
 
+<!-- ── Confirm modal (reemplaza al confirm() del navegador) ──────── -->
+<div class="modal fade" id="tm-confirm-modal" tabindex="-1" aria-labelledby="tm-confirm-title">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content">
+      <div class="modal-body pt-4 pb-2 text-center">
+        <i id="tm-confirm-icon" class="bi bi-question-circle" style="font-size:1.8rem;color:var(--tm-primary);"></i>
+        <h5 id="tm-confirm-title" class="mt-2 mb-1" style="font-size:0.95rem;font-weight:700;">¿Seguro?</h5>
+        <p id="tm-confirm-msg" class="text-muted mb-0" style="font-size:0.84rem;white-space:pre-wrap;"></p>
+      </div>
+      <div class="modal-footer border-0 justify-content-center pt-1 pb-3">
+        <button type="button" class="btn btn-outline-secondary btn-sm px-3" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary btn-sm px-3" id="tm-confirm-ok">Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100;">
   <div id="global-toast" class="toast align-items-center border-0 shadow-sm" role="alert" aria-live="assertive">
-    <div class="d-flex">
+    <div class="d-flex align-items-center">
       <div class="toast-body" id="global-toast-body" style="font-size:0.855rem;font-weight:500;"></div>
+      <button type="button" id="global-toast-undo" class="btn btn-sm fw-bold text-reset text-decoration-underline d-none" style="font-size:0.8rem;white-space:nowrap;">Deshacer</button>
       <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Cerrar"></button>
     </div>
   </div>
 </div>
 
 <script>
-/* Active nav link */
+/* Active nav link + tooltips + toast pendiente */
 document.addEventListener('DOMContentLoaded', () => {
   const path = window.location.pathname;
   document.querySelectorAll('.tm-nav-link[data-path]').forEach(a => {
@@ -370,35 +493,55 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  tmInitTooltips(document);
+
   /* Toast dejado por la página anterior */
   const msg = sessionStorage.getItem('_toast');
   if (!msg) return;
   const type = sessionStorage.getItem('_toast_type') || 'success';
+  const undo = sessionStorage.getItem('_toast_undo');
   sessionStorage.removeItem('_toast');
   sessionStorage.removeItem('_toast_type');
-  showToast(msg, type);
+  sessionStorage.removeItem('_toast_undo');
+  showToast(msg, type, undo ? JSON.parse(undo) : null);
 });
 
-/* Mostrar un toast ahora. _setToast() lo deja para la próxima carga; esto es
-   para acciones que no navegan, como copiar algo al portapapeles. */
-function showToast(msg, type) {
+function tmInitTooltips(root) {
+  root.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => bootstrap.Tooltip.getOrCreateInstance(el));
+}
+
+/* Mostrar un toast ahora. `undo` = {url, body?}: botón "Deshacer" que hace POST y recarga.
+   _setToast() lo deja para la próxima carga; esto es para acciones que no navegan. */
+function showToast(msg, type, undo) {
   const el = document.getElementById('global-toast');
   el.classList.remove('text-dark', 'text-white',
                       'bg-success', 'bg-danger', 'bg-warning', 'bg-info');
   el.classList.add(type === 'warning' ? 'text-dark' : 'text-white', 'bg-' + (type || 'success'));
   document.getElementById('global-toast-body').textContent = msg;
-  bootstrap.Toast.getOrCreateInstance(el, { delay: 3000 }).show();
+  const undoBtn = document.getElementById('global-toast-undo');
+  undoBtn.classList.toggle('d-none', !undo);
+  undoBtn.onclick = undo ? () => {
+    undoBtn.disabled = true;
+    fetch(undo.url, { method: 'POST', body: undo.body ? new URLSearchParams(undo.body) : undefined, redirect: 'follow' })
+      .then(() => location.reload())
+      .catch(() => { undoBtn.disabled = false; showToast('No se pudo deshacer', 'danger'); });
+  } : null;
+  bootstrap.Toast.getOrCreateInstance(el, { delay: undo ? 7000 : 3000 }).show();
 }
 
-function _setToast(msg, type) {
+function _setToast(msg, type, undo) {
   sessionStorage.setItem('_toast', msg);
   sessionStorage.setItem('_toast_type', type || 'success');
+  if (undo) sessionStorage.setItem('_toast_undo', JSON.stringify(undo));
 }
 
-function showLoading(msg) {
+function showLoading(msg, hint) {
   const overlay = document.getElementById('tm-loading-overlay');
   const msgEl   = document.getElementById('tm-loading-msg');
+  const hintEl  = document.getElementById('tm-loading-hint');
   if (msg && msgEl) msgEl.textContent = msg;
+  hintEl.textContent = hint || '';
+  hintEl.style.display = hint ? 'block' : 'none';
   overlay.style.display = 'flex';
 }
 
@@ -414,6 +557,39 @@ function showError(title, msg) {
   document.getElementById('tm-error-msg').textContent = msg || 'Ocurrió un error inesperado.';
   bootstrap.Modal.getOrCreateInstance(document.getElementById('tm-error-modal')).show();
 }
+
+/* Confirmación con modal propio. Devuelve una promesa con true/false.
+   opts: {title, label, danger} */
+function tmConfirm(msg, opts) {
+  opts = opts || {};
+  const el = document.getElementById('tm-confirm-modal');
+  document.getElementById('tm-confirm-title').textContent = opts.title || '¿Seguro?';
+  document.getElementById('tm-confirm-msg').textContent = msg || '';
+  const ok = document.getElementById('tm-confirm-ok');
+  ok.textContent = opts.label || 'Confirmar';
+  ok.className = 'btn btn-sm px-3 ' + (opts.danger ? 'btn-danger' : 'btn-primary');
+  const icon = document.getElementById('tm-confirm-icon');
+  icon.className = 'bi ' + (opts.danger ? 'bi-exclamation-triangle' : 'bi-question-circle');
+  icon.style.color = opts.danger ? 'var(--tm-danger)' : 'var(--tm-primary)';
+  const modal = bootstrap.Modal.getOrCreateInstance(el);
+  return new Promise(resolve => {
+    ok.onclick = () => { resolve(true); modal.hide(); };
+    el.addEventListener('hidden.bs.modal', () => resolve(false), { once: true });
+    modal.show();
+  });
+}
+
+/* Para formularios: onsubmit="return confirmSubmit(this, 'mensaje', {label:'Borrar', danger:true})" */
+function confirmSubmit(form, msg, opts) {
+  if (form.dataset.confirmed) return true;
+  tmConfirm(msg, opts).then(ok => {
+    if (!ok) return;
+    form.dataset.confirmed = '1';
+    form.requestSubmit();
+  });
+  return false;
+}
 </script>
+{% block scripts %}{% endblock %}
 </body>
 </html>

@@ -2,23 +2,22 @@
 {% block title %}Configuración — Track Manager{% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center justify-content-between mb-4">
-  <h4 class="tm-page-title mb-0">Configuración</h4>
+<div class="mb-4">
+  <h1 class="tm-page-title">Configuración</h1>
+  <p class="tm-page-sub">Tus cuentas, cómo se descarga y el agente que corre en tu computadora.</p>
 </div>
 
-
 <style>
-  .cfg-card { border-radius: var(--tm-radius-lg); border: 1px solid var(--tm-border); box-shadow: var(--tm-shadow); overflow: hidden; }
+  .cfg-card { border-radius: var(--tm-radius-lg); border: 1px solid var(--tm-border); box-shadow: var(--tm-shadow); overflow: hidden; background: var(--tm-card); }
   .cfg-card-head {
-    background: #1e293b;
-    color: rgba(255,255,255,.85);
-    font-size: 0.72rem;
+    display: flex; align-items: center; gap: .5rem;
+    border-bottom: 1px solid var(--tm-border);
+    color: var(--tm-text);
+    font-size: 0.9rem;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    padding: 0.7rem 1.25rem;
+    padding: 0.8rem 1.25rem;
   }
-  .cfg-card-body { background: var(--tm-card); }
+  .cfg-card-head .bi { color: var(--tm-primary); }
 
   /* Filas de servicio */
   .svc-row {
@@ -38,41 +37,29 @@
   .svc-muzpa   { border-left-color: #6366f1; }
   .svc-deezer  { border-left-color: #ec4899; }
 
-  .svc-name {
-    font-size: 0.8rem;
-    font-weight: 700;
-    color: var(--tm-text);
-    letter-spacing: 0.02em;
-  }
-  .svc-dot {
-    display: inline-block;
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    margin-right: 6px;
-    flex-shrink: 0;
-  }
+  .svc-name { font-size: 0.85rem; font-weight: 700; color: var(--tm-text); }
+  .svc-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; flex-shrink: 0; }
   .dot-sc      { background: #f97316; }
   .dot-spotify { background: #22c55e; }
   .dot-youtube { background: #ef4444; }
   .dot-muzpa   { background: #6366f1; }
   .dot-deezer  { background: #ec4899; }
 
-  /* Panel derecho */
   .pref-section { padding: 1.25rem; }
   .pref-section + .pref-section { border-top: 1px solid var(--tm-border); }
-  .pref-title {
-    font-size: 0.72rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    color: var(--tm-muted);
-    margin-bottom: 0.85rem;
-  }
+  .pref-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--tm-muted); margin-bottom: 0.85rem; }
+
+  /* Avanzado (Spotify, solo admin) */
+  .cfg-adv summary { cursor: pointer; list-style: none; padding: .75rem 1.25rem; font-size: .8rem; color: var(--tm-muted); border-top: 1px solid var(--tm-border); display: flex; align-items: center; gap: .4rem; }
+  .cfg-adv summary::-webkit-details-marker { display: none; }
+  .cfg-adv summary .bi-chevron-right { transition: transform .15s; }
+  .cfg-adv[open] summary .bi-chevron-right { transform: rotate(90deg); }
+  .cfg-adv summary:hover { color: var(--tm-text); }
 </style>
 
 {% if request.query_params.get('missing') == 'soundcloud' %}
 <div class="alert alert-warning py-2 mb-3">
-  Configurá el <strong>OAuth Token de SoundCloud</strong> antes de sincronizar.
+  Vinculá tu cuenta de <strong>SoundCloud</strong> desde el agente antes de importar. <a href="/primeros-pasos" class="alert-link">Ver cómo</a>.
 </div>
 {% elif request.query_params.get('missing') == 'spotify' %}
 <div class="alert alert-warning py-2 mb-3">
@@ -80,7 +67,7 @@
 </div>
 {% elif request.query_params.get('missing') == 'youtube' %}
 <div class="alert alert-warning py-2 mb-3">
-  Conectá tu cuenta de <strong>YouTube</strong> antes de sincronizar.
+  Vinculá tu cuenta de <strong>YouTube</strong> desde el agente antes de importar. <a href="/primeros-pasos" class="alert-link">Ver cómo</a>.
 </div>
 {% elif request.query_params.get('missing') == 'spotify_credentials' %}
 <div class="alert alert-warning py-2 mb-3">
@@ -89,248 +76,209 @@
 {% endif %}
 
 {# Disconnect forms must live OUTSIDE the main settings form to avoid invalid nesting #}
-<form id="spotify-disconnect-form" method="POST" action="/sync/spotify/disconnect" style="display:none"></form>
-<form id="youtube-disconnect-form" method="POST" action="/sync/youtube/disconnect" style="display:none"></form>
+<form id="spotify-disconnect-form" method="POST" action="/sync/spotify/disconnect" hidden
+      onsubmit="return confirmSubmit(this, 'Vas a desconectar Spotify. Los tracks ya importados se mantienen.', {label:'Desconectar', danger:true})"></form>
+<form id="youtube-disconnect-form" method="POST" action="/sync/youtube/disconnect" hidden
+      onsubmit="return confirmSubmit(this, 'Vas a desconectar YouTube. Los tracks ya importados se mantienen.', {label:'Desconectar', danger:true})"></form>
 
 <form id="settings-form" method="POST" action="/settings">
 <div class="row g-4 align-items-start">
 
-  {# ── Columna izquierda: Autorizaciones ────────────────────────── #}
+  {# ── Columna izquierda: Cuentas ───────────────────────────────── #}
   <div class="col-lg-6">
-    <div class="cfg-card">
-      <div class="cfg-card-head">Autorizaciones</div>
-      <div class="cfg-card-body">
+    <div class="cfg-card" id="cuentas">
+      <div class="cfg-card-head"><i class="bi bi-person-badge"></i> Cuentas</div>
 
-        {# Spotify — solo admin #}
-        {% if is_admin %}
+      {# SoundCloud, YouTube, Muzpa y Deezer se conectan desde el agente.
+         SHOW_LEGACY_SETTINGS=true los vuelve a mostrar acá. #}
+      {% if show_legacy_settings %}
+
+      {# YouTube #}
+      <div class="svc-row svc-youtube">
+        <div class="d-flex align-items-center justify-content-between">
+          <div class="svc-name"><span class="svc-dot dot-youtube"></span>YouTube</div>
+          <div class="d-flex align-items-center gap-2">
+            <a href="/static/Manual-YouTube.pdf" target="_blank" class="btn btn-link btn-sm p-0 text-muted" style="font-size:0.78rem;">¿Cómo configuro esto?</a>
+            {% if youtube_connected %}<span class="badge s-downloaded">Conectado</span>{% else %}<span class="badge s-not_found">No conectado</span>{% endif %}
+          </div>
+        </div>
+        {% if youtube_connected %}
+          <button type="submit" form="youtube-disconnect-form" class="btn btn-outline-danger btn-sm w-100">Desconectar</button>
+        {% else %}
+          <a href="/sync/youtube/connect" class="btn btn-outline-secondary btn-sm w-100">Conectar con YouTube <i class="bi bi-arrow-right"></i></a>
+        {% endif %}
+      </div>
+
+      {# SoundCloud #}
+      <div class="svc-row svc-sc">
+        <div class="d-flex align-items-center justify-content-between">
+          <div class="svc-name"><span class="svc-dot dot-sc"></span>SoundCloud</div>
+          <a href="/static/Manual-SoundCloud.pdf" target="_blank" class="btn btn-link btn-sm p-0 text-muted" style="font-size:0.78rem;">¿Cómo configuro esto?</a>
+        </div>
+        <div>
+          <label class="form-label text-muted mb-1" for="field-sc-token" style="font-size:0.72rem;">OAuth Token</label>
+          <div class="input-group input-group-sm">
+            <input type="password" name="soundcloud_oauth_token" id="field-sc-token"
+                   class="form-control form-control-sm font-monospace"
+                   value="{{ current.get('soundcloud_oauth_token', '') }}"
+                   placeholder="OAuth 2-xxxxx-xxxxxxxx-..." autocomplete="off">
+            <button class="btn btn-outline-secondary" type="button" onclick="toggleField('field-sc-token')" aria-label="Mostrar u ocultar"><i class="bi bi-eye"></i></button>
+            <button class="btn btn-outline-secondary" type="button" onclick="verifyCredential('soundcloud')">Verificar</button>
+          </div>
+          <div id="soundcloud-verify-result" class="mt-1" style="font-size:0.75rem;display:none;"></div>
+        </div>
+      </div>
+
+      {# Muzpa #}
+      <div class="svc-row svc-muzpa">
+        <div class="d-flex align-items-center justify-content-between">
+          <div class="svc-name"><span class="svc-dot dot-muzpa"></span>Muzpa</div>
+          <a href="/static/Manual-MuzPA.pdf" target="_blank" class="btn btn-link btn-sm p-0 text-muted" style="font-size:0.78rem;">¿Cómo configuro esto?</a>
+        </div>
+        <div>
+          <label class="form-label text-muted mb-1" for="field-muzpa-sess" style="font-size:0.72rem;">Session (SESS=…)</label>
+          <div class="input-group input-group-sm">
+            <input type="password" name="muzpa_sess" id="field-muzpa-sess"
+                   class="form-control form-control-sm font-monospace"
+                   value="{{ current.get('muzpa_sess', '') }}" autocomplete="off">
+            <button class="btn btn-outline-secondary" type="button" onclick="toggleField('field-muzpa-sess')" aria-label="Mostrar u ocultar"><i class="bi bi-eye"></i></button>
+            <button class="btn btn-outline-secondary" type="button" onclick="verifyCredential('muzpa')">Verificar</button>
+          </div>
+          <div id="muzpa-verify-result" class="mt-1" style="font-size:0.75rem;display:none;"></div>
+        </div>
+      </div>
+
+      {# Deezer #}
+      <div class="svc-row svc-deezer">
+        <div class="d-flex align-items-center justify-content-between">
+          <div class="svc-name"><span class="svc-dot dot-deezer"></span>Deezer</div>
+          <a href="/static/Manual-Deezer-Deemix.pdf" target="_blank" class="btn btn-link btn-sm p-0 text-muted" style="font-size:0.78rem;">¿Cómo configuro esto?</a>
+        </div>
+        <div>
+          <label class="form-label text-muted mb-1" for="field-deezer-arl" style="font-size:0.72rem;">ARL</label>
+          <div class="input-group input-group-sm">
+            <input type="password" name="deezer_arl" id="field-deezer-arl"
+                   class="form-control form-control-sm font-monospace"
+                   value="{{ current.get('deezer_arl', '') }}" autocomplete="off">
+            <button class="btn btn-outline-secondary" type="button" onclick="toggleField('field-deezer-arl')" aria-label="Mostrar u ocultar"><i class="bi bi-eye"></i></button>
+            <button class="btn btn-outline-secondary" type="button" onclick="verifyCredential('deezer')">Verificar</button>
+          </div>
+          <div id="deezer-verify-result" class="mt-1" style="font-size:0.75rem;display:none;"></div>
+        </div>
+      </div>
+
+      {% else %}
+
+      <div class="svc-row svc-sc">
+        <div class="svc-name mb-1"><span class="svc-dot dot-sc"></span>Cuentas de música</div>
+        <p style="font-size:0.85rem;color:var(--tm-muted);margin:0;">
+          SoundCloud, YouTube, Muzpa y Deezer se vinculan desde el
+          <strong style="color:var(--tm-text);">agente</strong>, en el botón
+          <strong style="color:var(--tm-text);"><i class="bi bi-person"></i> Cuentas</strong>. Te logueás en una
+          ventana como lo harías en el navegador y el agente guarda la sesión solo.
+          {% if not api_token %}
+            Generá el token y descargá el agente desde el panel de la derecha.
+          {% endif %}
+        </p>
+        <div class="d-flex gap-2 flex-wrap mt-1">
+          <a href="/primeros-pasos" class="btn btn-outline-secondary btn-sm"><i class="bi bi-signpost"></i> Ver cómo vincularlas</a>
+          <a href="/ayuda#agente" class="btn btn-link btn-sm text-muted" style="font-size:.78rem;">Más en la ayuda</a>
+        </div>
+      </div>
+
+      {% endif %}
+
+      {# Spotify — solo admin, bloqueado en Railway: va escondido en Avanzado #}
+      {% if is_admin %}
+      <details class="cfg-adv">
+        <summary><i class="bi bi-chevron-right"></i> Avanzado: Spotify (solo administrador)</summary>
         <div class="svc-row svc-spotify">
           <div class="d-flex align-items-center justify-content-between">
-            <div class="svc-name">
-              <span class="svc-dot dot-spotify"></span>Spotify
-            </div>
-            {% if spotify_connected %}
-              <span class="badge s-downloaded" style="font-size:0.67rem;">Conectado</span>
-            {% else %}
-              <span class="badge s-not_found" style="font-size:0.67rem;">No conectado</span>
-            {% endif %}
+            <div class="svc-name"><span class="svc-dot dot-spotify"></span>Spotify</div>
+            {% if spotify_connected %}<span class="badge s-downloaded">Conectado</span>{% else %}<span class="badge s-not_found">No conectado</span>{% endif %}
           </div>
           <div>
-            <label class="form-label text-muted mb-1" style="font-size:0.72rem;">Client ID</label>
+            <label class="form-label text-muted mb-1" for="field-spotify-client-id" style="font-size:0.72rem;">Client ID</label>
             <div class="input-group input-group-sm mb-2">
               <input type="password" name="spotify_client_id" id="field-spotify-client-id"
                      class="form-control form-control-sm font-monospace"
                      value="{{ current.get('spotify_client_id', '') }}" autocomplete="off"
                      placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
-              <button class="btn btn-outline-secondary" type="button" onclick="toggleField('field-spotify-client-id')">👁</button>
+              <button class="btn btn-outline-secondary" type="button" onclick="toggleField('field-spotify-client-id')" aria-label="Mostrar u ocultar"><i class="bi bi-eye"></i></button>
             </div>
-            <label class="form-label text-muted mb-1" style="font-size:0.72rem;">Client Secret</label>
+            <label class="form-label text-muted mb-1" for="field-spotify-client-secret" style="font-size:0.72rem;">Client Secret</label>
             <div class="input-group input-group-sm">
               <input type="password" name="spotify_client_secret" id="field-spotify-client-secret"
                      class="form-control form-control-sm font-monospace"
                      value="{{ current.get('spotify_client_secret', '') }}" autocomplete="off"
                      placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
-              <button class="btn btn-outline-secondary" type="button" onclick="toggleField('field-spotify-client-secret')">👁</button>
+              <button class="btn btn-outline-secondary" type="button" onclick="toggleField('field-spotify-client-secret')" aria-label="Mostrar u ocultar"><i class="bi bi-eye"></i></button>
             </div>
           </div>
           {% if spotify_connected %}
             <button type="submit" form="spotify-disconnect-form" class="btn btn-outline-danger btn-sm w-100">Desconectar</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm w-100" onclick="verifySpotify()">Diagnosticar conexión</button>
+            <div id="spotify-verify-result" class="mt-1" style="font-size:0.75rem;display:none;white-space:pre-wrap;"></div>
           {% else %}
-            <button type="button" class="btn btn-outline-secondary btn-sm w-100"
-                    onclick="saveAndRedirect('/sync/spotify/connect')">
-              Conectar con Spotify →
+            <button type="button" class="btn btn-outline-secondary btn-sm w-100" onclick="saveAndRedirect('/sync/spotify/connect')">
+              Conectar con Spotify <i class="bi bi-arrow-right"></i>
             </button>
           {% endif %}
-          {% if spotify_connected %}
-          <button type="button" class="btn btn-outline-secondary btn-sm w-100 mt-1"
-                  onclick="verifySpotify()">Diagnosticar conexión</button>
-          <div id="spotify-verify-result" class="mt-1" style="font-size:0.75rem;display:none;white-space:pre-wrap;"></div>
-          {% endif %}
         </div>
-        {% endif %}
-
-        {# SoundCloud, YouTube, Muzpa y Deezer se conectan desde el agente.
-           SHOW_LEGACY_SETTINGS=true los vuelve a mostrar acá. #}
-        {% if show_legacy_settings %}
-
-        {# YouTube #}
-        <div class="svc-row svc-youtube">
-          <div class="d-flex align-items-center justify-content-between">
-            <div class="svc-name">
-              <span class="svc-dot dot-youtube"></span>YouTube
-            </div>
-            <div class="d-flex align-items-center gap-2">
-              <a href="/static/Manual-YouTube.pdf" target="_blank"
-                 class="btn btn-link btn-sm p-0 text-muted"
-                 style="font-size:0.78rem;">¿Cómo configuro esto?</a>
-              {% if youtube_connected %}
-                <span class="badge s-downloaded" style="font-size:0.67rem;">Conectado</span>
-              {% else %}
-                <span class="badge s-not_found" style="font-size:0.67rem;">No conectado</span>
-              {% endif %}
-            </div>
-          </div>
-          {% if youtube_connected %}
-            <button type="submit" form="youtube-disconnect-form" class="btn btn-outline-danger btn-sm w-100">Desconectar</button>
-          {% else %}
-            <a href="/sync/youtube/connect" class="btn btn-outline-secondary btn-sm w-100">
-              Conectar con YouTube →
-            </a>
-          {% endif %}
-        </div>
-
-        {# SoundCloud #}
-        <div class="svc-row svc-sc">
-          <div class="d-flex align-items-center justify-content-between">
-            <div class="svc-name">
-              <span class="svc-dot dot-sc"></span>SoundCloud
-            </div>
-            <a href="/static/Manual-SoundCloud.pdf" target="_blank"
-               class="btn btn-link btn-sm p-0 text-muted"
-               style="font-size:0.78rem;">¿Cómo configuro esto?</a>
-          </div>
-          <div>
-            <label class="form-label text-muted mb-1" style="font-size:0.72rem;">OAuth Token</label>
-            <div class="input-group input-group-sm">
-              <input type="password" name="soundcloud_oauth_token" id="field-sc-token"
-                     class="form-control form-control-sm font-monospace"
-                     value="{{ current.get('soundcloud_oauth_token', '') }}"
-                     placeholder="OAuth 2-xxxxx-xxxxxxxx-..."
-                     autocomplete="off">
-              <button class="btn btn-outline-secondary" type="button" onclick="toggleField('field-sc-token')">👁</button>
-              <button class="btn btn-outline-secondary" type="button" onclick="verifyCredential('soundcloud')">Verificar</button>
-            </div>
-            <div id="soundcloud-verify-result" class="mt-1" style="font-size:0.75rem;display:none;"></div>
-          </div>
-        </div>
-
-        {# Muzpa #}
-        <div class="svc-row svc-muzpa">
-          <div class="d-flex align-items-center justify-content-between">
-            <div class="svc-name">
-              <span class="svc-dot dot-muzpa"></span>Muzpa
-            </div>
-            <a href="/static/Manual-MuzPA.pdf" target="_blank"
-               class="btn btn-link btn-sm p-0 text-muted"
-               style="font-size:0.78rem;">¿Cómo configuro esto?</a>
-          </div>
-          <div>
-            <label class="form-label text-muted mb-1" style="font-size:0.72rem;">Session (SESS=…)</label>
-            <div class="input-group input-group-sm">
-              <input type="password" name="muzpa_sess" id="field-muzpa-sess"
-                     class="form-control form-control-sm font-monospace"
-                     value="{{ current.get('muzpa_sess', '') }}" autocomplete="off">
-              <button class="btn btn-outline-secondary" type="button" onclick="toggleField('field-muzpa-sess')">👁</button>
-              <button class="btn btn-outline-secondary" type="button" onclick="verifyCredential('muzpa')">Verificar</button>
-            </div>
-            <div id="muzpa-verify-result" class="mt-1" style="font-size:0.75rem;display:none;"></div>
-          </div>
-        </div>
-
-        {# Deezer #}
-        <div class="svc-row svc-deezer">
-          <div class="d-flex align-items-center justify-content-between">
-            <div class="svc-name">
-              <span class="svc-dot dot-deezer"></span>Deezer
-            </div>
-            <a href="/static/Manual-Deezer-Deemix.pdf" target="_blank"
-               class="btn btn-link btn-sm p-0 text-muted"
-               style="font-size:0.78rem;">¿Cómo configuro esto?</a>
-          </div>
-          <div>
-            <label class="form-label text-muted mb-1" style="font-size:0.72rem;">ARL</label>
-            <div class="input-group input-group-sm">
-              <input type="password" name="deezer_arl" id="field-deezer-arl"
-                     class="form-control form-control-sm font-monospace"
-                     value="{{ current.get('deezer_arl', '') }}" autocomplete="off">
-              <button class="btn btn-outline-secondary" type="button" onclick="toggleField('field-deezer-arl')">👁</button>
-              <button class="btn btn-outline-secondary" type="button" onclick="verifyCredential('deezer')">Verificar</button>
-            </div>
-            <div id="deezer-verify-result" class="mt-1" style="font-size:0.75rem;display:none;"></div>
-          </div>
-        </div>
-
-        {% else %}
-
-        <div class="svc-row">
-          <div class="svc-name mb-2">
-            <span class="svc-dot dot-sc"></span>Cuentas de música
-          </div>
-          <p style="font-size:0.82rem;color:var(--tm-muted);margin:0;">
-            SoundCloud, YouTube, Muzpa y Deezer se conectan desde el
-            <strong style="color:var(--tm-text);">agente</strong>, en el botón
-            <strong style="color:var(--tm-text);">👤 Cuentas</strong>. Te logueás en una
-            ventana como lo harías en el navegador y el agente guarda la sesión solo.
-            {% if not api_token %}
-              Generá el token y descargá el agente desde el panel de la derecha.
-            {% endif %}
-          </p>
-        </div>
-
-        {% endif %}
-
-      </div>
+      </details>
+      {% endif %}
     </div>
   </div>
 
-  {# ── Columna derecha: Preferencias + Agente ──────────────────── #}
+  {# ── Columna derecha: Descargas + Agente ──────────────────────── #}
   <div class="col-lg-6 d-flex flex-column gap-4">
 
-    <div class="cfg-card">
-      <div class="cfg-card-head">Preferencias de descarga</div>
-      <div class="cfg-card-body">
-
-        <div class="pref-section">
-          <div class="pref-title">Opciones</div>
-          <div class="d-flex flex-column gap-3">
-
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" name="download_full_eps" id="download-eps"
-                     {% if current.get('download_full_eps') %}checked{% endif %}>
-              <label class="form-check-label" for="download-eps" style="font-size:0.875rem; font-weight:500;">
-                Descargar EPs completos
-              </label>
-              <div class="form-text" style="font-size:0.72rem;">
-                Cuando el track pertenece a un EP/Album, descarga todos los temas en una subcarpeta.
-              </div>
-            </div>
-
+    <div class="cfg-card" id="descargas">
+      <div class="cfg-card-head"><i class="bi bi-sliders"></i> Descargas</div>
+      <div class="pref-section">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="download_full_eps" id="download-eps"
+                 {% if current.get('download_full_eps') %}checked{% endif %}>
+          <label class="form-check-label" for="download-eps" style="font-size:0.875rem; font-weight:500;">
+            Descargar EPs completos
+          </label>
+          <div class="form-text" style="font-size:0.75rem;">
+            Cuando el track pertenece a un EP o álbum, baja todos los temas en una subcarpeta.
           </div>
         </div>
-
+        <button type="submit" class="btn btn-primary btn-sm px-4 mt-3">Guardar</button>
       </div>
     </div>
 
     {# ── Agente de Descarga ──────────────────────────────────── #}
-    <div class="cfg-card">
-      <div class="cfg-card-head">Agente de Descarga</div>
-      <div class="cfg-card-body">
+    <div class="cfg-card" id="agente">
+      <div class="cfg-card-head"><i class="bi bi-pc-display"></i> Agente de descarga</div>
 
-        <div class="pref-section" style="border-bottom:1px solid var(--tm-border);">
-          <p style="font-size:0.82rem;color:var(--tm-muted);margin:0;">
-            El agente es una aplicación que descargás y corrés directamente en tu computadora, sin instalación. Se encarga de hacer las descargas automáticamente
-            en la carpeta que vos elegís. <strong style="color:var(--tm-text);">Tiene que estar abierto y corriendo para que las descargas funcionen.</strong>
-          </p>
-        </div>
+      <div class="pref-section" style="border-bottom:1px solid var(--tm-border);">
+        <p style="font-size:0.85rem;color:var(--tm-muted);margin:0;">
+          El agente es una aplicación que descargás y corrés en tu computadora, sin instalación. Hace las descargas
+          en la carpeta que vos elegís. <strong style="color:var(--tm-text);">Tiene que estar abierto para que las descargas funcionen.</strong>
+        </p>
+      </div>
 
-        <div class="row g-0">
+      <div class="row g-0">
 
       {# Token #}
       <div class="col-lg-6 pref-section" style="border-right:1px solid var(--tm-border);">
         <div class="pref-title">Token de acceso</div>
-        <div class="form-text mb-2" style="font-size:0.72rem;">
-          Copiá este token y pegalo en el campo <strong>Token de acceso</strong> dentro de la configuración del agente.
+        <div class="form-text mb-2" style="font-size:0.75rem;">
+          Copialo y pegalo en el campo <strong>Token de acceso</strong> de la configuración del agente.
         </div>
 
         {% if api_token %}
         <div id="agent-token-display">
           <div class="input-group input-group-sm mb-1">
             <input type="password" class="form-control font-monospace" id="agent-token-field"
-                   value="{{ api_token }}" readonly>
-            <button class="btn btn-outline-secondary" type="button" onclick="toggleAgentToken()">👁</button>
-            <button class="btn btn-outline-secondary" type="button" onclick="copyAgentToken()">Copiar</button>
+                   value="{{ api_token }}" readonly aria-label="Token de acceso">
+            <button class="btn btn-outline-secondary" type="button" onclick="toggleAgentToken()" aria-label="Mostrar u ocultar"><i class="bi bi-eye"></i></button>
+            <button class="btn btn-outline-secondary" type="button" onclick="copyAgentToken()"><i class="bi bi-clipboard"></i> Copiar</button>
           </div>
-          <div class="text-success small d-none" id="agent-token-confirm">¡Copiado!</div>
-          <button class="btn btn-outline-secondary btn-sm mt-2" type="button"
+          <button class="btn btn-link btn-sm p-0 text-muted mt-2" type="button" style="font-size:.78rem;"
                   onclick="generateAgentToken()">Regenerar token</button>
         </div>
         {% else %}
@@ -339,11 +287,10 @@
         </div>
         <div id="agent-token-display" class="d-none">
           <div class="input-group input-group-sm mb-1">
-            <input type="password" class="form-control font-monospace" id="agent-token-field" value="" readonly>
-            <button class="btn btn-outline-secondary" type="button" onclick="toggleAgentToken()">👁</button>
-            <button class="btn btn-outline-secondary" type="button" onclick="copyAgentToken()">Copiar</button>
+            <input type="password" class="form-control font-monospace" id="agent-token-field" value="" readonly aria-label="Token de acceso">
+            <button class="btn btn-outline-secondary" type="button" onclick="toggleAgentToken()" aria-label="Mostrar u ocultar"><i class="bi bi-eye"></i></button>
+            <button class="btn btn-outline-secondary" type="button" onclick="copyAgentToken()"><i class="bi bi-clipboard"></i> Copiar</button>
           </div>
-          <div class="text-success small d-none" id="agent-token-confirm">¡Copiado!</div>
         </div>
         {% endif %}
       </div>
@@ -355,10 +302,10 @@
         {% if agent_available or agent_mac_arm or agent_mac_intel %}
         <div class="d-flex flex-wrap gap-2 mb-2">
           {% if agent_available %}
-          <a href="/api/download-agent" class="btn btn-primary btn-sm">⬇ Windows</a>
+          <a href="/api/download-agent" class="btn btn-primary btn-sm"><i class="bi bi-windows"></i> Windows</a>
           {% endif %}
           {% if agent_mac_arm or agent_mac_intel %}
-          <a href="/agente/mac" class="btn btn-primary btn-sm">⬇ Mac</a>
+          <a href="/agente/mac" class="btn btn-primary btn-sm"><i class="bi bi-apple"></i> Mac</a>
           {% endif %}
         </div>
         {% else %}
@@ -368,21 +315,14 @@
         </p>
         {% endif %}
 
-        <a href="/primeros-pasos" class="btn btn-link btn-sm p-0 text-muted d-block"
-           style="font-size:0.78rem;">Ver los primeros pasos de nuevo</a>
+        <a href="/primeros-pasos" class="btn btn-link btn-sm p-0 text-muted d-block" style="font-size:0.78rem;">Ver los primeros pasos de nuevo</a>
+      </div>{# /col-lg-6 instalación #}
 
-          </div>{# /col-lg-6 instalación #}
-
-        </div>{# /row g-0 #}
-      </div>{# /cfg-card-body #}
+      </div>{# /row g-0 #}
     </div>{# /cfg-card agente #}
 
   </div>{# /col-lg-6 right #}
 </div>{# /row #}
-
-<div class="d-flex justify-content-start mt-3">
-  <button type="submit" class="btn btn-primary btn-sm px-4">Guardar cambios</button>
-</div>
 </form>
 
 <script>
@@ -409,12 +349,12 @@ async function verifyCredential(service) {
 }
 
 document.getElementById('settings-form').addEventListener('submit', function() {
-  _setToast('Configuración guardada correctamente.', 'success');
+  _setToast('Configuración guardada.', 'success');
 });
 
-
-
 async function generateAgentToken() {
+  if (document.getElementById('agent-token-field').value &&
+      !(await tmConfirm('El token anterior deja de funcionar: vas a tener que pegar el nuevo en el agente.', {title:'¿Regenerar el token?', label:'Regenerar', danger:true}))) return;
   try {
     const res = await fetch('/api/generate-token', {method: 'POST'});
     if (!res.ok) {
@@ -427,10 +367,7 @@ async function generateAgentToken() {
     document.getElementById('agent-token-display').classList.remove('d-none');
     const emptyDiv = document.getElementById('agent-token-empty');
     if (emptyDiv) emptyDiv.classList.add('d-none');
-    const envBlock = document.getElementById('agent-env-block');
-    if (envBlock) {
-      envBlock.textContent = envBlock.textContent.replace(/TM_API_TOKEN=.*/, 'TM_API_TOKEN=' + data.token);
-    }
+    showToast('Token generado', 'success');
   } catch (err) {
     showError('Error al generar token', err.message || 'No se pudo conectar con el servidor.');
   }
@@ -468,9 +405,9 @@ function toggleAgentToken() {
   toggleField('agent-token-field');
 }
 function copyAgentToken() {
-  navigator.clipboard.writeText(document.getElementById('agent-token-field').value);
-  document.getElementById('agent-token-confirm').classList.remove('d-none');
-  setTimeout(() => document.getElementById('agent-token-confirm').classList.add('d-none'), 2000);
+  navigator.clipboard.writeText(document.getElementById('agent-token-field').value)
+    .then(() => showToast('Token copiado', 'success'))
+    .catch(() => showToast('No se pudo copiar', 'danger'));
 }
 </script>
 {% endblock %}

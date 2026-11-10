@@ -2,8 +2,9 @@
 {% block title %}Usuarios — Track Manager{% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center justify-content-between mb-4">
-  <h4 class="tm-page-title mb-0">Gestión de usuarios</h4>
+<div class="mb-4">
+  <h1 class="tm-page-title">Usuarios</h1>
+  <p class="tm-page-sub">Alumnos y administradores con acceso a Track Manager.</p>
 </div>
 
 {% if request.query_params.get('created') %}
@@ -50,10 +51,10 @@
         <td>
           <span class="fw-semibold" style="font-size:0.875rem;">{{ u.username }}</span>
           {% if u.id == current_user.id %}
-            <span class="badge s-queued ms-1" style="font-size:0.65rem;">tú</span>
+            <span class="badge s-queued ms-1" style="font-size:0.65rem;">vos</span>
           {% endif %}
           {% if not u.is_active %}
-            <span class="badge bg-secondary ms-1" style="font-size:0.65rem;">Inactivo</span>
+            <span class="badge s-discarded ms-1" style="font-size:0.65rem;">Inactivo</span>
           {% endif %}
         </td>
         <td>
@@ -72,17 +73,17 @@
                     data-bs-toggle="modal" data-bs-target="#resetModal"
                     data-uid="{{ u.id }}" data-uname="{{ u.username }}"
                     onclick="openReset(this)">
-              🔑 Reset
+              <i class="bi bi-key"></i> Contraseña
             </button>
             {% if u.id != current_user.id %}
             <form method="POST" action="/admin/users/{{ u.id }}/toggle-active"
-                  onsubmit="return confirm('{% if u.is_active %}¿Desactivar usuario {{ u.username }}?{% else %}¿Reactivar usuario {{ u.username }}?{% endif %}')">
+                  onsubmit="return confirmSubmit(this, '{% if u.is_active %}{{ u.username }} no va a poder entrar hasta que lo reactives.{% else %}{{ u.username }} va a poder entrar de nuevo.{% endif %}', {title: '{% if u.is_active %}¿Desactivar a {{ u.username }}?{% else %}¿Reactivar a {{ u.username }}?{% endif %}', label: '{% if u.is_active %}Desactivar{% else %}Reactivar{% endif %}'})">
               <button class="btn btn-sm {% if u.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %}">
                 {% if u.is_active %}Desactivar{% else %}Reactivar{% endif %}
               </button>
             </form>
             <form method="POST" action="/admin/users/{{ u.id }}/delete"
-                  onsubmit="return confirm('¿Eliminar permanentemente a {{ u.username }}? Esta acción no se puede deshacer.')">
+                  onsubmit="return confirmSubmit(this, 'Se borran su cuenta y todos sus tracks. No se puede deshacer.', {title: '¿Eliminar a {{ u.username }}?', label: 'Eliminar', danger: true})">
               <button class="btn btn-outline-danger btn-sm">Eliminar</button>
             </form>
             {% endif %}
@@ -101,14 +102,14 @@
     <form method="POST" action="/admin/users/create" class="d-flex flex-column gap-3">
       <div class="row g-3">
         <div class="col-sm-5">
-          <label class="form-label">Usuario</label>
-          <input type="text" name="username" class="form-control form-control-sm" required>
+          <label class="form-label" for="new-username">Usuario</label>
+          <input type="text" name="username" id="new-username" class="form-control form-control-sm" required>
         </div>
         <div class="col-sm-5">
-          <label class="form-label">Contraseña</label>
+          <label class="form-label" for="new-password">Contraseña</label>
           <div class="input-group input-group-sm">
             <input type="password" name="password" id="new-password" class="form-control form-control-sm" required minlength="6">
-            <button type="button" class="btn btn-outline-secondary" onclick="toggleField('new-password')">👁</button>
+            <button type="button" class="btn btn-outline-secondary" onclick="toggleField('new-password')" aria-label="Mostrar u ocultar"><i class="bi bi-eye"></i></button>
           </div>
         </div>
         <div class="col-sm-2 d-flex flex-column justify-content-end">
@@ -132,15 +133,15 @@
       <form method="POST" id="reset-form">
         <div class="modal-header">
           <h6 class="modal-title" style="font-size:0.9rem;">
-            Cambiar contraseña — <span id="reset-username"></span>
+            Nueva contraseña para <span id="reset-username"></span>
           </h6>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
         </div>
         <div class="modal-body">
           <div class="input-group input-group-sm">
             <input type="password" name="new_password" id="reset-password" class="form-control form-control-sm"
                    placeholder="Nueva contraseña (mín. 6 chars)" required minlength="6">
-            <button type="button" class="btn btn-outline-secondary" onclick="toggleField('reset-password')">👁</button>
+            <button type="button" class="btn btn-outline-secondary" onclick="toggleField('reset-password')" aria-label="Mostrar u ocultar"><i class="bi bi-eye"></i></button>
           </div>
         </div>
         <div class="modal-footer">

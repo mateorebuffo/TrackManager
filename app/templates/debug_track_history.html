@@ -2,18 +2,14 @@
 {% block title %}Historial de track — Track Manager{% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-start gap-3 mb-4 flex-wrap">
+<div class="d-flex align-items-end gap-3 mb-4 flex-wrap">
   <div>
-    <h1 class="tm-page-title mb-0">Historial del track</h1>
-    <p class="text-muted mb-0 mt-1" style="font-size:0.85rem">
-      Review #{{ review_id }} &mdash; <strong>{{ track_label }}</strong>
-    </p>
+    <h1 class="tm-page-title">Historial del track</h1>
+    <p class="tm-page-sub"><strong>{{ track_label }}</strong> · nº {{ review_id }}</p>
   </div>
   <div class="ms-auto d-flex gap-2">
-    <a href="/tracks/pending?status=all" class="btn btn-sm btn-outline-secondary">← Tracks</a>
-    <a href="/debug/reports?track_id={{ review_id }}" class="btn btn-sm btn-outline-danger">
-      Reportar problema
-    </a>
+    <a href="javascript:history.back()" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i> Volver</a>
+    <a href="#reportar" class="btn btn-sm btn-primary"><i class="bi bi-flag"></i> Reportar problema</a>
   </div>
 </div>
 
@@ -101,7 +97,7 @@
 </div>
 
 <!-- Report problem form -->
-<div class="card mt-4">
+<div class="card mt-4" id="reportar">
   <div class="card-header">Reportar un problema con este track</div>
   <div class="card-body">
     <form method="POST" action="/debug/reports" class="row g-3">
@@ -120,7 +116,7 @@
                   placeholder="Describe el problema…" required></textarea>
       </div>
       <div class="col-12">
-        <button type="submit" class="btn btn-sm btn-danger">Enviar reporte</button>
+        <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-send"></i> Enviar reporte</button>
       </div>
     </form>
   </div>

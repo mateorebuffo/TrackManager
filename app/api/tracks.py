@@ -27,6 +27,8 @@ _QUEUE_STATUSES = [
     TrackStatus.queued,
 ]
 
+_PAGE_SIZE = 50  # filas por página en /tracks/pending
+
 _STATUS_FILTER: dict[str, list[TrackStatus]] = {
     "pending":    [TrackStatus.pending],
     "queued":     [TrackStatus.queued],
@@ -61,9 +63,12 @@ def pending_tracks_page(
     date_to: str | None = Query(default=None),
     source: str | None = Query(default=None),
     compare: str | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> HTMLResponse:
+    total = 0
+    pages = 1
     compare_ids: list[int] = []
     if compare:
         compare_ids = [int(x) for x in compare.split(",") if x.strip().isdigit()]
@@ -125,7 +130,10 @@ def pending_tracks_page(
         if parsed_to:
             query = query.filter(SourceTrack.liked_at <= datetime(parsed_to.year, parsed_to.month, parsed_to.day, 23, 59, 59))
 
-        items = query.order_by(order).all()
+        total = query.count()
+        pages = max(1, -(-total // _PAGE_SIZE))
+        page = min(page, pages)
+        items = query.order_by(order).offset((page - 1) * _PAGE_SIZE).limit(_PAGE_SIZE).all()
 
     today = date.today()
     first_of_prev = date(today.year if today.month > 1 else today.year - 1, today.month - 1 if today.month > 1 else 12, 1)
@@ -183,7 +191,10 @@ def pending_tracks_page(
         {
             "request": request,
             "rows": rows,
-            "count": len(rows),
+            "count": total if not compare_ids else len(rows),
+            "page": page,
+            "pages": pages,
+            "page_size": _PAGE_SIZE,
             "active_status": status,
             "q": q or "",
             "sort": sort,

@@ -4,105 +4,162 @@
 
 {% block content %}
 <style>
-  /* ── Tabs ───────────────────────────────────────────────────── */
-  .tm-tabs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.2rem;
-    background: #fff;
-    padding: 0.35rem;
-    border-radius: 10px;
-    border: 1px solid var(--tm-border);
-    box-shadow: var(--tm-shadow);
-  }
+  /* ── Barra única: pestañas + filtros ───────────────────────── */
+  .tm-toolbar { background: #fff; border: 1px solid var(--tm-border); border-radius: var(--tm-radius-lg); box-shadow: var(--tm-shadow); }
+  .tm-tabs { display: flex; flex-wrap: wrap; gap: 0.15rem; padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--tm-border); }
   .tm-tab {
-    padding: 0.3rem 0.75rem;
-    border-radius: 7px;
-    font-size: 0.78rem;
-    font-weight: 500;
-    color: var(--tm-muted);
-    text-decoration: none;
-    transition: all .15s;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    border: none;
-    background: transparent;
-    white-space: nowrap;
+    padding: 0.32rem 0.75rem; border-radius: 7px; font-size: 0.8rem; font-weight: 500;
+    color: var(--tm-muted); text-decoration: none; transition: all .15s;
+    display: inline-flex; align-items: center; gap: 0.4rem; white-space: nowrap;
   }
   .tm-tab:hover { background: var(--tm-bg); color: var(--tm-text); }
   .tm-tab.tm-tab-active { background: var(--tm-primary); color: #fff; }
   .tm-tab.tm-tab-active:hover { background: var(--tm-primary-h); color: #fff; }
-  .tm-tab-n {
-    font-size: 0.68rem;
-    font-weight: 700;
-    background: rgba(0,0,0,.12);
-    color: inherit;
-    border-radius: 999px;
-    padding: 0.1em 0.45em;
-    line-height: 1.4;
-  }
+  .tm-tab-n { font-size: 0.68rem; font-weight: 700; background: rgba(0,0,0,.08); color: inherit; border-radius: 999px; padding: 0.1em 0.45em; line-height: 1.4; }
   .tm-tab.tm-tab-active .tm-tab-n { background: rgba(255,255,255,.25); }
+  .tm-filters { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; padding: 0.6rem 0.75rem; }
+  .tm-filters .bi-search { color: var(--tm-muted); }
+  .tm-src-filter .btn { padding: .28rem .55rem; }
+  .tm-src-filter .btn .pi { font-size: 14px; }
+  .tm-shortcuts { margin-left: auto; color: var(--tm-muted); font-size: .74rem; white-space: nowrap; }
+  .tm-shortcuts kbd { background: #f1f5f9; border: 1px solid var(--tm-border); border-radius: 4px; padding: 0 .35em; font-size: .72rem; color: var(--tm-text); font-family: var(--tm-body); }
 
-  /* ── Filter bar ─────────────────────────────────────────────── */
-  .tm-filter-bar {
-    background: #fff;
-    border: 1px solid var(--tm-border);
-    border-radius: var(--tm-radius);
-    padding: 0.65rem 1rem;
-    box-shadow: var(--tm-shadow);
+  /* ── Barra de selección (aparece sólo con algo marcado) ─────── */
+  .tm-sel-bar {
+    position: sticky; top: 60px; z-index: 50;
+    background: var(--tm-nav); color: #fff; border-radius: var(--tm-radius);
+    padding: 0.5rem 0.9rem; display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+    box-shadow: var(--tm-shadow-md); margin-bottom: 0.75rem;
   }
+  .tm-sel-bar .btn-outline-light { border-color: rgba(255,255,255,.3); }
 
-  /* ── Source filter ──────────────────────────────────────────── */
-  .src-btn { font-size: 0.75rem; font-weight: 600; padding: 0.25rem 0.6rem; border-radius: 6px; }
-
-  /* ── Compare banner ─────────────────────────────────────────── */
-  .tm-compare-bar {
-    background: #fefce8;
-    border: 1px solid #fde68a;
-    border-radius: var(--tm-radius);
-    padding: 0.65rem 1rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    margin-bottom: 1rem;
-    font-size: 0.855rem;
-    color: #92400e;
-  }
-
-  /* ── Bulk action bar ────────────────────────────────────────── */
-  .tm-bulk-bar {
-    background: #fff;
-    border: 1px solid var(--tm-border);
-    border-radius: var(--tm-radius);
-    padding: 0.5rem 0.75rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    box-shadow: var(--tm-shadow);
-  }
+  /* ── Tabla ──────────────────────────────────────────────────── */
+  .tm-row-focus > * { background: #eef2ff !important; box-shadow: inset 3px 0 0 var(--tm-primary); }
   .copy-track { cursor: copy; }
   .copy-track:hover { color: var(--tm-primary); }
+  .tm-channel { color: var(--tm-muted); font-size: 0.72rem; display: block; }
+  .tm-actions { white-space: nowrap; text-align: right; }
+  .tm-actions .btn { margin-left: 2px; }
+  .tm-actions form { display: inline; }
+  .tm-dup { color: #b45309; font-weight: 600; text-decoration: none; }
+
+  /* ── Banner de bienvenida ───────────────────────────────────── */
+  .tm-setup { background: linear-gradient(135deg,#1e293b 0%,#312e81 100%); color: #fff; border-radius: var(--tm-radius-lg); padding: 1.1rem 1.4rem; display: flex; align-items: center; gap: 1.1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  .tm-setup .bi-stars { font-size: 1.6rem; color: #c7d2fe; }
+
+  /* ── Paginación ─────────────────────────────────────────────── */
+  .tm-pager { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 0.9rem; font-size: 0.82rem; color: var(--tm-muted); }
+
+  /* ── Reproductor flotante ───────────────────────────────────── */
+  .tm-player { position: fixed; right: 1.5rem; bottom: 1.5rem; width: 400px; background: #fff; border: 1px solid var(--tm-border); border-radius: 12px; box-shadow: 0 16px 40px rgba(15,23,42,.25); z-index: 1050; overflow: hidden; }
+  .tm-player-head { display: flex; align-items: center; gap: .5rem; padding: .5rem .75rem; border-bottom: 1px solid var(--tm-border); font-size: .8rem; font-weight: 600; }
+  .tm-player-head span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tm-player iframe { display: block; width: 100%; border: 0; }
 </style>
+
+{# ── Macro: botones de importar (header y estado vacío) ─────────── #}
+{% macro import_buttons(size) %}
+  {# SoundCloud #}
+  {% if sc_configured %}
+    <button type="submit" form="soundcloud-sync-form" class="btn {{ size }} btn-src btn-src-sc"
+            onclick="showLoading('Importando likes de SoundCloud…', 'Puede tardar un minuto si tenés muchos likes.')">
+      <span class="pi pi-sc"></span> Importar SoundCloud
+    </button>
+  {% else %}
+    <a href="/primeros-pasos" class="btn {{ size }} btn-src btn-src-sc"
+       data-bs-toggle="tooltip" data-bs-title="Todavía no vinculaste SoundCloud. Se hace desde el agente.">
+      <span class="pi pi-sc"></span> Conectar SoundCloud
+    </a>
+  {% endif %}
+
+  {# Spotify — solo admin #}
+  {% if is_admin %}
+    {% if spotify_connected %}
+      <div class="btn-group">
+        <button type="submit" form="spotify-sync-form" class="btn {{ size }} btn-src btn-src-sp"
+                data-bs-toggle="tooltip" data-bs-title="{% if spotify_playlist_name %}Desde la playlist « {{ spotify_playlist_name }} »{% else %}Importar desde Spotify{% endif %}"
+                onclick="showLoading('Importando tracks de Spotify…')">
+          <span class="pi pi-sp"></span> Importar Spotify
+        </button>
+        <button type="button" class="btn {{ size }} btn-src btn-src-sp dropdown-toggle dropdown-toggle-split"
+                data-bs-toggle="dropdown" aria-label="Opciones de Spotify"></button>
+        <ul class="dropdown-menu dropdown-menu-end" style="font-size:0.82rem;min-width:220px;">
+          {% if spotify_playlist_name %}
+          <li><span class="dropdown-item-text text-muted" style="font-size:0.75rem;">Playlist: <strong>{{ spotify_playlist_name }}</strong></span></li>
+          <li><hr class="dropdown-divider my-1"></li>
+          {% endif %}
+          <li><button type="button" class="dropdown-item" onclick="openPlaylistPicker('spotify')"><i class="bi bi-music-note-list me-1"></i> Elegir playlist…</button></li>
+          <li><hr class="dropdown-divider my-1"></li>
+          <li><button type="submit" form="spotify-disconnect-form" class="dropdown-item text-danger"><i class="bi bi-plug me-1"></i> Desconectar Spotify</button></li>
+        </ul>
+      </div>
+    {% else %}
+      <a href="/settings" class="btn {{ size }} btn-src btn-src-sp"><span class="pi pi-sp"></span> Conectar Spotify</a>
+    {% endif %}
+  {% endif %}
+
+  {# YouTube #}
+  {% if youtube_connected %}
+    <div class="btn-group">
+      {% if youtube_playlist_name %}
+      <button type="submit" form="youtube-sync-form" class="btn {{ size }} btn-src btn-src-yt"
+              data-bs-toggle="tooltip" data-bs-title="Desde la playlist « {{ youtube_playlist_name }} »"
+              onclick="showLoading('Importando tracks de YouTube…', 'Puede tardar un minuto si la playlist es larga.')">
+        <span class="pi pi-yt"></span> Importar YouTube
+      </button>
+      {% else %}
+      <button type="button" class="btn {{ size }} btn-src btn-src-yt" onclick="openPlaylistPicker('youtube')">
+        <span class="pi pi-yt"></span> Elegir playlist de YouTube
+      </button>
+      {% endif %}
+      <button type="button" class="btn {{ size }} btn-src btn-src-yt dropdown-toggle dropdown-toggle-split"
+              data-bs-toggle="dropdown" aria-label="Opciones de YouTube"></button>
+      <ul class="dropdown-menu dropdown-menu-end" style="font-size:0.82rem;min-width:220px;">
+        {% if youtube_playlist_name %}
+        <li><span class="dropdown-item-text text-muted" style="font-size:0.75rem;">Playlist: <strong>{{ youtube_playlist_name }}</strong></span></li>
+        <li><hr class="dropdown-divider my-1"></li>
+        {% endif %}
+        <li><button type="button" class="dropdown-item" onclick="openPlaylistPicker('youtube')"><i class="bi bi-music-note-list me-1"></i> Elegir playlist…</button></li>
+        <li><hr class="dropdown-divider my-1"></li>
+        <li><button type="submit" form="youtube-disconnect-form" class="dropdown-item text-danger"><i class="bi bi-plug me-1"></i> Desconectar YouTube</button></li>
+      </ul>
+    </div>
+  {% else %}
+    <a href="/primeros-pasos" class="btn {{ size }} btn-src btn-src-yt"
+       data-bs-toggle="tooltip" data-bs-title="Todavía no vinculaste YouTube. Se hace desde el agente.">
+      <span class="pi pi-yt"></span> Conectar YouTube
+    </a>
+  {% endif %}
+{% endmacro %}
+
+{# Formularios de sync/desconexión: fuera de cualquier otro form #}
+<form id="soundcloud-sync-form" method="POST" action="/sync/soundcloud" hidden></form>
+{% if is_admin and spotify_connected %}
+<form id="spotify-sync-form" method="POST" action="/sync/spotify" hidden></form>
+<form id="spotify-disconnect-form" method="POST" action="/sync/spotify/disconnect" hidden
+      onsubmit="return confirmSubmit(this, 'Vas a desconectar tu cuenta de Spotify. Los tracks ya importados se mantienen.', {label:'Desconectar', danger:true})"></form>
+{% endif %}
+{% if youtube_connected %}
+<form id="youtube-sync-form" method="POST" action="/sync/youtube" hidden></form>
+<form id="youtube-disconnect-form" method="POST" action="/sync/youtube/disconnect" hidden
+      onsubmit="return confirmSubmit(this, 'Vas a desconectar tu cuenta de YouTube. Los tracks ya importados se mantienen.', {label:'Desconectar', danger:true})"></form>
+{% endif %}
 
 {# ── Setup banner ──────────────────────────────────────────────── #}
 {% if needs_setup %}
-<div id="setup-banner" class="rounded-3 mb-4 p-4" style="background:linear-gradient(135deg,#1e293b 0%,#312e81 100%);color:#fff;display:flex;align-items:center;gap:1.25rem;flex-wrap:wrap;">
-  <div style="font-size:1.6rem;line-height:1;">⚙️</div>
+<div id="setup-banner" class="tm-setup">
+  <i class="bi bi-stars"></i>
   <div class="flex-grow-1">
-    <div style="font-weight:700;font-size:0.95rem;margin-bottom:0.2rem;">¡Bienvenido a Track Manager!</div>
-    <div style="font-size:0.82rem;color:rgba(255,255,255,.75);">
-      {# Las credenciales ya no se cargan acá: se vinculan desde el agente, así que
-         el banner apunta al asistente y no a /settings, donde ya no están. #}
+    <div style="font-weight:700;font-size:0.95rem;margin-bottom:0.15rem;">¡Bienvenido a Track Manager!</div>
+    <div style="font-size:0.82rem;color:rgba(255,255,255,.78);">
+      {# Las credenciales se vinculan desde el agente; el asistente guía paso a paso. #}
       Todavía te falta vincular tus cuentas. Se hace desde el agente, y el asistente te guía paso a paso.
     </div>
   </div>
   <div class="d-flex gap-2 align-items-center flex-shrink-0">
-    <a href="/primeros-pasos" class="btn btn-sm btn-light fw-600" style="font-size:0.82rem;font-weight:600;">Ver primeros pasos →</a>
-    <button type="button" class="btn btn-sm" onclick="dismissSetupBanner()"
-            style="background:rgba(255,255,255,.12);color:#fff;font-size:0.82rem;border:none;">✕</button>
+    <a href="/primeros-pasos" class="btn btn-sm btn-light" style="font-weight:600;">Ver primeros pasos <i class="bi bi-arrow-right"></i></a>
+    <button type="button" class="btn btn-sm btn-icon" onclick="dismissSetupBanner()" aria-label="Ocultar aviso"
+            style="background:rgba(255,255,255,.12);color:#fff;border:none;"><i class="bi bi-x-lg"></i></button>
   </div>
 </div>
 <script>
@@ -120,144 +177,32 @@ function dismissSetupBanner(){
 {% endif %}
 
 {# ── Header ────────────────────────────────────────────────────── #}
-<div class="d-flex align-items-center justify-content-between mb-3 gap-3 flex-wrap">
-  <div class="d-flex align-items-center gap-2">
-    <h4 class="tm-page-title mb-0">Tracks</h4>
-    <span class="badge s-pending" style="font-size:0.75rem;padding:.3em .65em;">{{ count }}</span>
+<div class="d-flex align-items-end justify-content-between mb-3 gap-3 flex-wrap">
+  <div>
+    <h1 class="tm-page-title">Tracks <span class="text-muted" style="font-family:var(--tm-body);font-size:1rem;font-weight:500;">{{ count }}</span></h1>
+    <p class="tm-page-sub">Todo lo que importaste, separado por estado. Marcá lo que querés bajar y armá la cola.</p>
   </div>
   <div class="d-flex gap-2 align-items-center flex-wrap">
-    {# ── SoundCloud sync ── #}
-    <form id="soundcloud-sync-form" method="POST" action="/sync/soundcloud" style="display:none;"></form>
-    <div class="btn-group btn-group-sm">
-      <button type="submit" form="soundcloud-sync-form"
-              class="btn btn-sm d-inline-flex align-items-center gap-1"
-              style="background:#fff3e0;color:#c84b00;border:1px solid #fed7aa;font-weight:600;"
-              title="Importar likes de SoundCloud"
-              {% if sc_configured %}onclick="showLoading('Importando tracks de SoundCloud…')"{% endif %}>
-        <span class="pi" style="font-size:14px;"><img src="/static/icons/soundcloud.svg" alt="" style="filter:invert(33%) sepia(77%) saturate(1200%) hue-rotate(1deg) brightness(90%);"></span>
-        ↻
-      </button>
-    </div>
-
-    {# ── Spotify sync — solo admin ── #}
-    {% if is_admin %}
-    {% if spotify_connected %}
-      <form id="spotify-sync-form" method="POST" action="/sync/spotify" style="display:none;"></form>
-      <form id="spotify-disconnect-form" method="POST" action="/sync/spotify/disconnect" onsubmit="return confirm('¿Desconectar Spotify?')" style="display:none;"></form>
-      <div class="btn-group btn-group-sm">
-        <button type="submit" form="spotify-sync-form"
-                class="btn btn-sm src-btn d-inline-flex align-items-center gap-1"
-                style="background:#d1fae5;color:#065f46;border:1px solid #a7f3d0;"
-                title="{% if spotify_playlist_name %}Sincronizar desde « {{ spotify_playlist_name }} »{% else %}Importar desde Spotify{% endif %}"
-                onclick="showLoading('Importando tracks de Spotify…')">
-          <span class="pi" style="font-size:14px;"><img src="/static/icons/spotify.svg" alt="" style="filter:invert(26%) sepia(60%) saturate(600%) hue-rotate(120deg) brightness(80%);"></span>
-          ↻
-        </button>
-        <button type="button" class="btn btn-sm dropdown-toggle dropdown-toggle-split"
-                style="background:#d1fae5;color:#065f46;border:1px solid #a7f3d0;"
-                data-bs-toggle="dropdown"></button>
-        <ul class="dropdown-menu dropdown-menu-end" style="font-size:0.82rem;min-width:200px;">
-          {% if spotify_playlist_name %}
-          <li>
-            <span class="dropdown-item-text text-muted" style="font-size:0.75rem;">
-              Playlist: <strong>{{ spotify_playlist_name }}</strong>
-            </span>
-          </li>
-          <li><hr class="dropdown-divider my-1"></li>
-          {% endif %}
-          <li>
-            <button type="button" class="dropdown-item" onclick="openPlaylistPicker('spotify')">
-              ☰ Elegir playlist…
-            </button>
-          </li>
-          <li><hr class="dropdown-divider my-1"></li>
-          <li>
-            <button type="submit" form="spotify-disconnect-form" class="dropdown-item text-danger">
-              Desconectar Spotify
-            </button>
-          </li>
-        </ul>
-      </div>
-    {% else %}
-      <a href="/settings" class="btn btn-sm src-btn d-inline-flex align-items-center gap-1"
-         style="background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;" title="Conectar Spotify">
-        <span class="pi" style="font-size:14px;"><img src="/static/icons/spotify.svg" alt="" style="filter:invert(26%) sepia(60%) saturate(600%) hue-rotate(120deg) brightness(80%);"></span>
-        +
-      </a>
-    {% endif %}
-    {% endif %}
-
-    {# ── YouTube sync ── #}
-    {% if youtube_connected %}
-      <form id="youtube-sync-form" method="POST" action="/sync/youtube" style="display:none;"></form>
-      <form id="youtube-disconnect-form" method="POST" action="/sync/youtube/disconnect" onsubmit="return confirm('¿Desconectar YouTube?')" style="display:none;"></form>
-      <div class="btn-group btn-group-sm">
-        {% if youtube_playlist_name %}
-        <button type="submit" form="youtube-sync-form"
-                class="btn btn-sm src-btn d-inline-flex align-items-center gap-1"
-                style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;"
-                title="Sincronizar desde « {{ youtube_playlist_name }} »"
-                onclick="showLoading('Importando tracks de YouTube…')">
-          <span class="pi" style="font-size:14px;"><img src="/static/icons/youtube.svg" alt="" style="filter:invert(14%) sepia(80%) saturate(800%) hue-rotate(340deg) brightness(85%);"></span>
-          ↻
-        </button>
-        {% else %}
-        <button type="button"
-                class="btn btn-sm src-btn d-inline-flex align-items-center gap-1"
-                style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;"
-                title="Elegí una playlist de YouTube para importar"
-                onclick="openPlaylistPicker('youtube')">
-          <span class="pi" style="font-size:14px;"><img src="/static/icons/youtube.svg" alt="" style="filter:invert(14%) sepia(80%) saturate(800%) hue-rotate(340deg) brightness(85%);"></span>
-          +
-        </button>
-        {% endif %}
-        <button type="button" class="btn btn-sm dropdown-toggle dropdown-toggle-split"
-                style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;"
-                data-bs-toggle="dropdown"></button>
-        <ul class="dropdown-menu dropdown-menu-end" style="font-size:0.82rem;min-width:200px;">
-          {% if youtube_playlist_name %}
-          <li>
-            <span class="dropdown-item-text text-muted" style="font-size:0.75rem;">
-              Playlist: <strong>{{ youtube_playlist_name }}</strong>
-            </span>
-          </li>
-          <li><hr class="dropdown-divider my-1"></li>
-          {% endif %}
-          <li>
-            <button type="button" class="dropdown-item" onclick="openPlaylistPicker('youtube')">
-              ☰ Elegir playlist…
-            </button>
-          </li>
-          <li><hr class="dropdown-divider my-1"></li>
-          <li>
-            <button type="submit" form="youtube-disconnect-form" class="dropdown-item text-danger">
-              Desconectar YouTube
-            </button>
-          </li>
-        </ul>
-      </div>
-    {% else %}
-      <a href="/settings?missing=youtube" class="btn btn-sm src-btn d-inline-flex align-items-center gap-1"
-         style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;" title="Conectar YouTube">
-        <span class="pi" style="font-size:14px;"><img src="/static/icons/youtube.svg" alt="" style="filter:invert(14%) sepia(80%) saturate(800%) hue-rotate(340deg) brightness(85%);"></span>
-        +
-      </a>
-    {% endif %}
+    {{ import_buttons('btn-sm') }}
   </div>
 </div>
 
 {# ── Compare mode banner ───────────────────────────────────────── #}
 {% if compare_mode %}
-<div class="tm-compare-bar">
-  <span><strong>Modo comparación</strong> — estos dos tracks pueden ser el mismo. Revisalos y descartá el que no necesites.</span>
+<div class="alert alert-warning d-flex align-items-center justify-content-between gap-3 flex-wrap mb-3">
+  <span><i class="bi bi-intersect me-1"></i><strong>Modo comparación:</strong> estos dos tracks pueden ser el mismo. Revisalos y descartá el que no necesites.</span>
   <div class="d-flex gap-2">
-    <button class="btn btn-sm btn-outline-secondary" onclick="history.back()">← Atrás</button>
+    <button class="btn btn-sm btn-outline-secondary" onclick="history.back()"><i class="bi bi-arrow-left"></i> Atrás</button>
     <a href="/tracks/pending" class="btn btn-sm btn-outline-secondary">Ver todos</a>
   </div>
 </div>
 {% endif %}
 
-{# ── Status tabs ───────────────────────────────────────────────── #}
+{# Query string común para links que conservan filtros #}
+{% set base_qs = "status=" ~ active_status ~ "&sort=" ~ sort ~ "&q=" ~ (q | urlencode) ~ "&source=" ~ source %}
+{% if date_filter_active %}{% set base_qs = base_qs ~ "&date_from=" ~ date_from ~ "&date_to=" ~ date_to %}{% endif %}
+
+{# ── Pestañas + filtros en una sola barra ──────────────────────── #}
 {% if not compare_mode %}
 {% set tab_statuses = [
   ("pending",       "Pendiente"),
@@ -270,363 +215,314 @@ function dismissSetupBanner(){
   ("discarded",     "Descartado"),
   ("all",           "Todos"),
 ] %}
-<div class="tm-tabs mb-3">
-  {% for tab_val, tab_label in tab_statuses %}
-    {% set tab_count = counts.get(tab_val) %}
-    {% if tab_val == 'downloaded' %}
-      {% set tab_badge_style = 'background:#d1fae5;color:#065f46;' %}
-    {% elif tab_val == 'not_found' %}
-      {% set tab_badge_style = 'background:#fee2e2;color:#991b1b;' %}
-    {% elif tab_val == 'vinyl_only' %}
-      {% set tab_badge_style = 'background:#ffedd5;color:#9a3412;' %}
-    {% elif tab_val == 'bandcamp_only' %}
-      {% set tab_badge_style = 'background:#e0f2fe;color:#0369a1;' %}
-    {% elif tab_val == 'set_mix' %}
-      {% set tab_badge_style = 'background:#ede9fe;color:#6d28d9;' %}
-    {% else %}
-      {% set tab_badge_style = '' %}
-    {% endif %}
-    <a href="/tracks/pending?status={{ tab_val }}&sort={{ sort }}&q={{ q }}&source={{ source }}"
-       class="tm-tab {% if active_status == tab_val %}tm-tab-active{% endif %}">
-      {{ tab_label }}
-      {% if tab_val != 'all' and tab_count %}
-        <span class="tm-tab-n" {% if tab_badge_style and active_status != tab_val %}style="{{ tab_badge_style }}"{% endif %}>{{ tab_count }}</span>
-      {% endif %}
-    </a>
-  {% endfor %}
-</div>
-{% endif %}
-
-{# ── Filter bar ────────────────────────────────────────────────── #}
-{% if not compare_mode %}
-<form method="GET" action="/tracks/pending" id="filter-form">
+<form method="GET" action="/tracks/pending" id="filter-form" class="tm-toolbar mb-3">
   <input type="hidden" name="status" value="{{ active_status }}">
   <input type="hidden" name="source" value="{{ source }}">
 
-  <div class="tm-filter-bar mb-3">
-
-    {# Fila principal #}
-    <div class="d-flex flex-wrap gap-2 align-items-center">
-
-      <input type="search" name="q" value="{{ q }}"
-             placeholder="Buscar artista o título…"
-             class="form-control form-control-sm"
-             style="max-width:240px;"
-             onsearch="this.form.submit()">
-
-      <select name="sort" class="form-select form-select-sm" style="max-width:185px;" onchange="this.form.submit()">
-        <optgroup label="Likeado">
-          <option value="newest"          {% if sort == 'newest'          %}selected{% endif %}>Likeado: más reciente</option>
-          <option value="oldest"          {% if sort == 'oldest'          %}selected{% endif %}>Likeado: más antiguo</option>
-        </optgroup>
-        <optgroup label="Importado">
-          <option value="imported_newest" {% if sort == 'imported_newest' %}selected{% endif %}>Importado: más reciente</option>
-          <option value="imported_oldest" {% if sort == 'imported_oldest' %}selected{% endif %}>Importado: más antiguo</option>
-        </optgroup>
-        <optgroup label="Artista">
-          <option value="artist_asc"      {% if sort == 'artist_asc'      %}selected{% endif %}>Artista A→Z</option>
-          <option value="artist_desc"     {% if sort == 'artist_desc'     %}selected{% endif %}>Artista Z→A</option>
-        </optgroup>
-        <optgroup label="Título">
-          <option value="title_asc"       {% if sort == 'title_asc'       %}selected{% endif %}>Título A→Z</option>
-          <option value="title_desc"      {% if sort == 'title_desc'      %}selected{% endif %}>Título Z→A</option>
-        </optgroup>
-      </select>
-
-      <div class="d-flex gap-1">
-        <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q }}"
-           class="btn btn-sm src-btn"
-           style="{% if not source %}background:var(--tm-text);border-color:var(--tm-text);color:#fff;{% else %}background:#f1f5f9;border-color:var(--tm-border);color:var(--tm-muted);{% endif %}">Todos</a>
-        <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q }}&source=soundcloud"
-           class="btn btn-sm src-btn d-inline-flex align-items-center gap-1" title="SoundCloud"
-           style="background:{% if source == 'soundcloud' %}#c84b00{% else %}#fff3e0{% endif %};border:1px solid #fed7aa;padding:.28rem .55rem;">
-          <span class="pi" style="font-size:14px;"><img src="/static/icons/soundcloud.svg" alt="SoundCloud"
-            style="filter:{% if source == 'soundcloud' %}brightness(0) invert(1){% else %}invert(33%) sepia(77%) saturate(1200%) hue-rotate(1deg) brightness(90%){% endif %};"></span>
-        </a>
-        {# Spotify es solo admin, igual que su botón de sync: para el resto el
-           filtro nunca puede dar resultados. #}
-        {% if is_admin %}
-        <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q }}&source=spotify"
-           class="btn btn-sm src-btn d-inline-flex align-items-center gap-1" title="Spotify"
-           style="background:{% if source == 'spotify' %}#065f46{% else %}#d1fae5{% endif %};border:1px solid #a7f3d0;padding:.28rem .55rem;">
-          <span class="pi" style="font-size:14px;"><img src="/static/icons/spotify.svg" alt="Spotify"
-            style="filter:{% if source == 'spotify' %}brightness(0) invert(1){% else %}invert(26%) sepia(60%) saturate(600%) hue-rotate(120deg) brightness(80%){% endif %};"></span>
-        </a>
-        {% endif %}
-        <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q }}&source=youtube"
-           class="btn btn-sm src-btn d-inline-flex align-items-center gap-1" title="YouTube"
-           style="background:{% if source == 'youtube' %}#991b1b{% else %}#fee2e2{% endif %};border:1px solid #fecaca;padding:.28rem .55rem;">
-          <span class="pi" style="font-size:14px;"><img src="/static/icons/youtube.svg" alt="YouTube"
-            style="filter:{% if source == 'youtube' %}brightness(0) invert(1){% else %}invert(14%) sepia(80%) saturate(800%) hue-rotate(340deg) brightness(85%){% endif %};"></span>
-        </a>
-      </div>
-
-      <button type="button" id="date-toggle-btn"
-              class="btn btn-sm {% if date_filter_active %}btn-warning{% else %}btn-outline-secondary{% endif %}"
-              onclick="toggleDateFilter()">
-        📅{% if date_filter_active %} ✓{% endif %}
-      </button>
-
-    </div>
-
-    {# Pills de filtros activos #}
-    {% if q or date_filter_active or source %}
-    <div class="d-flex flex-wrap gap-2 align-items-center mt-2 pt-2 border-top">
-      <span class="text-muted" style="font-size:0.75rem;font-weight:600;">Filtros activos:</span>
-      {% if q %}
-        <span class="d-inline-flex align-items-center gap-1 badge"
-              style="background:#ede9fe;color:#6d28d9;font-size:0.75rem;padding:.3em .6em;border-radius:999px;font-weight:500;">
-          "{{ q }}"
-          <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&source={{ source }}"
-             class="text-inherit text-decoration-none" style="color:#6d28d9;opacity:.7;margin-left:2px;"
-             title="Quitar búsqueda">✕</a>
-        </span>
-      {% endif %}
-      {% if source %}
-        {% if source == 'soundcloud' %}{% set src_label = 'SoundCloud' %}{% elif source == 'spotify' %}{% set src_label = 'Spotify' %}{% else %}{% set src_label = 'YouTube' %}{% endif %}
-        <span class="d-inline-flex align-items-center gap-1 badge"
-              style="background:#fff3e0;color:#c84b00;font-size:0.75rem;padding:.3em .6em;border-radius:999px;font-weight:500;">
-          {{ src_label }}
-          <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q }}"
-             class="text-decoration-none" style="color:#c84b00;opacity:.7;margin-left:2px;"
-             title="Quitar fuente">✕</a>
-        </span>
-      {% endif %}
-      {% if date_filter_active %}
-        <span class="d-inline-flex align-items-center gap-1 badge"
-              style="background:#fef3c7;color:#92400e;font-size:0.75rem;padding:.3em .6em;border-radius:999px;font-weight:500;">
-          📅 {{ date_from }} → {{ date_to }}
-          <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q }}&source={{ source }}"
-             class="text-decoration-none" style="color:#92400e;opacity:.7;margin-left:2px;"
-             title="Quitar fecha">✕</a>
-        </span>
-      {% endif %}
-      <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}"
-         class="btn btn-sm btn-outline-danger" style="padding:.2rem .55rem;font-size:0.75rem;">
-        ✕ Limpiar todo
+  <div class="tm-tabs" role="tablist">
+    {% for tab_val, tab_label in tab_statuses %}
+      {% set tab_count = counts.get(tab_val) %}
+      <a href="/tracks/pending?status={{ tab_val }}&sort={{ sort }}&q={{ q | urlencode }}&source={{ source }}"
+         class="tm-tab {% if active_status == tab_val %}tm-tab-active{% endif %}" role="tab"
+         {% if active_status == tab_val %}aria-current="page"{% endif %}>
+        {{ tab_label }}
+        {% if tab_val != 'all' and tab_count %}<span class="tm-tab-n">{{ tab_count }}</span>{% endif %}
       </a>
-    </div>
-    {% endif %}
+    {% endfor %}
+  </div>
 
-    {# Panel de fecha #}
-    <div id="date-filter-panel"
-         class="d-flex align-items-center flex-wrap gap-2 mt-2 pt-2 border-top"
-         style="display:{% if date_filter_active %}flex{% else %}none{% endif %} !important;">
-      <label class="form-label mb-0 fw-semibold" style="white-space:nowrap;font-size:0.78rem;">Desde</label>
-      <input type="date" name="date_from"
-             value="{{ date_from if date_from else default_date_from }}"
-             class="form-control form-control-sm" style="max-width:145px;">
-      <label class="form-label mb-0 fw-semibold" style="white-space:nowrap;font-size:0.78rem;">Hasta</label>
-      <input type="date" name="date_to"
-             value="{{ date_to if date_to else default_date_to }}"
-             class="form-control form-control-sm" style="max-width:145px;">
-      <button type="submit" class="btn btn-primary btn-sm">Aplicar</button>
-      <button type="button" class="btn btn-outline-secondary btn-sm" onclick="closeDateFilter()">Cerrar</button>
-      {% if date_filter_active %}
-        <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q }}&source={{ source }}"
-           class="btn btn-outline-danger btn-sm">✕ Quitar fecha</a>
+  <div class="tm-filters">
+    <div class="input-group input-group-sm" style="max-width:260px;">
+      <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+      <input type="search" name="q" value="{{ q }}" placeholder="Artista o título…" aria-label="Buscar artista o título"
+             class="form-control form-control-sm" onsearch="this.form.submit()">
+    </div>
+
+    <select name="sort" class="form-select form-select-sm" style="max-width:190px;" aria-label="Ordenar" onchange="this.form.submit()">
+      <optgroup label="Likeado">
+        <option value="newest"          {% if sort == 'newest'          %}selected{% endif %}>Likeado: más reciente</option>
+        <option value="oldest"          {% if sort == 'oldest'          %}selected{% endif %}>Likeado: más antiguo</option>
+      </optgroup>
+      <optgroup label="Importado">
+        <option value="imported_newest" {% if sort == 'imported_newest' %}selected{% endif %}>Importado: más reciente</option>
+        <option value="imported_oldest" {% if sort == 'imported_oldest' %}selected{% endif %}>Importado: más antiguo</option>
+      </optgroup>
+      <optgroup label="Artista">
+        <option value="artist_asc"      {% if sort == 'artist_asc'      %}selected{% endif %}>Artista A→Z</option>
+        <option value="artist_desc"     {% if sort == 'artist_desc'     %}selected{% endif %}>Artista Z→A</option>
+      </optgroup>
+      <optgroup label="Título">
+        <option value="title_asc"       {% if sort == 'title_asc'       %}selected{% endif %}>Título A→Z</option>
+        <option value="title_desc"      {% if sort == 'title_desc'      %}selected{% endif %}>Título Z→A</option>
+      </optgroup>
+    </select>
+
+    <div class="d-flex gap-1 tm-src-filter" role="group" aria-label="Filtrar por plataforma">
+      <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q | urlencode }}"
+         class="btn btn-sm {% if not source %}btn-primary{% else %}btn-outline-secondary{% endif %}">Todas</a>
+      <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q | urlencode }}&source=soundcloud"
+         class="btn btn-sm btn-src btn-src-sc {% if source == 'soundcloud' %}active{% endif %}"
+         data-bs-toggle="tooltip" data-bs-title="Solo SoundCloud" aria-label="Solo SoundCloud"><span class="pi pi-sc"></span></a>
+      {# Spotify es solo admin: para el resto el filtro nunca puede dar resultados. #}
+      {% if is_admin %}
+      <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q | urlencode }}&source=spotify"
+         class="btn btn-sm btn-src btn-src-sp {% if source == 'spotify' %}active{% endif %}"
+         data-bs-toggle="tooltip" data-bs-title="Solo Spotify" aria-label="Solo Spotify"><span class="pi pi-sp"></span></a>
       {% endif %}
+      <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q | urlencode }}&source=youtube"
+         class="btn btn-sm btn-src btn-src-yt {% if source == 'youtube' %}active{% endif %}"
+         data-bs-toggle="tooltip" data-bs-title="Solo YouTube" aria-label="Solo YouTube"><span class="pi pi-yt"></span></a>
     </div>
 
+    <button type="button" id="date-toggle-btn"
+            class="btn btn-sm {% if date_filter_active %}btn-primary{% else %}btn-outline-secondary{% endif %}"
+            onclick="toggleDateFilter()" aria-expanded="{{ 'true' if date_filter_active else 'false' }}" aria-controls="date-filter-panel">
+      <i class="bi bi-calendar3"></i> Fecha{% if date_filter_active %} <i class="bi bi-check-lg"></i>{% endif %}
+    </button>
+
+    <span class="tm-shortcuts" data-bs-toggle="tooltip"
+          data-bs-title="J / K: moverse por las filas · X: marcar · D: descartar · P: escuchar">
+      Atajos <kbd>J</kbd><kbd>K</kbd> <kbd>X</kbd> <kbd>D</kbd> <kbd>P</kbd>
+    </span>
+  </div>
+
+  {# Pills de filtros activos #}
+  {% if q or date_filter_active or source %}
+  <div class="d-flex flex-wrap gap-2 align-items-center px-3 pb-2">
+    <span class="text-muted" style="font-size:0.75rem;font-weight:600;">Filtros activos:</span>
+    {% if q %}
+      <span class="badge s-queued d-inline-flex align-items-center gap-1" style="font-size:0.75rem;font-weight:500;">
+        "{{ q }}"
+        <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&source={{ source }}" class="text-reset text-decoration-none" aria-label="Quitar búsqueda"><i class="bi bi-x"></i></a>
+      </span>
+    {% endif %}
+    {% if source %}
+      {% if source == 'soundcloud' %}{% set src_label = 'SoundCloud' %}{% elif source == 'spotify' %}{% set src_label = 'Spotify' %}{% else %}{% set src_label = 'YouTube' %}{% endif %}
+      <span class="badge src-sc d-inline-flex align-items-center gap-1" style="font-size:0.75rem;font-weight:500;">
+        {{ src_label }}
+        <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q | urlencode }}" class="text-reset text-decoration-none" aria-label="Quitar fuente"><i class="bi bi-x"></i></a>
+      </span>
+    {% endif %}
+    {% if date_filter_active %}
+      <span class="badge s-vinyl d-inline-flex align-items-center gap-1" style="font-size:0.75rem;font-weight:500;">
+        <i class="bi bi-calendar3"></i> {{ date_from }} → {{ date_to }}
+        <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q | urlencode }}&source={{ source }}" class="text-reset text-decoration-none" aria-label="Quitar fecha"><i class="bi bi-x"></i></a>
+      </span>
+    {% endif %}
+    <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}" class="btn btn-sm btn-outline-danger" style="padding:.15rem .5rem;font-size:0.75rem;">
+      Limpiar todo
+    </a>
+  </div>
+  {% endif %}
+
+  {# Panel de fecha #}
+  <div id="date-filter-panel"
+       class="d-flex align-items-center flex-wrap gap-2 px-3 pb-3"
+       style="display:{% if date_filter_active %}flex{% else %}none{% endif %} !important;">
+    <label class="form-label mb-0" for="date-from" style="white-space:nowrap;font-size:0.78rem;">Desde</label>
+    <input type="date" name="date_from" id="date-from"
+           value="{{ date_from if date_from else default_date_from }}"
+           class="form-control form-control-sm" style="max-width:145px;">
+    <label class="form-label mb-0" for="date-to" style="white-space:nowrap;font-size:0.78rem;">Hasta</label>
+    <input type="date" name="date_to" id="date-to"
+           value="{{ date_to if date_to else default_date_to }}"
+           class="form-control form-control-sm" style="max-width:145px;">
+    <button type="submit" class="btn btn-primary btn-sm">Aplicar</button>
+    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="closeDateFilter()">Cerrar</button>
+    {% if date_filter_active %}
+      <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}&q={{ q | urlencode }}&source={{ source }}"
+         class="btn btn-outline-danger btn-sm">Quitar fecha</a>
+    {% endif %}
   </div>
 </form>
 {% endif %}
 
 {# ── Track table ───────────────────────────────────────────────── #}
 {% if rows %}
-{# queue-form wraps only the bulk bar; checkboxes reference it via form="queue-form" #}
+{# queue-form envuelve sólo la barra de selección; los checkboxes apuntan con form="queue-form" #}
 <form method="POST" action="/tracks/download-queue" id="queue-form"></form>
 
-<div class="tm-bulk-bar mb-2">
-  <span class="text-muted small" id="sel-count">0 seleccionados</span>
-  <div class="ms-auto d-flex gap-1 flex-wrap">
-    {% if active_status in ['pending', 'not_found', 'vinyl_only', 'bandcamp_only', 'all'] %}
-      <button type="submit" form="queue-form" class="btn btn-success btn-sm"
+{% set any_notes = rows | selectattr('notes') | list | length > 0 %}
+{% set can_queue = active_status in ['pending', 'not_found', 'vinyl_only', 'bandcamp_only', 'all'] or compare_mode %}
+
+<div class="tm-sel-bar d-none" id="sel-bar" role="region" aria-live="polite">
+  <strong id="sel-count">0 seleccionados</strong>
+  <button type="button" class="btn btn-sm btn-link text-white-50 p-0 text-decoration-none" onclick="clearSelection()">Limpiar</button>
+  <div class="ms-auto d-flex gap-2 flex-wrap">
+    {% if can_queue %}
+      <button type="submit" form="queue-form" class="btn btn-primary btn-sm"
               data-toast="Cola armada" data-toast-type="success"
               onclick="if(document.querySelectorAll('.row-check:checked').length > 0) showLoading('Preparando cola de descarga…')">
-        ↗ Armar cola de descarga
+        <i class="bi bi-download"></i> Armar cola de descarga
       </button>
     {% endif %}
-    {% if active_status == 'pending' %}
+    {% if active_status == 'pending' or compare_mode %}
       <button type="submit" form="queue-form" formaction="/tracks/bulk-discard"
-              class="btn btn-outline-danger btn-sm" id="bulk-discard-btn">
-        ✕ Descartar
+              class="btn btn-outline-light btn-sm" id="bulk-discard-btn">
+        <i class="bi bi-x-lg"></i> Descartar
       </button>
     {% endif %}
     {% if active_status == 'downloaded' %}
       <button type="submit" form="queue-form" formaction="/tracks/bulk-to-queue"
-              class="btn btn-outline-primary btn-sm"
+              class="btn btn-outline-light btn-sm"
               data-toast="Tracks enviados a la cola" data-toast-type="success">
-        ↺ Reintentar
+        <i class="bi bi-arrow-repeat"></i> Reintentar
       </button>
     {% endif %}
     {% if active_status != 'pending' and active_status != 'queued' %}
       <button type="submit" form="queue-form" formaction="/tracks/bulk-to-pending"
-              class="btn btn-outline-secondary btn-sm"
+              class="btn btn-outline-light btn-sm"
               data-toast="Tracks vueltos a pendiente" data-toast-type="info">
-        ↩ A pendiente
+        <i class="bi bi-arrow-counterclockwise"></i> A pendiente
       </button>
     {% endif %}
   </div>
 </div>
 
 <div class="table-responsive">
-  <table class="table table-hover table-sm align-middle bg-white">
+  <table class="table table-hover align-middle bg-white" id="tracks-table">
     <thead class="table-dark">
       <tr>
-        <th style="width:32px;"><input type="checkbox" id="check-all" onclick="toggleAll()"></th>
-        <th style="width:56px;" class="text-muted">ID</th>
-        <th>
-          <a href="/tracks/pending?status={{ active_status }}&q={{ q }}&sort={% if sort == 'artist_asc' %}artist_desc{% else %}artist_asc{% endif %}"
-             class="text-white text-decoration-none" style="opacity:.8;">
-            Artista {% if sort == 'artist_asc' %}↑{% elif sort == 'artist_desc' %}↓{% endif %}
+        <th style="width:40px;"><input type="checkbox" id="check-all" onclick="toggleAll()" aria-label="Seleccionar todos los de esta página"></th>
+        <th style="min-width:180px;">
+          <a href="/tracks/pending?{{ base_qs | replace('sort=' ~ sort, 'sort=' ~ ('artist_desc' if sort == 'artist_asc' else 'artist_asc')) }}" class="text-reset text-decoration-none">
+            Artista {% if sort == 'artist_asc' %}<i class="bi bi-arrow-up"></i>{% elif sort == 'artist_desc' %}<i class="bi bi-arrow-down"></i>{% endif %}
           </a>
         </th>
-        <th>
-          <a href="/tracks/pending?status={{ active_status }}&q={{ q }}&sort={% if sort == 'title_asc' %}title_desc{% else %}title_asc{% endif %}"
-             class="text-white text-decoration-none" style="opacity:.8;">
-            Título {% if sort == 'title_asc' %}↑{% elif sort == 'title_desc' %}↓{% endif %}
+        <th style="min-width:220px;">
+          <a href="/tracks/pending?{{ base_qs | replace('sort=' ~ sort, 'sort=' ~ ('title_desc' if sort == 'title_asc' else 'title_asc')) }}" class="text-reset text-decoration-none">
+            Título {% if sort == 'title_asc' %}<i class="bi bi-arrow-up"></i>{% elif sort == 'title_desc' %}<i class="bi bi-arrow-down"></i>{% endif %}
           </a>
         </th>
         <th>Estado</th>
         <th>Fuente</th>
         <th>
-          <a href="/tracks/pending?status={{ active_status }}&q={{ q }}&sort={% if sort == 'newest' %}oldest{% else %}newest{% endif %}&source={{ source }}"
-             class="text-white text-decoration-none" style="opacity:.8;">
-            Likeado {% if sort == 'newest' %}↓{% elif sort == 'oldest' %}↑{% endif %}
+          <a href="/tracks/pending?{{ base_qs | replace('sort=' ~ sort, 'sort=' ~ ('oldest' if sort == 'newest' else 'newest')) }}" class="text-reset text-decoration-none">
+            Likeado {% if sort == 'newest' %}<i class="bi bi-arrow-down"></i>{% elif sort == 'oldest' %}<i class="bi bi-arrow-up"></i>{% endif %}
           </a>
         </th>
-        <th>
-          <a href="/tracks/pending?status={{ active_status }}&q={{ q }}&sort={% if sort == 'imported_newest' %}imported_oldest{% else %}imported_newest{% endif %}&source={{ source }}"
-             class="text-white text-decoration-none" style="opacity:.8;">
-            Importado {% if sort == 'imported_newest' %}↓{% elif sort == 'imported_oldest' %}↑{% endif %}
-          </a>
-        </th>
-        <th>Dur.</th>
-        <th style="width:80px;">Notas</th>
-        <th></th>
+        <th>Duración</th>
+        {% if any_notes %}<th>Notas</th>{% endif %}
+        <th><span class="visually-hidden">Acciones</span></th>
       </tr>
     </thead>
     <tbody>
       {% for row in rows %}
-      <tr>
+      {% set label = (row.artist ~ " - " ~ row.title) if row.artist and row.artist != "—" else row.title %}
+      <tr data-review-id="{{ row.review_id }}">
         <td>
           {% if row.status not in ["queued", "set_mix"] %}
-            <input type="checkbox" name="review_ids" value="{{ row.review_id }}" class="row-check" form="queue-form">
+            <input type="checkbox" name="review_ids" value="{{ row.review_id }}" class="row-check" form="queue-form"
+                   aria-label="Seleccionar {{ label }}">
           {% endif %}
         </td>
 
-        <td class="text-muted font-monospace" style="font-size:0.72rem;">{{ row.review_id }}</td>
-
-        <td style="max-width:150px;">
+        <td style="max-width:220px;">
           {% if row.artist and row.artist != "—" %}
-            {% set copy_text = row.artist ~ " - " ~ row.title %}
-            <span class="fw-semibold text-truncate d-block copy-track" style="max-width:140px;"
-                  role="button" tabindex="0" data-copy="{{ copy_text }}"
-                  title="Copiar «{{ copy_text }}»"
+            <span class="fw-semibold text-truncate d-block copy-track"
+                  role="button" tabindex="0" data-copy="{{ label }}"
+                  data-bs-toggle="tooltip" data-bs-title="Copiar «{{ label }}»"
                   onclick="copyTrack(this)" onkeydown="if(event.key==='Enter')copyTrack(this)">
               {{ row.artist }}
             </span>
           {% else %}
-            <span class="fw-semibold text-truncate d-block" style="max-width:140px;">—</span>
+            <span class="fw-semibold text-truncate d-block">—</span>
           {% endif %}
           {% if row.channel and row.channel != row.artist and row.channel != "—" %}
-            <span class="text-muted" style="font-size:0.7rem;">{{ row.channel }}</span>
+            <span class="tm-channel text-truncate">{{ row.channel }}</span>
           {% endif %}
         </td>
 
-        <td style="max-width:240px;">
+        <td style="max-width:320px;">
           {% if row.source_url and row.source_url != "#" %}
             <a href="{{ row.source_url }}" target="_blank" rel="noopener"
-               class="text-truncate d-block" style="max-width:230px;" title="{{ row.raw_title }}">
+               class="text-truncate d-block" title="{{ row.raw_title }}">
               {{ row.title or "—" }}
             </a>
           {% else %}
-            <span class="text-truncate d-block" style="max-width:230px;" title="{{ row.raw_title }}">
-              {{ row.title or "—" }}
-            </span>
+            <span class="text-truncate d-block" title="{{ row.raw_title }}">{{ row.title or "—" }}</span>
           {% endif %}
         </td>
 
         <td>
-          {% if row.status == "pending" %}
-            <span class="badge s-pending">Pendiente</span>
-          {% elif row.status == "queued" %}
-            <span class="badge s-queued">En cola</span>
-          {% elif row.status == "downloaded" %}
-            <span class="badge s-downloaded">Descargado</span>
-          {% elif row.status == "not_found" %}
-            <span class="badge s-not_found">No encontrado</span>
-          {% elif row.status == "vinyl_only" %}
-            <span class="badge s-vinyl">Solo vinilo</span>
-          {% elif row.status == "bandcamp_only" %}
-            <span class="badge s-bandcamp">Solo Bandcamp</span>
-          {% elif row.status == "set_mix" %}
-            <span class="badge s-set">Set</span>
-          {% elif row.status == "discarded" %}
-            <span class="badge s-discarded">Descartado</span>
+          {% if row.status == "pending" %}<span class="badge s-pending">Pendiente</span>
+          {% elif row.status == "queued" %}<span class="badge s-queued">En cola</span>
+          {% elif row.status == "downloaded" %}<span class="badge s-downloaded">Descargado</span>
+          {% elif row.status == "not_found" %}<span class="badge s-not_found">No encontrado</span>
+          {% elif row.status == "vinyl_only" %}<span class="badge s-vinyl">Solo vinilo</span>
+          {% elif row.status == "bandcamp_only" %}<span class="badge s-bandcamp">Solo Bandcamp</span>
+          {% elif row.status == "set_mix" %}<span class="badge s-set">Set</span>
+          {% elif row.status == "discarded" %}<span class="badge s-discarded">Descartado</span>
           {% endif %}
         </td>
 
         <td>
-          {% if row.source == "soundcloud" %}
-            <span class="badge src-sc">SC</span>
-          {% elif row.source == "spotify" %}
-            <span class="badge src-sp">SP</span>
-          {% elif row.source == "youtube" %}
-            <span class="badge src-yt">YT</span>
-          {% elif row.source == "traxsource" %}
-            <span class="badge src-tx" title="Traxsource">TX</span>
-          {% else %}
-            <span class="badge s-pending">{{ row.source }}</span>
+          {% if row.source == "soundcloud" %}<span class="badge src-sc" title="SoundCloud">SC</span>
+          {% elif row.source == "spotify" %}<span class="badge src-sp" title="Spotify">SP</span>
+          {% elif row.source == "youtube" %}<span class="badge src-yt" title="YouTube">YT</span>
+          {% elif row.source == "traxsource" %}<span class="badge src-tx" title="Traxsource">TX</span>
+          {% else %}<span class="badge s-pending">{{ row.source }}</span>
           {% endif %}
         </td>
 
-        <td class="text-muted small" style="white-space:nowrap;">{{ row.liked_at }}</td>
-        <td class="text-muted small" style="white-space:nowrap;">{{ row.collected_at }}</td>
+        <td class="text-muted small" style="white-space:nowrap;" title="Importado el {{ row.collected_at }}">{{ row.liked_at }}</td>
         <td class="text-muted small" style="white-space:nowrap;">{{ row.duration }}</td>
 
+        {% if any_notes %}
         <td class="notes">
           {% if row.dup_compare_url %}
-            <a href="{{ row.dup_compare_url }}" class="text-warning fw-semibold text-decoration-none" title="Ver ambos tracks juntos">
-              ⚠ {{ row.notes }}
+            <a href="{{ row.dup_compare_url }}" class="tm-dup" data-bs-toggle="tooltip" data-bs-title="Ver ambos tracks juntos">
+              <i class="bi bi-exclamation-triangle-fill"></i> {{ row.notes }}
             </a>
           {% else %}
             {{ row.notes }}
           {% endif %}
         </td>
+        {% endif %}
 
-        <td class="action-btns" style="white-space:nowrap;">
-          <a href="/debug/track/{{ row.review_id }}" class="btn btn-outline-secondary btn-sm"
-             title="Historial / Reportar problema" style="opacity:.55;">🔔</a>
+        <td class="tm-actions action-btns">
+          {% if row.source in ["soundcloud", "youtube", "spotify"] and row.source_url and row.source_url != "#" %}
+            <button type="button" class="btn btn-outline-secondary btn-sm btn-icon tm-play"
+                    data-url="{{ row.source_url }}" data-src="{{ row.source }}" data-label="{{ label }}"
+                    onclick="playTrack(this)" aria-label="Escuchar" data-bs-toggle="tooltip" data-bs-title="Escuchar acá">
+              <i class="bi bi-play-fill"></i>
+            </button>
+          {% endif %}
           {% if row.nt_id %}
-            <button type="button" class="btn btn-outline-secondary btn-sm" title="Editar metadata"
+            <button type="button" class="btn btn-outline-secondary btn-sm btn-icon" aria-label="Editar artista y título"
+                    data-bs-toggle="tooltip" data-bs-title="Editar artista y título"
                     data-nt-id="{{ row.nt_id }}"
                     data-artist="{{ row.artist }}"
                     data-title="{{ row.title }}"
                     data-version="{{ row.version or '' }}"
                     data-channel="{{ row.channel }}"
                     data-raw-title="{{ row.raw_title }}"
-                    onclick="openEditModal(this)">✎</button>
+                    onclick="openEditModal(this)"><i class="bi bi-pencil"></i></button>
           {% endif %}
+          <a href="/debug/track/{{ row.review_id }}" class="btn btn-outline-secondary btn-sm btn-icon"
+             aria-label="Historial y reportar problema" data-bs-toggle="tooltip" data-bs-title="Historial / reportar problema"><i class="bi bi-clock-history"></i></a>
           {% if row.status == "pending" %}
-            <form method="POST" action="/review/{{ row.review_id }}/discard/form"
-                  onsubmit="if(!confirm('¿Descartar este track?')){return false;} _setToast('Track descartado','warning');">
-              <button class="btn btn-outline-danger btn-sm" title="Descartar">✕</button>
+            <form method="POST" action="/review/{{ row.review_id }}/discard/form" class="tm-discard"
+                  onsubmit="_setToast('Track descartado', 'warning', {url: '/review/{{ row.review_id }}/pending/form'})">
+              <button class="btn btn-outline-danger btn-sm btn-icon" aria-label="Descartar"
+                      data-bs-toggle="tooltip" data-bs-title="Descartar (se puede deshacer)"><i class="bi bi-x-lg"></i></button>
             </form>
           {% elif row.status in ["downloaded", "not_found", "vinyl_only", "bandcamp_only"] %}
-            <form method="POST" action="/review/{{ row.review_id }}/retry-queue/form" class="d-inline">
-              <button class="btn btn-outline-primary btn-sm" title="Volver a la cola de descarga"
-                      data-toast="Enviado a la cola" data-toast-type="success">↺</button>
+            <form method="POST" action="/review/{{ row.review_id }}/retry-queue/form">
+              <button class="btn btn-outline-primary btn-sm btn-icon" aria-label="Volver a la cola de descarga"
+                      data-bs-toggle="tooltip" data-bs-title="Volver a la cola de descarga"
+                      data-toast="Enviado a la cola" data-toast-type="success"><i class="bi bi-arrow-repeat"></i></button>
             </form>
-            <form method="POST" action="/review/{{ row.review_id }}/pending/form" class="d-inline">
-              <button class="btn btn-outline-secondary btn-sm" title="Volver a pendiente"
-                      data-toast="Vuelto a pendiente" data-toast-type="info">↩</button>
+            <form method="POST" action="/review/{{ row.review_id }}/pending/form">
+              <button class="btn btn-outline-secondary btn-sm btn-icon" aria-label="Volver a pendiente"
+                      data-bs-toggle="tooltip" data-bs-title="Volver a pendiente"
+                      data-toast="Vuelto a pendiente" data-toast-type="info"><i class="bi bi-arrow-counterclockwise"></i></button>
             </form>
           {% elif row.status in ["queued", "discarded"] %}
             <form method="POST" action="/review/{{ row.review_id }}/pending/form">
-              <button class="btn btn-outline-secondary btn-sm" title="Volver a pendiente"
-                      data-toast="Vuelto a pendiente" data-toast-type="info">↩</button>
+              <button class="btn btn-outline-secondary btn-sm btn-icon" aria-label="Volver a pendiente"
+                      data-bs-toggle="tooltip" data-bs-title="Volver a pendiente"
+                      data-toast="Vuelto a pendiente" data-toast-type="info"><i class="bi bi-arrow-counterclockwise"></i></button>
             </form>
           {% endif %}
         </td>
@@ -636,36 +532,77 @@ function dismissSetupBanner(){
   </table>
 </div>
 
+{# ── Paginación ────────────────────────────────────────────────── #}
+{% if pages > 1 %}
+<nav class="tm-pager" aria-label="Paginación">
+  <span>Mostrando {{ (page - 1) * page_size + 1 }}–{{ [page * page_size, count] | min }} de {{ count }}</span>
+  <div class="d-flex align-items-center gap-2">
+    {% if page > 1 %}
+      <a href="/tracks/pending?{{ base_qs }}&page={{ page - 1 }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-chevron-left"></i> Anterior</a>
+    {% endif %}
+    <span>Página {{ page }} de {{ pages }}</span>
+    {% if page < pages %}
+      <a href="/tracks/pending?{{ base_qs }}&page={{ page + 1 }}" class="btn btn-outline-secondary btn-sm">Siguiente <i class="bi bi-chevron-right"></i></a>
+    {% endif %}
+  </div>
+</nav>
+{% endif %}
+
 {% else %}
-<div class="alert alert-info">
+{# ── Estado vacío ──────────────────────────────────────────────── #}
+<div class="tm-empty">
   {% if q %}
-    Sin resultados para <strong>"{{ q }}"</strong>{% if active_status != 'all' %} en este estado{% endif %}.
-    <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}" class="alert-link">Limpiar búsqueda</a>
-  {% elif active_status == 'discarded' %}
-    No hay tracks descartados.
+    <i class="bi bi-search"></i>
+    <h5>Sin resultados para "{{ q }}"</h5>
+    <p>{% if active_status != 'all' %}Probá en la pestaña <strong>Todos</strong>, o {% else %}Revisá la ortografía, o {% endif %}limpiá la búsqueda.</p>
+    <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}" class="btn btn-outline-secondary btn-sm">Limpiar búsqueda</a>
+    {% if active_status != 'all' %}<a href="/tracks/pending?status=all&q={{ q | urlencode }}" class="btn btn-primary btn-sm ms-1">Buscar en todos</a>{% endif %}
+  {% elif active_status == 'pending' %}
+    <i class="bi bi-music-note-list"></i>
+    <h5>No hay tracks pendientes</h5>
+    <p>Importá tus likes y van a aparecer acá para que los revises y elijas qué bajar.</p>
+    <div class="d-flex gap-2 justify-content-center flex-wrap">{{ import_buttons('') }}</div>
   {% elif active_status == 'queued' %}
-    No hay tracks en cola.
+    <i class="bi bi-download"></i>
+    <h5>No hay tracks en cola</h5>
+    <p>Marcá tracks en <strong>Pendiente</strong> y tocá «Armar cola de descarga».</p>
+    <a href="/tracks/pending?status=pending" class="btn btn-primary btn-sm">Ir a pendientes</a>
   {% elif active_status == 'downloaded' %}
-    No hay tracks descargados.
-  {% elif active_status == 'not_found' %}
-    No hay tracks marcados como no encontrados.
-  {% elif active_status == 'vinyl_only' %}
-    No hay tracks marcados como solo vinilo.
+    <i class="bi bi-check2-circle"></i>
+    <h5>Todavía no descargaste nada</h5>
+    <p>Cuando el agente baje tus primeros temas, van a aparecer acá.</p>
+    <a href="/tracks/download-queue" class="btn btn-primary btn-sm">Ver la cola</a>
+  {% elif active_status == 'discarded' %}
+    <i class="bi bi-trash3"></i>
+    <h5>No hay tracks descartados</h5>
+    <p>Lo que descartes desde Pendiente queda acá por si te arrepentís.</p>
   {% else %}
-    {# Sin el gate, a un no-admin se le nombra un botón que no tiene en pantalla. #}
-    No hay tracks pendientes. Presioná <strong>↻ SoundCloud</strong> /{% if is_admin %} <strong>↻ Spotify</strong> /{% endif %} <strong>↻ YouTube</strong> para importar tus likes.
+    <i class="bi bi-inbox"></i>
+    <h5>Nada por acá</h5>
+    <p>No hay tracks en este estado{% if source or date_filter_active %} con los filtros activos{% endif %}.</p>
+    {% if source or date_filter_active %}<a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}" class="btn btn-outline-secondary btn-sm">Limpiar filtros</a>{% endif %}
   {% endif %}
 </div>
 {% endif %}
 
+{# ── Reproductor flotante ──────────────────────────────────────── #}
+<div id="tm-player" class="tm-player d-none" role="region" aria-label="Reproductor">
+  <div class="tm-player-head">
+    <i class="bi bi-play-circle text-muted"></i>
+    <span id="tm-player-title"></span>
+    <button type="button" class="btn-close" style="font-size:.7rem;" onclick="closePlayer()" aria-label="Cerrar reproductor"></button>
+  </div>
+  <iframe id="tm-player-frame" title="Reproductor" height="166" allow="autoplay; encrypted-media; clipboard-write" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+</div>
+
 {# ── Edit metadata modal ───────────────────────────────────────── #}
-<div class="modal fade" id="editModal" tabindex="-1">
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalTitle">
   <div class="modal-dialog">
     <div class="modal-content">
       <form method="POST" id="edit-form">
         <div class="modal-header">
-          <h5 class="modal-title">Editar metadata</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          <h5 class="modal-title" id="editModalTitle">Editar artista y título</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
         </div>
         <div class="modal-body">
           <div class="mb-2">
@@ -678,15 +615,15 @@ function dismissSetupBanner(){
           </div>
           <hr>
           <div class="mb-3">
-            <label class="form-label">Artista</label>
+            <label class="form-label" for="edit-artist">Artista</label>
             <input type="text" name="artist" id="edit-artist" class="form-control">
           </div>
           <div class="mb-3">
-            <label class="form-label">Título</label>
+            <label class="form-label" for="edit-title">Título</label>
             <input type="text" name="title" id="edit-title" class="form-control">
           </div>
           <div class="mb-1">
-            <label class="form-label">Versión</label>
+            <label class="form-label" for="edit-version">Versión</label>
             <input type="text" name="version" id="edit-version" class="form-control"
                    placeholder="ej: Original Mix, Remix…">
           </div>
@@ -724,7 +661,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const checked = document.querySelectorAll('.row-check:checked').length;
       if (checked === 0) {
         e.preventDefault();
-        _showToastNow('Seleccioná al menos un track primero.', 'warning');
+        showToast('Seleccioná al menos un track primero.', 'warning');
       }
     });
   }
@@ -737,41 +674,31 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   /* Selection counter */
-  document.querySelectorAll('.row-check').forEach(cb => {
-    cb.addEventListener('change', updateSelCount);
-  });
+  document.querySelectorAll('.row-check').forEach(cb => cb.addEventListener('change', updateSelCount));
 
-  /* Bulk discard: confirm with count, then set toast */
+  /* Bulk discard: sin confirm, con Deshacer en el toast */
   const discardBtn = document.getElementById('bulk-discard-btn');
   if (discardBtn) {
     discardBtn.addEventListener('click', function(e) {
-      const n = document.querySelectorAll('.row-check:checked').length;
-      if (n === 0) {
-        e.preventDefault();
-        _showToastNow('Seleccioná al menos un track primero.', 'warning');
-        return;
-      }
-      if (!confirm(`¿Descartar ${n} track${n !== 1 ? 's' : ''}?\nEsta acción no se puede deshacer.`)) {
-        e.preventDefault();
-      } else {
-        _setToast(`${n} track${n !== 1 ? 's' : ''} descartados`, 'warning');
-      }
+      const ids = [...document.querySelectorAll('.row-check:checked')].map(cb => cb.value);
+      if (ids.length === 0) { e.preventDefault(); showToast('Seleccioná al menos un track primero.', 'warning'); return; }
+      _setToast(`${ids.length} track${ids.length !== 1 ? 's' : ''} descartado${ids.length !== 1 ? 's' : ''}`, 'warning',
+                { url: '/tracks/bulk-to-pending', body: ids.map(id => ['review_ids', id]) });
     });
   }
 });
 
-function _showToastNow(msg, type) {
-  const el = document.getElementById('global-toast');
-  if (!el) { _setToast(msg, type); return; }
-  el.className = 'toast align-items-center border-0 shadow-sm ' +
-    (type === 'warning' ? 'text-dark' : 'text-white') + ' bg-' + type;
-  document.getElementById('global-toast-body').textContent = msg;
-  bootstrap.Toast.getOrCreateInstance(el, { delay: 3000 }).show();
-}
-
 function updateSelCount() {
   const n = document.querySelectorAll('.row-check:checked').length;
   document.getElementById('sel-count').textContent = n + ' seleccionado' + (n !== 1 ? 's' : '');
+  document.getElementById('sel-bar').classList.toggle('d-none', n === 0);
+  const all = document.getElementById('check-all');
+  if (all) all.checked = n > 0 && n === document.querySelectorAll('.row-check').length;
+}
+
+function clearSelection() {
+  document.querySelectorAll('.row-check').forEach(cb => cb.checked = false);
+  updateSelCount();
 }
 
 function copyTrack(el) {
@@ -801,12 +728,14 @@ function toggleDateFilter() {
   const panel = document.getElementById('date-filter-panel');
   const visible = panel.style.display !== 'none';
   panel.style.display = visible ? 'none' : 'flex';
+  document.getElementById('date-toggle-btn').setAttribute('aria-expanded', String(!visible));
   setDateInputsDisabled(visible);
 }
 
 function closeDateFilter() {
   const panel = document.getElementById('date-filter-panel');
   panel.style.display = 'none';
+  document.getElementById('date-toggle-btn').setAttribute('aria-expanded', 'false');
   setDateInputsDisabled(true);
 }
 
@@ -818,15 +747,71 @@ document.addEventListener('DOMContentLoaded', () => {
   const panel = document.getElementById('date-filter-panel');
   if (panel && panel.style.display === 'none') setDateInputsDisabled(true);
 });
+
+/* ── Reproductor ─────────────────────────────────────────────── */
+function playTrack(btn) {
+  const url = btn.dataset.url, src = btn.dataset.src;
+  let embed = null, h = 166;
+  if (src === 'soundcloud') {
+    embed = 'https://w.soundcloud.com/player/?url=' + encodeURIComponent(url) + '&auto_play=true&show_comments=false&hide_related=true&visual=false';
+  } else if (src === 'youtube') {
+    const m = url.match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([\w-]{11})/);
+    if (m) { embed = 'https://www.youtube.com/embed/' + m[1] + '?autoplay=1'; h = 225; }
+  } else if (src === 'spotify') {
+    const m = url.match(/track\/([A-Za-z0-9]+)/);
+    if (m) { embed = 'https://open.spotify.com/embed/track/' + m[1]; h = 80; }
+  }
+  if (!embed) { window.open(url, '_blank', 'noopener'); return; }
+  const frame = document.getElementById('tm-player-frame');
+  frame.height = h;
+  frame.src = embed;
+  document.getElementById('tm-player-title').textContent = btn.dataset.label;
+  document.getElementById('tm-player').classList.remove('d-none');
+}
+function closePlayer() {
+  document.getElementById('tm-player-frame').src = 'about:blank';
+  document.getElementById('tm-player').classList.add('d-none');
+}
+
+/* ── Atajos de teclado: J/K moverse · X marcar · D descartar · P escuchar ── */
+(function () {
+  let cur = -1;
+  const rows = () => [...document.querySelectorAll('#tracks-table tbody tr')];
+  function focusRow(list) {
+    list.forEach((r, i) => r.classList.toggle('tm-row-focus', i === cur));
+    list[cur].scrollIntoView({ block: 'nearest' });
+  }
+  document.addEventListener('keydown', e => {
+    if ((e.target.closest && e.target.closest('input, textarea, select, [contenteditable]')) || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (document.querySelector('.modal.show')) return;
+    const list = rows();
+    if (!list.length) return;
+    const k = e.key.toLowerCase();
+    if (k === 'j' || k === 'k') {
+      cur = Math.max(0, Math.min(list.length - 1, cur + (k === 'j' ? 1 : -1)));
+      focusRow(list); e.preventDefault();
+    } else if (k === 'x' && cur >= 0) {
+      const cb = list[cur].querySelector('.row-check');
+      if (cb) { cb.checked = !cb.checked; updateSelCount(); }
+      e.preventDefault();
+    } else if (k === 'd' && cur >= 0) {
+      list[cur].querySelector('form.tm-discard')?.requestSubmit();
+    } else if (k === 'p' && cur >= 0) {
+      list[cur].querySelector('.tm-play')?.click();
+    } else if (k === 'escape') {
+      closePlayer();
+    }
+  });
+})();
 </script>
 
 {# ── Playlist picker modal ─────────────────────────────────────── #}
-<div class="modal fade" id="playlistPickerModal" tabindex="-1">
+<div class="modal fade" id="playlistPickerModal" tabindex="-1" aria-labelledby="playlistPickerTitle">
   <div class="modal-dialog modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header py-2">
         <h5 class="modal-title" id="playlistPickerTitle" style="font-size:0.95rem;">Elegir playlist</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
       <div class="modal-body p-0">
         <div class="text-center py-4 text-muted" id="playlistPickerLoading">
@@ -879,7 +864,7 @@ function openPlaylistPicker(platform) {
         li.className = 'list-group-item d-flex align-items-center justify-content-between py-2 px-3';
         li.style.fontSize = '0.85rem';
         const badge = notOwned
-          ? `<span class="badge bg-warning text-dark ms-2" style="font-size:0.7rem;" title="Esta playlist es de otro usuario. Puede fallar al importar.">No es tuya</span>`
+          ? `<span class="badge s-vinyl ms-2" title="Esta playlist es de otro usuario. Puede fallar al importar.">No es tuya</span>`
           : '';
         li.innerHTML = `
           <div>
@@ -907,7 +892,7 @@ function selectPlaylist(id, name) {
   const form = document.getElementById('playlistPickerForm');
   form.action = '/sync/' + _pickerPlatform + '/select-playlist';
   const label = _pickerPlatform === 'spotify' ? 'Spotify' : 'YouTube';
-  showLoading('Importando tracks de ' + label + '…');
+  showLoading('Importando tracks de ' + label + '…', 'Puede tardar un minuto si la playlist es larga.');
   form.submit();
 }
 
@@ -917,7 +902,7 @@ function escHtml(str) {
 </script>
 
 <script>
-/* Show sync result toast when redirected back from a sync with ?synced=N&source=X */
+/* Show sync result toast when redirected back from a sync with ?synced=N&src=X */
 document.addEventListener('DOMContentLoaded', () => {
   const params = new URLSearchParams(window.location.search);
   const synced = params.get('synced');
@@ -945,7 +930,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const msg = n > 0
     ? `${n} track${n !== 1 ? 's' : ''} nuevo${n !== 1 ? 's' : ''} importado${n !== 1 ? 's' : ''} desde ${label}.`
     : `Sincronización completada — no hay tracks nuevos desde ${label}.`;
-  _showToastNow(msg, n > 0 ? 'success' : 'info');
+  showToast(msg, n > 0 ? 'success' : 'info');
   /* Clean URL so a manual reload doesn't re-show the toast */
   url.searchParams.delete('synced');
   url.searchParams.delete('src');
