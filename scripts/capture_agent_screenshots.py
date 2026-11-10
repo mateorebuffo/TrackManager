@@ -72,12 +72,16 @@ def capturar_configuracion() -> None:
 
     # El campo del token es el unico Entry enmascarado: se lo busca por eso y no
     # con coordenadas magicas que se romperian al cambiar el layout.
-    campo = None
-    for hijo in win.root.winfo_children():
-        for nieto in getattr(hijo, "winfo_children", lambda: [])():
-            if nieto.winfo_class() == "Entry" and nieto.cget("show") == "•":
-                campo = nieto
-                break
+    def _buscar(w):
+        for hijo in w.winfo_children():
+            if hijo.winfo_class() == "Entry" and hijo.cget("show") == "•":
+                return hijo
+            hallado = _buscar(hijo)
+            if hallado is not None:
+                return hallado
+        return None
+
+    campo = _buscar(win.root)   # está dentro de la tarjeta, no colgado de la raíz
     if campo is None:
         print("  aviso: no encontre el campo del token, va sin recuadro")
 

@@ -55,6 +55,7 @@ jobs:
             --hidden-import webview.platforms.cocoa \
             --collect-all webview \
             --hidden-import login_window \
+            --hidden-import make_icon \
             --add-data "download:download" \
             agent.py
 

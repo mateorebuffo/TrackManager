@@ -324,28 +324,125 @@ def _app_icon(root) -> None:
         pass
 
 
-def _make_icon_image() -> "Image.Image":
-    img = Image.new("RGB", (64, 64), color=(37, 99, 235))
-    d = ImageDraw.Draw(img)
-    d.ellipse([8, 38, 28, 56], fill="white")
-    d.ellipse([34, 30, 54, 48], fill="white")
-    d.rectangle([24, 8, 30, 44], fill="white")
-    d.rectangle([50, 4, 56, 36], fill="white")
-    d.rectangle([24, 8, 56, 14], fill="white")
-    return img
+def _make_icon_image(size: int = 64) -> "Image.Image":
+    from make_icon import draw_logo  # el mismo logo que la web
+    return draw_logo(size)
 
 
 def _tray_image() -> "Image.Image":
     return _make_icon_image()
 
-# Ancho del diálogo de Cuentas. La fila más apretada es "Cambiar cuenta" junto a
-# un mail largo: pide 397px de los 422 útiles que quedan con padx=24 a cada lado.
-_ACCOUNTS_DLG_W = 470
+# Ancho del diálogo de Cuentas: con "Cambiar cuenta" junto a un mail largo la
+# fila pide más que los 440 de las otras ventanas.
+_ACCOUNTS_DLG_W = 500
 
-ACCENT = "#2563eb"
-BG     = "#f8fafc"
-FG     = "#1e293b"
-MUTED  = "#64748b"
+# Paleta de la web (DESIGN.md): el agente tiene que verse como la misma app.
+PRIMARY   = "#5558e3"
+PRIMARY_H = "#4338ca"
+NAV       = "#0f172a"   # barra oscura de arriba
+BG        = "#f0f2f5"   # fondo de página
+CARD      = "#ffffff"
+FG        = "#1e293b"
+MUTED     = "#56657a"
+LINE      = "#e2e8f0"
+OK, WARN, ERR = "#047857", "#b45309", "#b91c1c"
+ACCENT = PRIMARY
+FONT = "Segoe UI"   # es el fallback de la web cuando no está Instrument Sans
+
+
+def _brand_bar(parent) -> Frame:
+    """La barra oscura con el logo, igual a la nav de la web."""
+    hdr = Frame(parent, bg=NAV)
+    hdr.pack(fill="x")
+    brand = Frame(hdr, bg=NAV)
+    brand.pack(side="left", padx=16, pady=9)
+    if _TRAY_OK:
+        try:
+            photo = ImageTk.PhotoImage(_make_icon_image(26))
+            Label(brand, image=photo, bg=NAV).pack(side="left", padx=(0, 8))
+            brand._icon_ref = photo
+        except Exception:
+            pass
+    Label(brand, text="Track Manager", font=(FONT, 11, "bold"), bg=NAV, fg="white").pack(side="left")
+    return hdr
+
+
+def _nav_button(hdr, text, command) -> Button:
+    """Link de la barra oscura (Cuentas, Configuración), como los de la web."""
+    return Button(hdr, text=text, font=(FONT, 9), bg=NAV, fg="#bfc3cd", relief="flat", bd=0,
+                  cursor="hand2", activebackground="#1e293b", activeforeground="white",
+                  padx=8, command=command)
+
+
+def _page_title(parent, title, sub) -> None:
+    Label(parent, text=title, font=(FONT, 14, "bold"), bg=BG, fg=FG).pack(anchor="w", padx=20, pady=(16, 0))
+    Label(parent, text=sub, font=(FONT, 9), bg=BG, fg=MUTED, wraplength=400,
+          justify="left").pack(anchor="w", padx=20, pady=(2, 12))
+
+
+def _card(parent) -> Frame:
+    """Tarjeta blanca con borde fino sobre el fondo gris, como las de la web."""
+    card = Frame(parent, bg=CARD, highlightthickness=1, highlightbackground=LINE, padx=20, pady=16)
+    card.pack(fill="x", padx=20)
+    return card
+
+
+def _field(card, title, hint) -> None:
+    Label(card, text=title, font=(FONT, 9, "bold"), bg=CARD, fg=FG).pack(anchor="w")
+    Label(card, text=hint, font=(FONT, 8), bg=CARD, fg=MUTED).pack(anchor="w", pady=(1, 5))
+
+
+def _entry(parent, var, show=None) -> Entry:
+    e = Entry(parent, textvariable=var, font=(FONT, 9), relief="flat", bd=0, bg=CARD, fg=FG,
+              insertbackground=FG, highlightthickness=1, highlightbackground=LINE,
+              highlightcolor=PRIMARY)
+    if show:
+        e.config(show=show)
+    return e
+
+
+def _primary(parent, text, command) -> Button:
+    return Button(parent, text=text, font=(FONT, 10, "bold"), bg=PRIMARY, fg="white",
+                  relief="flat", bd=0, cursor="hand2", activebackground=PRIMARY_H,
+                  activeforeground="white", command=command)
+
+
+def _secondary(parent, text, command=None, fg=FG, bg=CARD) -> Frame:
+    """
+    Botón blanco con borde de 1px del gris de la web. tk no deja pintar el borde
+    de un Button (en Windows `relief=solid` lo dibuja negro), así que el borde es
+    un Frame de 1px alrededor. Se empaqueta el Frame; el botón queda en `.btn`.
+    """
+    box = Frame(parent, bg=LINE, padx=1, pady=1)
+    box.btn = Button(box, text=text, font=(FONT, 9), bg=bg, fg=fg, relief="flat", bd=0,
+                     cursor="hand2", activebackground="#f8fafc", activeforeground=fg,
+                     command=command)
+    box.btn.pack(ipady=3, ipadx=10)
+    return box
+
+
+_ORG_OPTS = [
+    ("none",        "Sin organizar",            "Todos los MP3 van directo a la carpeta de descarga."),
+    ("import_date", "Por fecha de importación", "Subcarpetas AÑO/AÑO-MES-DIA según cuándo se importó el track."),
+    ("like_date",   "Por fecha de like",        "Subcarpetas AÑO/AÑO-MES según cuándo le diste like."),
+]
+
+
+def _radios(card, var) -> None:
+    for val, label, hint in _ORG_OPTS:
+        Radiobutton(card, text=label, variable=var, value=val, font=(FONT, 9, "bold"),
+                    bg=CARD, fg=FG, activebackground=CARD, activeforeground=FG,
+                    selectcolor=CARD, highlightthickness=0).pack(anchor="w", pady=(4, 0))
+        Label(card, text=hint, font=(FONT, 8), bg=CARD, fg=MUTED, wraplength=370,
+              justify="left").pack(anchor="w", padx=(22, 0))
+
+
+def _fit(win, w: int) -> None:
+    """Ancho fijo, alto el que pida el contenido, centrada en pantalla."""
+    win.update_idletasks()
+    h = win.winfo_reqheight()
+    sw, sh = win.winfo_screenwidth(), win.winfo_screenheight()
+    win.geometry(f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
 
 # ── Setup window ─────────────────────────────────────────────────────────────
 
@@ -360,89 +457,40 @@ class SetupWindow:
         _enable_entry_menu(self.root)
         self.root.resizable(False, False)
         needs_setup = not cfg.get("token")
-        self._center(440, 580 if needs_setup else 510)
         self._build(needs_setup)
+        _fit(self.root, 460)
         _app_icon(self.root)
-
-    def _center(self, w: int, h: int) -> None:
-        sw, sh = self.root.winfo_screenwidth(), self.root.winfo_screenheight()
-        self.root.geometry(f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
 
     def _build(self, needs_setup: bool) -> None:
         r = self.root
-        Label(r, text="🎵 Track Manager", font=("Segoe UI", 14, "bold"),
-              bg=BG, fg=FG).pack(anchor="w", padx=24, pady=(20, 2))
-        Label(r, text="Configurá el agente de descarga (solo una vez)",
-              font=("Segoe UI", 9), bg=BG, fg=MUTED).pack(anchor="w", padx=24)
-        Frame(r, height=1, bg="#e2e8f0").pack(fill="x", pady=12)
+        _brand_bar(r)
+        _page_title(r, "Agente de descarga", "Configuralo una sola vez. Después arranca solo.")
+        card = _card(r)
 
-        body = Frame(r, bg=BG)
-        body.pack(fill="x", padx=24)
-
-        Label(body, text="Carpeta de descarga", font=("Segoe UI", 9, "bold"),
-              bg=BG, fg=FG).pack(anchor="w")
-        Label(body, text="Dónde se guardarán los MP3 en tu PC",
-              font=("Segoe UI", 8), bg=BG, fg=MUTED).pack(anchor="w", pady=(1, 5))
-
-        row = Frame(body, bg=BG)
-        row.pack(fill="x", pady=(0, 14))
+        _field(card, "Carpeta de descarga", "Dónde se guardan los MP3 en tu PC")
+        row = Frame(card, bg=CARD)
+        row.pack(fill="x", pady=(0, 16))
         self.folder_var = StringVar(value=self.cfg.get("download_dir", ""))
-        Entry(row, textvariable=self.folder_var, font=("Segoe UI", 9),
-              relief="solid", bd=1).pack(side="left", fill="x", expand=True, ipady=4)
-        Button(row, text="📁", font=("Segoe UI", 9), relief="solid", bd=1,
-               bg="white", cursor="hand2",
-               command=self._pick_folder).pack(side="left", padx=(4, 0), ipady=4, ipadx=8)
+        _entry(row, self.folder_var).pack(side="left", fill="x", expand=True, ipady=5)
+        _secondary(row, "Elegir…", self._pick_folder).pack(side="left", padx=(6, 0))
 
+        self.token_var = StringVar(value=self.cfg.get("token", ""))
         if needs_setup:
-            Label(body, text="Token de acceso", font=("Segoe UI", 9, "bold"),
-                  bg=BG, fg=FG).pack(anchor="w")
-            Label(body, text="Copialo desde la web → Configuración → Agente de Descarga",
-                  font=("Segoe UI", 8), bg=BG, fg=MUTED).pack(anchor="w", pady=(1, 5))
-            self.token_var = StringVar(value=self.cfg.get("token", ""))
-            token_row = Frame(body, bg=BG)
-            token_row.pack(fill="x", pady=(0, 14))
-            token_entry = Entry(token_row, textvariable=self.token_var, show="•",
-                                font=("Segoe UI", 9), relief="solid", bd=1)
-            token_entry.pack(side="left", fill="x", expand=True, ipady=4)
-            Button(token_row, text="Pegar", font=("Segoe UI", 9), relief="solid", bd=1,
-                   bg="white", cursor="hand2",
-                   command=lambda: (self.token_var.set(""), _paste_into(token_entry))
-                   ).pack(side="left", padx=(4, 0), ipady=4, ipadx=8)
-        else:
-            self.token_var = StringVar(value=self.cfg.get("token", ""))
+            _field(card, "Token de acceso", "Copialo desde la web → Configuración → Agente de descarga")
+            token_row = Frame(card, bg=CARD)
+            token_row.pack(fill="x", pady=(0, 16))
+            token_entry = _entry(token_row, self.token_var, show="•")
+            token_entry.pack(side="left", fill="x", expand=True, ipady=5)
+            _secondary(token_row, "Pegar",
+                       lambda: (self.token_var.set(""), _paste_into(token_entry))
+                       ).pack(side="left", padx=(6, 0))
 
-        Label(body, text="Organización de carpetas", font=("Segoe UI", 9, "bold"),
-              bg=BG, fg=FG).pack(anchor="w")
-        Label(body, text="Cómo organizar los MP3 dentro de la carpeta de descarga",
-              font=("Segoe UI", 8), bg=BG, fg=MUTED).pack(anchor="w", pady=(1, 6))
-
+        _field(card, "Organización de carpetas", "Cómo ordenar los MP3 dentro de la carpeta de descarga")
         self.organize_var = StringVar(value=self.cfg.get("folder_organize_mode", "none"))
-        org_opts = [
-            ("none",
-             "Sin organizar",
-             "Todos los MP3 se guardan directamente en la carpeta de descarga."),
-            ("import_date",
-             "Por fecha de importación",
-             "Se crean subcarpetas AÑO/AÑO-MES-DIA según la fecha en que\n"
-             "los tracks se importaron a la app."),
-            ("like_date",
-             "Por fecha de like",
-             "Se crean subcarpetas AÑO/AÑO-MES según la fecha en que\n"
-             "likeaste el track."),
-        ]
-        for val, label, hint in org_opts:
-            Radiobutton(body, text=label, variable=self.organize_var, value=val,
-                        font=("Segoe UI", 9, "bold"), bg=BG, fg=FG,
-                        activebackground=BG, selectcolor=BG).pack(anchor="w", pady=(4, 0))
-            Label(body, text=hint, font=("Segoe UI", 8), bg=BG, fg=MUTED,
-                  justify="left").pack(anchor="w", padx=(20, 0))
+        _radios(card, self.organize_var)
 
-        Frame(body, height=14, bg=BG).pack()
-        Frame(r, height=1, bg="#e2e8f0").pack(fill="x")
-        Button(r, text="Iniciar agente →", font=("Segoe UI", 10, "bold"),
-               bg=ACCENT, fg="white", relief="flat", cursor="hand2",
-               activebackground="#1d4ed8", activeforeground="white",
-               command=self._submit).pack(fill="x", padx=24, pady=20, ipady=8)
+        _primary(card, "Iniciar agente", self._submit).pack(fill="x", pady=(20, 0), ipady=8)
+        Frame(r, bg=BG, height=20).pack()
 
     def _pick_folder(self) -> None:
         path = filedialog.askdirectory(title="Seleccionar carpeta de descarga")
@@ -473,14 +521,15 @@ class SetupWindow:
 
 # ── Running window ───────────────────────────────────────────────────────────
 
+# Mismos colores que las etiquetas de estado de la web (--s-* en base.html).
 _STATUS_LABEL = {
-    "pending":       ("⏳ En cola",         "#94a3b8"),
-    "downloading":   ("⬇ Descargando…",    "#f59e0b"),
-    "completed":     ("✅ Completado",      "#16a34a"),
-    "not_found":     ("❌ No encontrado",   "#6b7280"),
-    "vinyl_only":    ("💿 Solo vinilo",     "#7c3aed"),
-    "bandcamp_only": ("🎸 Solo Bandcamp",   "#0ea5e9"),
-    "failed":        ("⚠️ Error",           "#dc2626"),
+    "pending":       ("En cola",        "#475569"),
+    "downloading":   ("Descargando…",   WARN),
+    "completed":     ("Completado",     "#065f46"),
+    "not_found":     ("No encontrado",  "#991b1b"),
+    "vinyl_only":    ("Solo vinilo",    "#92400e"),
+    "bandcamp_only": ("Solo Bandcamp",  "#1e40af"),
+    "failed":        ("Error",          ERR),
 }
 
 class RunningWindow:
@@ -502,13 +551,13 @@ class RunningWindow:
         self.root.configure(bg=BG)
         _enable_entry_menu(self.root)
         self.root.resizable(True, True)
-        self.root.minsize(460, 340)
+        self.root.minsize(480, 360)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
         if sys.platform == "darwin":
             # Sin esto Cmd+Q cierra de golpe, salteando el aviso de _on_close.
             self.root.createcommand("tk::mac::Quit", self._on_close)
         self.root.bind("<Unmap>", lambda e: self._to_tray() if e.widget is self.root and not self._in_tray else None)
-        self._center(500, 460)
+        self._center(520, 480)
         self._build()
         _app_icon(self.root)
 
@@ -519,78 +568,58 @@ class RunningWindow:
     def _build(self) -> None:
         r = self.root
 
-        hdr = Frame(r, bg="#1e293b")
-        hdr.pack(fill="x")
-        Label(hdr, text="🎵 Track Manager", font=("Segoe UI", 11, "bold"),
-              bg="#1e293b", fg="white").pack(side="left", padx=16, pady=10)
-        Button(hdr, text="⚙", font=("Segoe UI", 11), bg="#1e293b", fg="white",
-               relief="flat", cursor="hand2", activebackground="#334155",
-               activeforeground="white", bd=0,
-               command=self._open_settings_dialog).pack(side="right", padx=12, pady=6)
-        Button(hdr, text="👤 Cuentas", font=("Segoe UI", 9), bg="#1e293b", fg="white",
-               relief="flat", cursor="hand2", activebackground="#334155",
-               activeforeground="white", bd=0,
-               command=self._open_accounts_dialog).pack(side="right", padx=0, pady=6)
+        hdr = _brand_bar(r)
+        _nav_button(hdr, "Configuración", self._open_settings_dialog).pack(side="right", padx=(0, 10), pady=8)
+        _nav_button(hdr, "Cuentas", self._open_accounts_dialog).pack(side="right", pady=8)
 
         bar = Frame(r, bg=BG)
-        bar.pack(fill="x", padx=16, pady=(10, 6))
-        self.dot = Label(bar, text="●", font=("Segoe UI", 12), bg=BG, fg="#22c55e")
+        bar.pack(fill="x", padx=20, pady=(12, 8))
+        self.dot = Label(bar, text="●", font=(FONT, 11), bg=BG, fg=OK)
         self.dot.pack(side="left")
-        self.status_lbl = Label(bar, text="Corriendo", font=("Segoe UI", 9, "bold"),
-                                bg=BG, fg=FG)
-        self.status_lbl.pack(side="left", padx=(5, 0))
-        self.count_lbl = Label(bar, text="0 completados",
-                               font=("Segoe UI", 9), bg=BG, fg=MUTED)
+        self.status_lbl = Label(bar, text="Corriendo", font=(FONT, 9, "bold"), bg=BG, fg=FG)
+        self.status_lbl.pack(side="left", padx=(6, 0))
+        self.count_lbl = Label(bar, text="", font=(FONT, 9), bg=BG, fg=MUTED)
         self.count_lbl.pack(side="right")
 
-        Frame(r, height=1, bg="#e2e8f0").pack(fill="x")
-
-        tree_frame = Frame(r, bg=BG)
-        tree_frame.pack(fill="both", expand=True)
+        tree_frame = Frame(r, bg=CARD, highlightthickness=1, highlightbackground=LINE)
+        tree_frame.pack(fill="both", expand=True, padx=20)
 
         style = ttk.Style()
         style.theme_use("clam")
-        style.configure("Agent.Treeview",
-                        background="white", fieldbackground="white",
-                        rowheight=26, font=("Segoe UI", 9))
-        style.configure("Agent.Treeview.Heading",
-                        font=("Segoe UI", 8, "bold"), background="#f1f5f9",
-                        foreground="#475569", relief="flat")
-        style.map("Agent.Treeview", background=[("selected", "#e0f2fe")],
-                  foreground=[("selected", FG)])
+        style.configure("Agent.Treeview", background=CARD, fieldbackground=CARD, foreground=FG,
+                        rowheight=28, font=(FONT, 9), borderwidth=0, relief="flat")
+        style.layout("Agent.Treeview", [("Agent.Treeview.treearea", {"sticky": "nswe"})])
+        style.configure("Agent.Treeview.Heading", font=(FONT, 8, "bold"), background="#f8fafc",
+                        foreground=MUTED, relief="flat", padding=(8, 6))
+        style.map("Agent.Treeview.Heading", background=[("active", "#f8fafc")])
+        style.map("Agent.Treeview", background=[("selected", "#eef2ff")], foreground=[("selected", FG)])
+        style.configure("Agent.Vertical.TScrollbar", background=LINE, troughcolor=CARD,
+                        bordercolor=CARD, lightcolor=LINE, darkcolor=LINE, arrowcolor=MUTED,
+                        relief="flat", gripcount=0)
 
         self.tree = ttk.Treeview(tree_frame, columns=("track", "status"),
                                  show="headings", style="Agent.Treeview",
                                  selectmode="browse")
-        self.tree.heading("track",  text="TRACK")
-        self.tree.heading("status", text="ESTADO")
-        self.tree.column("track",  width=310, stretch=True,  anchor="w")
-        self.tree.column("status", width=150, stretch=False, anchor="w")
+        self.tree.heading("track",  text="TRACK", anchor="w")
+        self.tree.heading("status", text="ESTADO", anchor="w")
+        self.tree.column("track",  width=320, stretch=True,  anchor="w")
+        self.tree.column("status", width=140, stretch=False, anchor="w")
+        for status, (_label, color) in _STATUS_LABEL.items():
+            self.tree.tag_configure(status, foreground=color)
 
-        self.tree.tag_configure("pending",       foreground="#94a3b8")
-        self.tree.tag_configure("downloading",   foreground="#b45309")
-        self.tree.tag_configure("completed",     foreground="#15803d")
-        self.tree.tag_configure("not_found",     foreground="#6b7280")
-        self.tree.tag_configure("vinyl_only",    foreground="#7c3aed")
-        self.tree.tag_configure("bandcamp_only", foreground="#0ea5e9")
-        self.tree.tag_configure("failed",        foreground="#dc2626")
-
-        vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=self.tree.yview)
+        vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=self.tree.yview,
+                            style="Agent.Vertical.TScrollbar")
         self.tree.configure(yscrollcommand=vsb.set)
         vsb.pack(side="right", fill="y")
         self.tree.pack(side="left", fill="both", expand=True)
         self.tree.bind("<<TreeviewSelect>>", self._on_tree_select)
 
-        Frame(r, height=1, bg="#e2e8f0").pack(fill="x")
         footer = Frame(r, bg=BG)
-        footer.pack(fill="x", padx=16, pady=8)
-        Button(footer, text="📂 Abrir carpeta", font=("Segoe UI", 9),
-               bg="white", fg=MUTED, relief="solid", bd=1, cursor="hand2",
-               command=self._open_folder).pack(side="left", ipady=3, ipadx=8)
-        self.stop_btn = Button(footer, text="⏹ Detener agente", font=("Segoe UI", 9),
-               bg="white", fg="#dc2626", relief="solid", bd=1, cursor="hand2",
-               command=self._stop_graceful)
-        self.stop_btn.pack(side="right", ipady=3, ipadx=8)
+        footer.pack(fill="x", padx=20, pady=12)
+        _secondary(footer, "Abrir carpeta", self._open_folder).pack(side="left")
+        stop = _secondary(footer, "Detener agente", self._stop_graceful, fg=ERR)
+        stop.pack(side="right")
+        self.stop_btn = stop.btn
 
     def _open_folder(self) -> None:
         folder = self.cfg.get("download_dir", "")
@@ -608,77 +637,47 @@ class RunningWindow:
         dlg.configure(bg=BG)
         dlg.resizable(False, False)
         dlg.grab_set()
-        w, h = 440, 640
-        sw, sh = dlg.winfo_screenwidth(), dlg.winfo_screenheight()
-        dlg.geometry(f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
         _app_icon(dlg)
 
-        Label(dlg, text="Configuración", font=("Segoe UI", 12, "bold"),
-              bg=BG, fg=FG).pack(anchor="w", padx=24, pady=(20, 2))
-        Frame(dlg, height=1, bg="#e2e8f0").pack(fill="x", pady=10)
+        _brand_bar(dlg)
+        _page_title(dlg, "Configuración", "Carpeta, token y organización de los MP3.")
+        card = _card(dlg)
 
-        body = Frame(dlg, bg=BG)
-        body.pack(fill="x", padx=24)
-
-        Label(body, text="Carpeta de descarga", font=("Segoe UI", 9, "bold"),
-              bg=BG, fg=FG).pack(anchor="w")
-        Label(body, text="Dónde se guardarán los MP3 en tu PC",
-              font=("Segoe UI", 8), bg=BG, fg=MUTED).pack(anchor="w", pady=(1, 5))
-
+        _field(card, "Carpeta de descarga", "Dónde se guardan los MP3 en tu PC")
         folder_var = StringVar(value=self.cfg.get("download_dir", ""))
-        row = Frame(body, bg=BG)
-        row.pack(fill="x", pady=(0, 14))
-        Entry(row, textvariable=folder_var, font=("Segoe UI", 9),
-              relief="solid", bd=1).pack(side="left", fill="x", expand=True, ipady=4)
+        row = Frame(card, bg=CARD)
+        row.pack(fill="x", pady=(0, 16))
+        _entry(row, folder_var).pack(side="left", fill="x", expand=True, ipady=5)
 
         def pick():
             path = filedialog.askdirectory(title="Seleccionar carpeta de descarga", parent=dlg)
             if path:
                 folder_var.set(path)
 
-        Button(row, text="📁", font=("Segoe UI", 9), relief="solid", bd=1,
-               bg="white", cursor="hand2",
-               command=pick).pack(side="left", padx=(4, 0), ipady=4, ipadx=8)
+        _secondary(row, "Elegir…", pick).pack(side="left", padx=(6, 0))
 
-        Label(body, text="Token de acceso", font=("Segoe UI", 9, "bold"),
-              bg=BG, fg=FG).pack(anchor="w")
-        Label(body, text="Copialo desde la web → Configuración → Agente de Descarga",
-              font=("Segoe UI", 8), bg=BG, fg=MUTED).pack(anchor="w", pady=(1, 5))
+        _field(card, "Token de acceso", "Copialo desde la web → Configuración → Agente de descarga")
         token_var = StringVar(value=self.cfg.get("token", ""))
-        token_row = Frame(body, bg=BG)
-        token_row.pack(fill="x", pady=(0, 14))
-        token_entry = Entry(token_row, textvariable=token_var, show="•",
-                            font=("Segoe UI", 9), relief="solid", bd=1)
-        token_entry.pack(side="left", fill="x", expand=True, ipady=4)
+        token_row = Frame(card, bg=CARD)
+        token_row.pack(fill="x", pady=(0, 16))
+        token_entry = _entry(token_row, token_var, show="•")
+        token_entry.pack(side="left", fill="x", expand=True, ipady=5)
+        _secondary(token_row, "Pegar",
+                   lambda: (token_var.set(""), _paste_into(token_entry))
+                   ).pack(side="left", padx=(6, 0))
+        show = _secondary(token_row, "Ver")
+        show.pack(side="left", padx=(6, 0))
+
         def _toggle_token():
-            token_entry.config(show="" if token_entry.cget("show") == "•" else "•")
-        Button(token_row, text="Pegar", font=("Segoe UI", 9), relief="solid", bd=1,
-               bg="white", cursor="hand2",
-               command=lambda: (token_var.set(""), _paste_into(token_entry))
-               ).pack(side="left", padx=(4, 0), ipady=4, ipadx=8)
-        Button(token_row, text="👁", font=("Segoe UI", 9), relief="solid", bd=1,
-               bg="white", cursor="hand2",
-               command=_toggle_token).pack(side="left", padx=(4, 0), ipady=4, ipadx=8)
+            hidden = token_entry.cget("show") == "•"
+            token_entry.config(show="" if hidden else "•")
+            show.btn.config(text="Ocultar" if hidden else "Ver")
 
-        Label(body, text="Organización de carpetas", font=("Segoe UI", 9, "bold"),
-              bg=BG, fg=FG).pack(anchor="w")
-        Label(body, text="Cómo organizar los MP3 dentro de la carpeta de descarga",
-              font=("Segoe UI", 8), bg=BG, fg=MUTED).pack(anchor="w", pady=(1, 6))
+        show.btn.config(command=_toggle_token)
 
+        _field(card, "Organización de carpetas", "Cómo ordenar los MP3 dentro de la carpeta de descarga")
         organize_var = StringVar(value=self.cfg.get("folder_organize_mode", "none"))
-        org_opts = [
-            ("none",        "Sin organizar",         "Todos los MP3 se guardan directamente en la carpeta."),
-            ("import_date", "Por fecha de importación", "Subcarpetas AÑO/AÑO-MES-DIA según fecha de importación."),
-            ("like_date",   "Por fecha de like",     "Subcarpetas AÑO/AÑO-MES según la fecha de like."),
-        ]
-        for val, label, hint in org_opts:
-            Radiobutton(body, text=label, variable=organize_var, value=val,
-                        font=("Segoe UI", 9, "bold"), bg=BG, fg=FG,
-                        activebackground=BG, selectcolor=BG).pack(anchor="w", pady=(4, 0))
-            Label(body, text=hint, font=("Segoe UI", 8), bg=BG, fg=MUTED,
-                  justify="left").pack(anchor="w", padx=(20, 0))
-
-        Frame(dlg, height=1, bg="#e2e8f0").pack(fill="x", pady=(14, 0))
+        _radios(card, organize_var)
 
         def save():
             folder = folder_var.get().strip()
@@ -695,15 +694,10 @@ class RunningWindow:
             save_config(self.cfg)
             dlg.destroy()
 
-        Frame(dlg, height=1, bg="#e2e8f0").pack(fill="x", pady=(14, 0))
-
-        Label(dlg, text=f"Log: {LOG_PATH}", font=("Segoe UI", 7),
-              bg=BG, fg="#94a3b8").pack(anchor="w", padx=24, pady=(6, 0))
-
-        Button(dlg, text="Guardar configuración", font=("Segoe UI", 10, "bold"),
-               bg=ACCENT, fg="white", relief="flat", cursor="hand2",
-               activebackground="#1d4ed8", activeforeground="white",
-               command=save).pack(fill="x", padx=24, pady=(8, 16), ipady=8)
+        _primary(card, "Guardar configuración", save).pack(fill="x", pady=(20, 0), ipady=8)
+        Label(dlg, text=f"Log: {LOG_PATH}", font=(FONT, 7), bg=BG, fg=MUTED,
+              wraplength=420, justify="left").pack(anchor="w", padx=20, pady=(8, 14))
+        _fit(dlg, 460)
 
     # ── Cuentas conectadas ───────────────────────────────────────────────────
 
@@ -747,7 +741,7 @@ class RunningWindow:
         if not self.cfg.get("token"):
             messagebox.showerror(
                 "Falta el token",
-                "Configurá el token de acceso en Ajustes (⚙) antes de conectar cuentas.",
+                "Configurá el token de acceso en Configuración antes de conectar cuentas.",
             )
             return
 
@@ -758,55 +752,42 @@ class RunningWindow:
         dlg.transient(self.root)
         _app_icon(dlg)
 
-        Label(dlg, text="Cuentas conectadas", font=("Segoe UI", 13, "bold"),
-              bg=BG, fg=FG).pack(anchor="w", padx=24, pady=(18, 2))
-        # wraplength obligatorio: la ventana se fuerza a 440px y sólo se calcula el
-        # alto, así que un texto que pida más ancho queda cortado.
-        Label(dlg,
-              text="Conectá las cuentas que Track Manager necesita para buscar y "
-                   "descargar tu música. Se abre una ventana, iniciás sesión como "
-                   "siempre, y el agente la recuerda.",
-              font=("Segoe UI", 8), bg=BG, fg=MUTED,
-              # -48 por el padx=24 de cada lado, -8 más porque el Label suma su
-              # propio borde interno y con el valor justo pedía 3px de más.
-              wraplength=_ACCOUNTS_DLG_W - 56,
-              justify="left").pack(anchor="w", padx=24, pady=(0, 12))
-
-        body = Frame(dlg, bg=BG)
-        body.pack(fill="x", padx=24)
+        _brand_bar(dlg)
+        # wraplength obligatorio: la ventana se fuerza a un ancho fijo y sólo se
+        # calcula el alto, así que un texto que pida más ancho queda cortado.
+        _page_title(dlg, "Cuentas conectadas",
+                    "Conectá las cuentas que Track Manager necesita para buscar y "
+                    "descargar tu música. Se abre una ventana, iniciás sesión como "
+                    "siempre, y el agente la recuerda.")
+        card = _card(dlg)
 
         self._acct_dots: dict[str, Label] = {}
         self._acct_msgs: dict[str, Label] = {}
         self._acct_btns: dict[str, Button] = {}
         self._acct_connected: dict[str, bool] = {}
-        for service, label, hint in self._ACCOUNTS:
-            row = Frame(body, bg=BG)
-            row.pack(fill="x", pady=(0, 10))
-            dot = Label(row, text="●", font=("Segoe UI", 11), bg=BG, fg="#cbd5e1")
-            dot.grid(row=0, column=0, rowspan=2, sticky="n", padx=(0, 6))
-            Label(row, text=label, font=("Segoe UI", 10, "bold"),
-                  bg=BG, fg=FG).grid(row=0, column=1, sticky="w")
-            msg = Label(row, text=hint, font=("Segoe UI", 8), bg=BG, fg=MUTED)
+        for i, (service, label, hint) in enumerate(self._ACCOUNTS):
+            if i:
+                Frame(card, bg=LINE, height=1).pack(fill="x", pady=8)
+            row = Frame(card, bg=CARD)
+            row.pack(fill="x")
+            dot = Label(row, text="●", font=(FONT, 10), bg=CARD, fg="#cbd5e1")
+            dot.grid(row=0, column=0, rowspan=2, sticky="n", padx=(0, 8))
+            Label(row, text=label, font=(FONT, 10, "bold"), bg=CARD, fg=FG).grid(row=0, column=1, sticky="w")
+            msg = Label(row, text=hint, font=(FONT, 8), bg=CARD, fg=MUTED)
             msg.grid(row=1, column=1, sticky="w")
-            btn = Button(row, text="Conectar", font=("Segoe UI", 9), relief="solid", bd=1,
-                         bg="white", cursor="hand2")
+            box = _secondary(row, "Conectar")
+            btn = box.btn
             btn.config(command=lambda s=service, l=label, b=btn: self._connect_account(s, l, dlg, b))
-            btn.grid(row=0, column=2, rowspan=2, sticky="e", padx=(12, 0), ipadx=8, ipady=2)
+            box.grid(row=0, column=2, rowspan=2, sticky="e", padx=(12, 0))
             row.columnconfigure(1, weight=1)
             self._acct_dots[service] = dot
             self._acct_msgs[service] = msg
             self._acct_btns[service] = btn
 
-        Frame(dlg, height=1, bg="#e2e8f0").pack(fill="x", pady=(8, 0))
-        Button(dlg, text="Cerrar", font=("Segoe UI", 9), relief="flat",
-               bg=BG, fg=MUTED, cursor="hand2",
-               command=dlg.destroy).pack(pady=(8, 14))
-
-        dlg.update_idletasks()
-        # 470 y no 440: con "Cambiar cuenta" la fila pide 397px y sólo quedaban 392.
-        w, h = _ACCOUNTS_DLG_W, dlg.winfo_reqheight()
-        sw, sh = self.root.winfo_screenwidth(), self.root.winfo_screenheight()
-        dlg.geometry(f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
+        Button(dlg, text="Cerrar", font=(FONT, 9), relief="flat", bd=0, bg=BG, fg=MUTED,
+               activebackground=BG, activeforeground=FG, cursor="hand2",
+               command=dlg.destroy).pack(pady=(10, 14))
+        _fit(dlg, _ACCOUNTS_DLG_W)
 
         threading.Thread(target=self._refresh_account_dots, daemon=True).start()
 
@@ -821,7 +802,7 @@ class RunningWindow:
             if not dot:
                 continue
             info = status.get(service) or {}
-            color = "#22c55e" if info.get("ok") else ("#f59e0b" if info.get("connected") else "#cbd5e1")
+            color = OK if info.get("ok") else (WARN if info.get("connected") else "#cbd5e1")
             text = info.get("msg") or hint
             btn_text = self._account_button_label(info)
             btn = self._acct_btns.get(service)
@@ -881,10 +862,10 @@ class RunningWindow:
         self.running = True
         self._worker_done = False
         self._creds_expired = None
-        self.dot.config(fg="#22c55e")
+        self.dot.config(fg=OK)
         self.status_lbl.unbind("<Button-1>")
         self.status_lbl.config(text="Corriendo", fg=FG, cursor="")
-        self.stop_btn.config(state="normal", text="⏹ Detener agente", command=self._stop_graceful)
+        self.stop_btn.config(state="normal", text="Detener agente", command=self._stop_graceful)
         t = threading.Thread(target=self._worker, daemon=True)
         t.start()
         self.root.after(200, self._poll)
@@ -929,7 +910,7 @@ class RunningWindow:
             messagebox.showwarning(
                 "Agente activo",
                 "El agente todavía está descargando tracks.\n\n"
-                "Hacé clic en '⏹ Detener agente' y esperá a que termine antes de cerrar.",
+                "Hacé clic en 'Detener agente' y esperá a que termine antes de cerrar.",
             )
         else:
             self.root.destroy()
@@ -967,30 +948,30 @@ class RunningWindow:
         kind = msg[0]
         if kind == "stopped":
             self._worker_done = True
-            self.stop_btn.config(state="normal", text="▶ Reanudar agente", command=self._restart)
+            self.stop_btn.config(state="normal", text="Reanudar agente", command=self._restart)
             # Si paramos por una credencial vencida, ese aviso manda: decir sólo
             # "Agente detenido" esconde el motivo y el usuario no sabe qué hacer.
             if not self._creds_expired:
                 self.dot.config(fg="#94a3b8")
                 self.status_lbl.config(text="Agente detenido")
         elif kind == "idle":
-            self.dot.config(fg="#22c55e")
+            self.dot.config(fg=OK)
             self.status_lbl.config(text="Corriendo — sin pendientes")
         elif kind == "stats":
             _, pending, in_progress = msg
             self.pending_total = pending + in_progress
             self._refresh_count_lbl()
         elif kind == "error":
-            self.dot.config(fg="#ef4444")
+            self.dot.config(fg=ERR)
             self.status_lbl.config(text="Error de conexión. Reintentando…")
         elif kind == "no_creds":
-            self.dot.config(fg="#f59e0b")
-            self.status_lbl.config(text="Sin credenciales — conectá Muzpa en 👤 Cuentas")
+            self.dot.config(fg=WARN)
+            self.status_lbl.config(text="Sin credenciales — conectá Muzpa en Cuentas")
         elif kind == "creds_expired":
             _, service = msg
             name = {"muzpa": "Muzpa", "deezer": "Deezer", "soundcloud": "SoundCloud"}.get(service, service)
             self._creds_expired = name
-            self.dot.config(fg="#f59e0b")
+            self.dot.config(fg=WARN)
             self.status_lbl.config(text=f"{name} desconectado — clic acá para reconectar",
                                    fg=ACCENT, cursor="hand2")
             self.status_lbl.bind("<Button-1>", lambda _e: self._open_accounts_dialog())
@@ -1012,7 +993,7 @@ class RunningWindow:
                 query = self.tree.set(iid, "track")
                 self.tree.item(iid, values=(query, label), tags=("downloading",))
                 self.tree.see(iid)
-            self.dot.config(fg="#f59e0b")
+            self.dot.config(fg=WARN)
             self.status_lbl.config(text="Descargando…")
         elif kind == "finish":
             _, job_id, status = msg

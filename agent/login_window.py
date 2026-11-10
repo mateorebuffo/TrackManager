@@ -133,7 +133,7 @@ def _save(api_url: str, token: str, service: str, value: str) -> tuple[bool, str
         return False, ("El servidor no tiene el endpoint de credenciales. "
                        "Actualizá Track Manager antes de usar esta función."), False
     if r.status_code in (401, 403):
-        return False, "Token del agente inválido. Revisalo en Ajustes (⚙).", True
+        return False, "Token del agente inválido. Revisalo en Configuración.", True
     if r.status_code >= 500:
         return False, f"Error del servidor ({r.status_code}).", False
     try:
@@ -219,7 +219,7 @@ def _status(api_url: str, token: str, service: str) -> tuple[dict, str]:
         return {}, ("El servidor no tiene el endpoint de credenciales. "
                     "Actualizá Track Manager antes de usar esta función.")
     if r.status_code in (401, 403):
-        return {}, "Token del agente inválido. Revisalo en Ajustes (⚙)."
+        return {}, "Token del agente inválido. Revisalo en Configuración."
     try:
         payload = r.json()
     except Exception:

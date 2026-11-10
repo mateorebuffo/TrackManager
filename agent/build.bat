@@ -27,6 +27,7 @@ if exist TrackManagerAgent.spec del TrackManagerAgent.spec
   --hidden-import clr_loader ^
   --collect-all webview ^
   --hidden-import login_window ^
+  --hidden-import make_icon ^
   --add-data "download;download" ^
   agent.py
 

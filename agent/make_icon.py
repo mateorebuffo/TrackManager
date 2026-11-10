@@ -1,26 +1,47 @@
-"""Generate agent_icon.ico from the same music-note image used in the app."""
+"""
+Ícono del agente: el mismo logo de la web (app/static/icons/logo.svg), dibujado
+con Pillow. `draw_logo` también lo usa agent.py para la ventana, la bandeja y la
+barra de marca, así el agente y la web comparten la misma imagen.
+"""
 from pathlib import Path
 from PIL import Image, ImageDraw
 
+LOGO_BG = (99, 102, 241)  # #6366f1, el índigo de logo.svg
+
+
+def draw_logo(size: int) -> "Image.Image":
+    """Cuadrado redondeado índigo con la nota en trazo blanco, como logo.svg (32x32)."""
+    S = 8  # se dibuja grande y se achica: Pillow no suaviza bordes por sí solo
+    px = size * S
+    img = Image.new("RGBA", (px, px), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    k = px / 32
+    d.rounded_rectangle([0, 0, px - 1, px - 1], radius=int(8 * k), fill=LOGO_BG + (255,))
+
+    # El <g> del SVG: translate(5.5 5.5) scale(.875), trazo 2.4, puntas redondas.
+    def p(x, y):
+        return ((x * 0.875 + 5.5) * k, (y * 0.875 + 5.5) * k)
+    w = int(2.4 * 0.875 * k)
+    white = (255, 255, 255, 255)
+    for a, b in ((p(9, 18), p(9, 5)), (p(9, 5), p(21, 3)), (p(21, 3), p(21, 16))):
+        d.line([a, b], fill=white, width=w)
+        for c in (a, b):
+            d.ellipse([c[0] - w / 2, c[1] - w / 2, c[0] + w / 2, c[1] + w / 2], fill=white)
+    for cx, cy in ((6, 18), (18, 16)):
+        x, y = p(cx, cy)
+        r = 3 * 0.875 * k
+        d.ellipse([x - r - w / 2, y - r - w / 2, x + r + w / 2, y + r + w / 2], fill=white)
+        d.ellipse([x - r + w / 2, y - r + w / 2, x + r - w / 2, y + r - w / 2], fill=LOGO_BG + (255,))
+    return img.resize((size, size), Image.LANCZOS)
+
 
 def make_icon(size: int) -> Image.Image:
-    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    s = size / 64
-    d.ellipse([int(8*s), int(38*s), int(28*s), int(56*s)], fill=(255, 255, 255))
-    d.ellipse([int(34*s), int(30*s), int(54*s), int(48*s)], fill=(255, 255, 255))
-    d.rectangle([int(24*s), int(8*s), int(30*s), int(44*s)], fill=(255, 255, 255))
-    d.rectangle([int(50*s), int(4*s), int(56*s), int(36*s)], fill=(255, 255, 255))
-    d.rectangle([int(24*s), int(8*s), int(56*s), int(14*s)], fill=(255, 255, 255))
-
-    bg = Image.new("RGBA", (size, size), (37, 99, 235, 255))
-    bg.paste(img, mask=img)
-    return bg.convert("RGB")
+    return draw_logo(size).convert("RGB")
 
 
 if __name__ == "__main__":
     sizes = [16, 32, 48, 256]
-    images = [make_icon(s) for s in sizes]
+    images = [draw_logo(s) for s in sizes]
     out = Path(__file__).parent / "agent_icon.ico"
     images[0].save(out, format="ICO", sizes=[(s, s) for s in sizes],
                    append_images=images[1:])
@@ -28,5 +49,5 @@ if __name__ == "__main__":
 
     # macOS: Pillow saca los tamaños del .icns a partir de una imagen grande.
     icns = out.with_suffix(".icns")
-    make_icon(1024).save(icns, format="ICNS")
+    draw_logo(1024).save(icns, format="ICNS")
     print(f"Icono generado: {icns}")
