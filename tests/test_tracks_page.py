@@ -99,3 +99,13 @@ def test_tocar_el_artista_copia_artista_guion_titulo(client):
     copias = re.findall(r'data-copy="([^"]+)"', html)
     assert copias, "ninguna fila ofrece copiar"
     assert all(" - " in c and not c.startswith("—") for c in copias)
+
+
+def test_compare_back_returns_to_the_originating_list(client):
+    """'Atrás' en modo comparación era history.back(): sin historial no hacía nada."""
+    r = client.get("/tracks/pending?compare=1,2&back=%2Ftracks%2Fpending%3Fstatus%3Dnot_found%26page%3D2",
+                   headers={"host": "localhost"})
+    assert 'href="/tracks/pending?status=not_found&amp;page=2"' in r.text
+    assert "history.back()" not in r.text
+    r = client.get("/tracks/pending?compare=1,2&back=https%3A%2F%2Fevil.example", headers={"host": "localhost"})
+    assert "evil.example" not in r.text

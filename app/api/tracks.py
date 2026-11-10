@@ -63,6 +63,7 @@ def pending_tracks_page(
     date_to: str | None = Query(default=None),
     source: str | None = Query(default=None),
     compare: str | None = Query(default=None),
+    back: str | None = Query(default=None),
     page: int = Query(default=1, ge=1),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -142,6 +143,10 @@ def pending_tracks_page(
     date_filter_active = False if compare_ids else bool(_parse_date(date_from) or _parse_date(date_to))
 
     rows = []
+    # "Atrás" del modo comparación vuelve a la lista exacta de donde se vino
+    # (pestaña, filtros, página). history.back() no hacía nada si no había historial.
+    here = request.url.path + (f"?{request.url.query}" if request.url.query else "")
+    compare_back = back if back and back.startswith("/tracks/pending") else "/tracks/pending"
     for item in items:
         nt = item.normalized_track
         st: SourceTrack = nt.source_track if nt else None
@@ -153,7 +158,8 @@ def pending_tracks_page(
             try:
                 matched_review_id = int(raw_notes[4:])
                 display_notes = "Duplicado"
-                dup_compare_url = f"/tracks/pending?compare={item.id},{matched_review_id}"
+                dup_compare_url = (f"/tracks/pending?compare={item.id},{matched_review_id}"
+                                   f"&back={quote(compare_back if compare_ids else here, safe='')}")
             except ValueError:
                 pass
 
@@ -213,6 +219,7 @@ def pending_tracks_page(
             "spotify_playlist_name": _user_playlist_name(db, current_user.id, "spotify"),
             "youtube_playlist_name": _user_playlist_name(db, current_user.id, "youtube"),
             "compare_mode": bool(compare_ids),
+            "compare_back": compare_back,
             "needs_setup": needs_setup,
             "is_admin": current_user.is_admin,
         },

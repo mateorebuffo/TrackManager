@@ -56,11 +56,6 @@
   /* ── Paginación ─────────────────────────────────────────────── */
   .tm-pager { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 0.9rem; font-size: 0.82rem; color: var(--tm-muted); }
 
-  /* ── Reproductor flotante ───────────────────────────────────── */
-  .tm-player { position: fixed; right: 1.5rem; bottom: 1.5rem; width: 400px; background: #fff; border: 1px solid var(--tm-border); border-radius: 12px; box-shadow: 0 16px 40px rgba(15,23,42,.25); z-index: 1050; overflow: hidden; }
-  .tm-player-head { display: flex; align-items: center; gap: .5rem; padding: .5rem .75rem; border-bottom: 1px solid var(--tm-border); font-size: .8rem; font-weight: 600; }
-  .tm-player-head span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tm-player iframe { display: block; width: 100%; border: 0; }
 </style>
 
 {# ── Macro: botones de importar (header y estado vacío) ─────────── #}
@@ -198,7 +193,7 @@ function dismissSetupBanner(){
 <div class="alert alert-warning d-flex align-items-center justify-content-between gap-3 flex-wrap mb-3">
   <span><i class="bi bi-intersect me-1"></i><strong>Modo comparación:</strong> estos dos tracks pueden ser el mismo. Revisalos y descartá el que no necesites.</span>
   <div class="d-flex gap-2">
-    <button class="btn btn-sm btn-outline-secondary" onclick="history.back()"><i class="bi bi-arrow-left"></i> Atrás</button>
+    <a href="{{ compare_back }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i> Atrás</a>
     <a href="/tracks/pending" class="btn btn-sm btn-outline-secondary">Ver todos</a>
   </div>
 </div>
@@ -597,16 +592,6 @@ function dismissSetupBanner(){
 </div>
 {% endif %}
 
-{# ── Reproductor flotante ──────────────────────────────────────── #}
-<div id="tm-player" class="tm-player d-none" role="region" aria-label="Reproductor">
-  <div class="tm-player-head">
-    <i class="bi bi-play-circle text-muted"></i>
-    <span id="tm-player-title"></span>
-    <button type="button" class="btn-close" style="font-size:.7rem;" onclick="closePlayer()" aria-label="Cerrar reproductor"></button>
-  </div>
-  <iframe id="tm-player-frame" title="Reproductor" height="166" allow="autoplay; encrypted-media; clipboard-write" referrerpolicy="strict-origin-when-cross-origin"></iframe>
-</div>
-
 {# ── Edit metadata modal ───────────────────────────────────────── #}
 <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalTitle">
   <div class="modal-dialog">
@@ -759,31 +744,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const panel = document.getElementById('date-filter-panel');
   if (panel && panel.style.display === 'none') setDateInputsDisabled(true);
 });
-
-/* ── Reproductor ─────────────────────────────────────────────── */
-function playTrack(btn) {
-  const url = btn.dataset.url, src = btn.dataset.src;
-  let embed = null, h = 166;
-  if (src === 'soundcloud') {
-    embed = 'https://w.soundcloud.com/player/?url=' + encodeURIComponent(url) + '&auto_play=true&show_comments=false&hide_related=true&visual=false';
-  } else if (src === 'youtube') {
-    const m = url.match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([\w-]{11})/);
-    if (m) { embed = 'https://www.youtube.com/embed/' + m[1] + '?autoplay=1'; h = 225; }
-  } else if (src === 'spotify') {
-    const m = url.match(/track\/([A-Za-z0-9]+)/);
-    if (m) { embed = 'https://open.spotify.com/embed/track/' + m[1]; h = 80; }
-  }
-  if (!embed) { window.open(url, '_blank', 'noopener'); return; }
-  const frame = document.getElementById('tm-player-frame');
-  frame.height = h;
-  frame.src = embed;
-  document.getElementById('tm-player-title').textContent = btn.dataset.label;
-  document.getElementById('tm-player').classList.remove('d-none');
-}
-function closePlayer() {
-  document.getElementById('tm-player-frame').src = 'about:blank';
-  document.getElementById('tm-player').classList.add('d-none');
-}
 
 /* ── Atajos de teclado: J/K moverse · X marcar · D descartar · P escuchar ── */
 (function () {
