@@ -149,9 +149,20 @@ def requeue_form(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> RedirectResponse:
+    # Sacarlo de la cola también cancela su descarga: si no, el job pendiente queda
+    # vivo y la app muestra "esperando al agente" sobre una cola vacía.
+    from app.models.download_job import DownloadJob, JobStatus
+    from datetime import datetime, timezone
     item = _get_item(item_id, current_user.id, db)
     item.status = TrackStatus.pending
     item.reviewed_at = None
+    db.query(DownloadJob).filter(
+        DownloadJob.review_id == item_id,
+        DownloadJob.status.in_([JobStatus.pending, JobStatus.in_progress]),
+    ).update(
+        {"status": JobStatus.cancelled, "updated_at": datetime.now(timezone.utc)},
+        synchronize_session=False,
+    )
     db.commit()
     return RedirectResponse(url="/tracks/download-queue", status_code=303)
 

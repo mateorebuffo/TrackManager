@@ -7,6 +7,9 @@
   .tm-dtab.on { background: var(--tm-primary); color: #fff; }
   .tm-dtab .n { font-size: .72rem; font-weight: 700; background: rgba(0,0,0,.08); border-radius: 999px; padding: .1em .45em; }
   .tm-dtab.on .n { background: rgba(255,255,255,.25); }
+  .tm-dtab-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--tm-accent); }
+  .tm-dtab-dot[hidden] { display: none; }
+  .tm-dtab.on .tm-dtab-dot { background: #fff; }
 </style>
 {% set n = queued_count | default(0) %}
 <nav class="tm-dtabs" aria-label="Secciones de descargas">
@@ -15,5 +18,6 @@
   </a>
   <a href="/auto-download/jobs" class="tm-dtab {% if active == 'jobs' %}on{% endif %}" {% if active == 'jobs' %}aria-current="page"{% endif %}>
     <i class="bi bi-clock-history"></i> Última descarga e historial
+    <span class="tm-dtab-dot" data-dl-active hidden title="Hay una descarga en curso"></span>
   </a>
 </nav>

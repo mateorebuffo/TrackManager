@@ -7,6 +7,17 @@
   .tm-batch { display: block; text-decoration: none; color: inherit; background: #fff; border: 1px solid var(--tm-border); border-radius: var(--tm-radius); padding: .6rem .9rem; transition: box-shadow .15s, border-color .15s; }
   .tm-batch:hover { box-shadow: var(--tm-shadow-md); border-color: #c7d2fe; color: inherit; }
   .tm-batch .badge { font-size: .74rem; font-weight: 600; padding: .4em .75em; }
+  /* Aviso de descarga activa: arriba de todo, con progreso y salida a la pantalla en vivo. */
+  .tm-live { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; padding: 1rem 1.25rem; margin-bottom: 1.25rem;
+             border-radius: var(--tm-radius-lg); border: 1px solid; }
+  .tm-live[hidden] { display: none; }
+  .tm-live-run  { background: var(--tm-primary-soft); border-color: #c7d2fe; color: #312e81; }
+  .tm-live-wait { background: #fffbeb; border-color: #fde68a; color: #78350f; }
+  .tm-live .bi { font-size: 1.4rem; }
+  .tm-live-body { flex: 1; min-width: 260px; }
+  .tm-live-title { font-weight: 700; font-size: .95rem; }
+  .tm-live .progress { height: 6px; margin-top: .5rem; background: rgba(67,56,202,.15); }
+  .tm-live .progress-bar { background: var(--tm-primary); transition: width .4s ease; }
 </style>
 
 {# ── Header ────────────────────────────────────────────────────── #}
@@ -19,7 +30,8 @@
     <form method="POST" action="/auto-download/all/form"
           onsubmit="return confirmSubmit(this, 'Se van a buscar y descargar {{ queued_count }} track{{ 's' if queued_count != 1 else '' }}. Puede tardar varios minutos; el agente tiene que estar abierto.', {title:'¿Descargar todo?', label:'Descargar'})">
       <button class="btn btn-primary btn-sm"
-        {% if queued_count == 0 %}disabled data-bs-toggle="tooltip" data-bs-title="No hay tracks en cola"
+        {% if dl.state != 'idle' %}disabled data-bs-toggle="tooltip" data-bs-title="Ya hay una descarga en curso"
+        {% elif queued_count == 0 %}disabled data-bs-toggle="tooltip" data-bs-title="No hay tracks en cola"
         {% elif not has_muzpa and not has_deezer %}disabled data-bs-toggle="tooltip" data-bs-title="Vinculá Muzpa o Deezer en el agente primero"
         {% endif %}>
         <i class="bi bi-download"></i> Auto-descargar todo
@@ -35,6 +47,26 @@
 </div>
 
 {% with active='queue' %}{% include "_download_tabs.html" %}{% endwith %}
+
+{# ── Descarga activa: el poller de la base actualiza estos números ── #}
+{% set pct = (dl.batch_done / dl.batch_total * 100) | round(0) if dl.batch_total else 0 %}
+<div class="tm-live tm-live-run" data-dl-show="downloading" role="status" {% if dl.state != 'downloading' %}hidden{% endif %}>
+  <span class="spinner-border spinner-border-sm" style="color:var(--tm-primary);" aria-hidden="true"></span>
+  <div class="tm-live-body">
+    <div class="tm-live-title">Hay una descarga en curso: <span data-dl-done>{{ dl.batch_done }}</span> de <span data-dl-total>{{ dl.batch_total }}</span> listos</div>
+    <div>Podés seguir usando la app; te avisamos cuando termine.</div>
+    <div class="progress" aria-hidden="true"><div class="progress-bar" data-dl-bar style="width:{{ pct }}%"></div></div>
+  </div>
+  <a href="/auto-download/jobs" class="btn btn-primary btn-sm">Ver la descarga en vivo <i class="bi bi-arrow-right"></i></a>
+</div>
+<div class="tm-live tm-live-wait" data-dl-show="waiting" role="status" {% if dl.state != 'waiting' %}hidden{% endif %}>
+  <i class="bi bi-pc-display" aria-hidden="true"></i>
+  <div class="tm-live-body">
+    <div class="tm-live-title"><span data-dl-pending>{{ dl.pending }}</span> tracks esperando al agente</div>
+    <div>La descarga está lista para arrancar, pero el agente no está conectado. Abrilo en tu computadora y empieza solo.</div>
+  </div>
+  <a href="/auto-download/jobs" class="btn btn-outline-secondary btn-sm">Ver la cola en vivo</a>
+</div>
 
 {% if request.query_params.get('empty') %}
 <div class="alert alert-warning alert-dismissible fade show mb-3 py-2" role="alert">

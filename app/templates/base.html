@@ -144,7 +144,17 @@
       line-height: 1;
     }
     .tm-btn-logout:hover { background: rgba(239,68,68,.15); border-color: rgba(239,68,68,.35); color: #f87171; }
+    /* El celeste de Bootstrap con texto blanco no se lee: los avisos "info" van en el índigo de la marca. */
+    #global-toast.bg-info { background-color: var(--tm-primary) !important; }
     .tm-queue-chip { display: inline-flex; align-items: center; gap: 0.35rem; }
+    /* Descarga en curso: spinner (no pulso) + progreso; esperando al agente: punto ámbar. */
+    .tm-dl { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.72rem; font-weight: 600;
+             font-variant-numeric: tabular-nums; padding: 3px 8px 3px 6px; border-radius: 999px; line-height: 1.3; }
+    .tm-dl[hidden] { display: none; }
+    .tm-dl-run  { background: rgba(99,102,241,.28); color: #e0e7ff; }
+    .tm-dl-run .spinner-border { width: 0.7rem; height: 0.7rem; border-width: 0.12em; }
+    .tm-dl-wait { background: rgba(245,158,11,.22); color: #fde68a; }
+    .tm-dl-wait::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--tm-warning); }
     .tm-queue-count {
       background: var(--tm-warning);
       color: #000;
@@ -419,9 +429,12 @@
     <a href="/tracks/download-queue" class="tm-nav-link tm-queue-chip" data-path="/tracks/download-queue">
       Cola
       {% set n = queued_count | default(0) %}
-      {% if n > 0 %}
-        <span class="tm-queue-count">{{ "99+" if n > 99 else n }}</span>
-      {% endif %}
+      <span class="tm-queue-count" data-dl-queued {% if not n %}hidden{% endif %}>{{ "99+" if n > 99 else n }}</span>
+      <span class="tm-dl tm-dl-run" data-dl-show="downloading" hidden>
+        <span class="spinner-border" aria-hidden="true"></span>
+        <span data-dl-progress></span><span class="visually-hidden"> descargados</span>
+      </span>
+      <span class="tm-dl tm-dl-wait" data-dl-show="waiting" hidden>Esperando</span>
     </a>
     <a href="/descubrir" class="tm-nav-link" data-path="/descubrir">Descubrir</a>
     <a href="/settings" class="tm-nav-link" data-path="/settings">Configuración</a>
@@ -516,6 +529,7 @@
     <div class="d-flex align-items-center">
       <div class="toast-body" id="global-toast-body" style="font-size:0.855rem;font-weight:500;"></div>
       <button type="button" id="global-toast-undo" class="btn btn-sm fw-bold text-reset text-decoration-underline d-none" style="font-size:0.8rem;white-space:nowrap;">Deshacer</button>
+      <a id="global-toast-action" class="btn btn-sm fw-bold text-reset text-decoration-underline d-none" style="font-size:0.8rem;white-space:nowrap;"></a>
       <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Cerrar"></button>
     </div>
   </div>
@@ -551,7 +565,7 @@ function tmInitTooltips(root) {
 
 /* Mostrar un toast ahora. `undo` = {url, body?}: botón "Deshacer" que hace POST y recarga.
    _setToast() lo deja para la próxima carga; esto es para acciones que no navegan. */
-function showToast(msg, type, undo) {
+function showToast(msg, type, undo, action) {
   const el = document.getElementById('global-toast');
   el.classList.remove('text-dark', 'text-white',
                       'bg-success', 'bg-danger', 'bg-warning', 'bg-info');
@@ -565,7 +579,12 @@ function showToast(msg, type, undo) {
       .then(() => location.reload())
       .catch(() => { undoBtn.disabled = false; showToast('No se pudo deshacer', 'danger'); });
   } : null;
-  bootstrap.Toast.getOrCreateInstance(el, { delay: undo ? 7000 : 3000 }).show();
+  const actionEl = document.getElementById('global-toast-action');
+  actionEl.classList.toggle('d-none', !action);
+  if (action) { actionEl.textContent = action.label; actionEl.href = action.href; }
+  // El delay se fija al crear la instancia: se recrea para que cada aviso dure lo suyo.
+  bootstrap.Toast.getInstance(el)?.dispose();
+  new bootstrap.Toast(el, { delay: action ? 12000 : undo ? 7000 : 3000 }).show();
 }
 
 function _setToast(msg, type, undo) {
@@ -629,6 +648,83 @@ function confirmSubmit(form, msg, opts) {
   return false;
 }
 </script>
+{% if request.state.user is defined and request.state.user %}
+<script>
+/* Estado de descargas, en toda página: actualiza el link "Cola", y cualquier
+   elemento con data-dl-show / data-dl-progress / data-dl-* que tenga la página.
+   Cada 8 s mientras hay algo activo, cada 45 s si no; nada con la pestaña oculta.
+   Al pasar de activo a terminado avisa con un toast, esté donde esté el usuario. */
+(function () {
+  const KEY = 'tm_dl_batch';
+  let timer = null;
+
+  function render(d) {
+    const done = d.batch_done, total = d.batch_total;
+    document.querySelectorAll('[data-dl-show]').forEach(el => { el.hidden = el.dataset.dlShow !== d.state; });
+    document.querySelectorAll('[data-dl-active]').forEach(el => { el.hidden = d.state === 'idle'; });
+    document.querySelectorAll('[data-dl-progress]').forEach(el => { el.textContent = done + '/' + total; });
+    document.querySelectorAll('[data-dl-done]').forEach(el => { el.textContent = done; });
+    document.querySelectorAll('[data-dl-total]').forEach(el => { el.textContent = total; });
+    document.querySelectorAll('[data-dl-pending]').forEach(el => { el.textContent = d.pending; });
+    document.querySelectorAll('[data-dl-bar]').forEach(el => { el.style.width = (total ? Math.round(done / total * 100) : 0) + '%'; });
+    document.querySelectorAll('[data-dl-queued]').forEach(el => {
+      el.hidden = !d.queued || d.state !== 'idle';
+      el.textContent = d.queued > 99 ? '99+' : d.queued;
+    });
+  }
+
+  function announceGeneric() {
+    showToast('Tu descarga terminó.', 'success', null, { label: 'Ver detalle', href: '/auto-download/jobs' });
+  }
+
+  function announce(batchId) {
+    // Un "Auto" de un solo track no tiene tanda: no hay resumen que pedir.
+    if (!batchId || batchId === 'single' || batchId === 'null') { announceGeneric(); return; }
+    fetch('/auto-download/status?batch_id=' + encodeURIComponent(batchId))
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d) { announceGeneric(); return; }
+        const b = d.batch;
+        const missing = b.not_found + b.vinyl_only + b.bandcamp_only + b.failed;
+        const href = '/auto-download/jobs?batch_id=' + encodeURIComponent(batchId);
+        if (b.cancelled && !b.completed && !missing) {
+          showToast('La descarga se canceló.', 'info', null, { label: 'Ver detalle', href });
+          return;
+        }
+        let msg = 'Tu descarga terminó: ' + b.completed + ' bajado' + (b.completed === 1 ? '' : 's');
+        if (missing) msg += ', ' + missing + ' sin conseguir';
+        showToast(msg + '.', missing ? 'info' : 'success', null, { label: 'Ver resumen', href });
+      })
+      .catch(announceGeneric);
+  }
+
+  function poll() {
+    if (document.hidden) { schedule(45000); return; }
+    fetch('/auto-download/status', { headers: { 'Accept': 'application/json' } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d) { schedule(45000); return; }
+        render(d);
+        let tracked = null;
+        try { tracked = sessionStorage.getItem(KEY); } catch (e) {}
+        if (d.state !== 'idle') {
+          try { sessionStorage.setItem(KEY, d.batch_id == null ? 'single' : d.batch_id); } catch (e) {}
+        } else if (tracked) {
+          try { sessionStorage.removeItem(KEY); } catch (e) {}
+          // En la pantalla en vivo ya avisa su propio cartel de "El agente terminó".
+          if (location.pathname !== '/auto-download/jobs') announce(tracked);
+        }
+        schedule(d.state === 'idle' ? 45000 : 8000);
+      })
+      .catch(() => schedule(45000));
+  }
+
+  function schedule(ms) { clearTimeout(timer); timer = setTimeout(poll, ms); }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) schedule(300); });
+  document.addEventListener('DOMContentLoaded', poll);
+})();
+</script>
+{% endif %}
 {% block scripts %}{% endblock %}
 </body>
 </html>

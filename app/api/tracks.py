@@ -338,7 +338,7 @@ def download_queue_post(
                 db, track_id=rid, action="added_to_queue",
                 user_id=current_user.id, commit=True,
             )
-    return _render_queue(request, db, current_user.id)
+    return _render_queue(request, db, current_user)
 
 
 @router.post("/bulk-to-pending")
@@ -427,10 +427,12 @@ def download_queue_get(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> HTMLResponse:
-    return _render_queue(request, db, current_user.id)
+    return _render_queue(request, db, current_user)
 
 
-def _render_queue(request: Request, db: Session, user_id: int) -> HTMLResponse:
+def _render_queue(request: Request, db: Session, user: User) -> HTMLResponse:
+    from app.services.download_status import download_status
+    user_id = user.id
     from app.models.user_settings import UserSettings
     from app.models.download_job import DownloadJob, JobStatus
     from sqlalchemy import func
@@ -496,7 +498,8 @@ def _render_queue(request: Request, db: Session, user_id: int) -> HTMLResponse:
     return templates.TemplateResponse(
         "download_queue.html",
         {"request": request, "rows": rows, "queued_count": queued_count,
-         "has_muzpa": has_muzpa, "has_deezer": has_deezer, "batches": batches},
+         "has_muzpa": has_muzpa, "has_deezer": has_deezer, "batches": batches,
+         "dl": download_status(db, user)},
     )
 
 

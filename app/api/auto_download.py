@@ -163,6 +163,17 @@ def auto_download_one(
 
 # ── Live stats JSON (for polling) ────────────────────────────────────────────
 
+@router.get("/status")
+def download_status_view(
+    batch_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Conteos livianos para la nav, el banner de Cola y el aviso al terminar."""
+    from app.services.download_status import download_status
+    return download_status(db, current_user, batch_id)
+
+
 @router.get("/jobs/live")
 def jobs_live(
     batch_id: int | None = None,
