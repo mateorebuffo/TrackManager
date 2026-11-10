@@ -39,8 +39,11 @@
           </td>
           <td class="text-end">
             {% if t.url and t.url.startswith("https://") %}
+              {% set playable = t.source in ("soundcloud", "youtube", "spotify") %}
               <a href="{{ t.url }}" target="_blank" rel="noopener" class="ds-src"
-                 title="Abrir en {{ SOURCES.get(t.source, t.source) }}">
+                 {% if playable %}onclick="playTrack(this); return false;" data-src="{{ t.source }}"
+                 data-label="{{ t.artist }} - {{ t.title }}" title="Escuchar acá"
+                 {% else %}title="Abrir en {{ SOURCES.get(t.source, t.source) }}"{% endif %}>
                 {% if t.source in ("soundcloud", "youtube", "spotify") %}
                   <img src="/static/icons/{{ t.source }}.svg" alt="{{ SOURCES[t.source] }}">
                 {% else %}<i class="bi bi-box-arrow-up-right"></i>{% endif %}
