@@ -396,7 +396,7 @@ function dismissSetupBanner(){
       <col style="width:104px;">
       <col style="width:92px;">
       {% if any_notes %}<col style="width:118px;">{% endif %}
-      <col style="width:232px;">
+      <col style="width:196px;">
     </colgroup>
     <thead class="table-dark">
       <tr>
@@ -525,11 +525,6 @@ function dismissSetupBanner(){
                       data-bs-toggle="tooltip" data-bs-title="Descartar (se puede deshacer)"><i class="bi bi-x-lg"></i></button>
             </form>
           {% elif row.status in ["downloaded", "not_found", "vinyl_only", "bandcamp_only"] %}
-            <form method="POST" action="/review/{{ row.review_id }}/retry-queue/form">
-              <button class="btn btn-outline-primary btn-sm btn-icon" aria-label="Volver a la cola de descarga"
-                      data-bs-toggle="tooltip" data-bs-title="Volver a la cola de descarga"
-                      data-toast="Enviado a la cola" data-toast-type="success"><i class="bi bi-arrow-repeat"></i></button>
-            </form>
             <form method="POST" action="/review/{{ row.review_id }}/pending/form">
               <button class="btn btn-outline-secondary btn-sm btn-icon" aria-label="Volver a pendiente"
                       data-bs-toggle="tooltip" data-bs-title="Volver a pendiente"
