@@ -5,6 +5,11 @@
 <style>
   /* --hc pinta el punto; --hc-text es la versión legible para texto (≥ 5:1). */
   .hc-card { height: 100%; }
+  /* Tabla angosta (col-xl-5): la categoría puede partirse y los números se ajustan al encabezado. */
+  .hc-reports { font-size: .75rem; }
+  .table.hc-reports > :not(caption) > * > * { padding-left: .5rem; padding-right: .5rem; }
+  .table.hc-reports > :not(caption) > * > :first-child { padding-left: 0; }
+  .table.hc-reports > :not(caption) > * > :last-child { padding-right: 0; }
   .hc-ok         { --hc: #16a34a; --hc-text: var(--tm-success-text); }
   .hc-con_fallas { --hc: #d97706; --hc-text: var(--tm-warning-text); }
   .hc-caido      { --hc: #dc2626; --hc-text: var(--tm-danger-text); }
@@ -171,11 +176,11 @@
           <div><div class="hc-num">{{ reports.avg_days if reports.avg_days is not none else "—" }}</div><div class="hc-meta">días promedio para resolver</div></div>
         </div>
         {% if reports.rows %}
-        <table class="table table-sm mb-0" style="font-size:.75rem">
+        <table class="table table-sm mb-0 hc-reports">
           <thead><tr><th>Categoría</th><th class="text-end">Abiertos</th><th class="text-end">Revisados</th><th class="text-end">Resueltos</th></tr></thead>
           {% for r in reports.rows %}
           <tr>
-            <td style="white-space:nowrap">{{ r.label }}</td>
+            <td>{{ r.label }}</td>
             <td class="text-end {% if r.open %}fw-semibold" style="color:var(--tm-danger-text);{% endif %}">{{ r.open }}</td>
             <td class="text-end">{{ r.reviewed }}</td>
             <td class="text-end">{{ r.resolved }}</td>
