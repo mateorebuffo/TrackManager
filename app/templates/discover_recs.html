@@ -1,7 +1,7 @@
 {# Parcial de /descubrir: se inserta por fetch, sin base.html #}
 {% macro example(t) %}
   <div class="ds-meta">
-    {% if t.video_uri and t.video_uri.startswith('https://') %}<a href="{{ t.video_uri }}" target="_blank" rel="noopener">▶ {{ t.name }}</a>{% else %}{{ t.name }}{% endif %}
+    {% if t.video_uri and t.video_uri.startswith('https://') %}<a href="{{ t.video_uri }}" target="_blank" rel="noopener" onclick="playTrack(this); return false;" data-bs-toggle="tooltip" data-bs-title="Escuchar acá">▶ {{ t.name }}</a>{% else %}{{ t.name }}{% endif %}
     {% if t.because %}· porque bajaste <em>{{ t.because }}</em>{% endif %}
   </div>
 {% endmacro %}
