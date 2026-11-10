@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}{{ name }} — Descubrir — Track Manager{% endblock %}
+
+{% block content %}
+<style>
+  .ds-back { display: inline-flex; align-items: center; gap: .35rem; font-size: .875rem;
+             color: var(--tm-muted); text-decoration: none; margin-bottom: .75rem; }
+  .ds-back:hover, .ds-back:focus-visible { color: var(--tm-primary); }
+  .ds-kind { font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--tm-muted); }
+  .ds-meta { font-size: .75rem; color: var(--tm-muted); }
+  .ds-src img { width: 16px; height: 16px; opacity: .7; }
+  .ds-src:hover img { opacity: 1; }
+</style>
+
+{% set SOURCES = {"soundcloud": "SoundCloud", "youtube": "YouTube", "spotify": "Spotify", "traxsource": "Traxsource"} %}
+
+<a href="/descubrir" class="ds-back">← Volver a Descubrir</a>
+
+<div class="ds-kind">{{ kind }}</div>
+<h1 class="tm-page-title mb-1">{{ name }}</h1>
+<p class="ds-meta">{{ tracks | length }} track{{ "" if tracks | length == 1 else "s" }} bajado{{ "" if tracks | length == 1 else "s" }}</p>
+
+<div class="card">
+  {% if tracks %}
+  <div class="table-responsive">
+    <table class="table table-hover mb-0 align-middle">
+      <thead class="table-dark">
+        <tr><th>Track</th><th>{{ "Sello" if kind == "Productor" else "Productor" }}</th><th style="width:1%"></th></tr>
+      </thead>
+      <tbody>
+        {% for t in tracks %}
+        <tr>
+          <td>
+            <strong>{{ t.title }}</strong>{% if t.version %} <span class="ds-meta">({{ t.version }})</span>{% endif %}
+            {% if kind == "Productor" %}<div class="ds-meta">{{ t.artist }}</div>{% endif %}
+          </td>
+          <td style="font-size:.875rem">
+            {% if kind == "Productor" %}{{ t.label or "—" }}{% else %}{{ t.artist }}{% endif %}
+          </td>
+          <td class="text-end">
+            {% if t.url and t.url.startswith("https://") %}
+              <a href="{{ t.url }}" target="_blank" rel="noopener" class="ds-src"
+                 title="Abrir en {{ SOURCES.get(t.source, t.source) }}">
+                {% if t.source in ("soundcloud", "youtube", "spotify") %}
+                  <img src="/static/icons/{{ t.source }}.svg" alt="{{ SOURCES[t.source] }}">
+                {% else %}↗{% endif %}
+              </a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body ds-meta">No hay tracks bajados de {{ name }}.</div>
+  {% endif %}
+</div>
+{% endblock %}

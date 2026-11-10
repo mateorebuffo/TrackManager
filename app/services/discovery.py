@@ -100,6 +100,21 @@ def rankings(db: Session, user_id: int) -> dict:
     }
 
 
+def tracks_of(db: Session, user_id: int, producer: str | None = None, label: str | None = None) -> list[dict]:
+    """Lo que bajó de un productor o de un sello, lo más nuevo primero."""
+    wanted = (producer or label or "").casefold()
+    out = []
+    for nt, st in _downloaded(db, user_id):
+        if producer and wanted not in {a.casefold() for a in split_artists(nt.normalized_artist)}:
+            continue
+        if label and (_label_of(st) or "").casefold() != wanted:
+            continue
+        out.append({"artist": nt.normalized_artist, "title": nt.normalized_title,
+                    "version": nt.version_info, "label": _label_of(st),
+                    "source": st.source, "url": st.source_url})
+    return out
+
+
 def _discogs_release(link: str | None, budget: list[int]) -> dict | None:
     """{"label", "label_url"} del release de Discogs, o None."""
     m = _RELEASE_RE.search(link or "")

@@ -11,20 +11,22 @@
   .ds-pos { color: var(--tm-muted); font-variant-numeric: tabular-nums; text-align: right; }
   .ds-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .ds-bar { height: 4px; border-radius: 2px; background: var(--tm-primary); opacity: .55; margin-top: .2rem; }
+  .ds-link { color: inherit; text-decoration: none; }
+  .ds-link:hover, .ds-link:focus-visible { color: var(--tm-primary); text-decoration: underline; }
   .ds-count { font-weight: 600; font-variant-numeric: tabular-nums; }
 </style>
 
 <h1 class="tm-page-title mb-1">Descubrir</h1>
 <p class="ds-meta mb-0">Lo que más bajaste, y productores y sellos que suenan parecido y todavía no tenés.</p>
 
-{% macro ranking(rows, empty) %}
+{% macro ranking(rows, empty, param) %}
   {% if rows %}
     {% set top = rows[0][1] %}
     {% for name, count in rows %}
     <div class="ds-row">
       <span class="ds-pos">{{ loop.index }}</span>
-      <div class="ds-name" title="{{ name }}">
-        {{ name }}
+      <div class="ds-name" title="Ver los tracks de {{ name }}">
+        <a href="/descubrir/tracks?{{ param }}={{ name | urlencode }}" class="ds-link">{{ name }}</a>
         <div class="ds-bar" style="width: {{ (count / top * 100) | round(0) }}%"></div>
       </div>
       <span class="ds-count">{{ count }}</span>
@@ -45,14 +47,14 @@
   <div class="col-12 col-lg-6">
     <div class="card h-100">
       <div class="card-header">Productores</div>
-      <div class="card-body">{{ ranking(producers, "Sin datos todavía.") }}</div>
+      <div class="card-body">{{ ranking(producers, "Sin datos todavía.", "productor") }}</div>
     </div>
   </div>
   <div class="col-12 col-lg-6">
     <div class="card h-100">
       <div class="card-header">Sellos</div>
       <div class="card-body">
-        {{ ranking(labels, "Todavía no sabemos el sello de tus tracks.") }}
+        {{ ranking(labels, "Todavía no sabemos el sello de tus tracks.", "sello") }}
         {% if unlabeled %}
           <div class="ds-meta mt-2">{{ unlabeled }} de {{ total }} tracks sin sello conocido. Se van completando solos al buscar recomendaciones y con cada descarga nueva.</div>
         {% endif %}

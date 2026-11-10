@@ -134,3 +134,22 @@ def test_las_semillas_salen_de_los_productores_que_mas_bajo(db_session, client, 
     discovery.recommend(db_session, uid)
     assert enviadas[:3] == ["Sublee - Tema 3", "Sublee - Tema 2", "Sublee - Tema 1"]
     assert enviadas[3] == "Swoy - Another Life" and "Sublee - Tema 0" in enviadas
+
+
+def test_tocar_un_productor_o_sello_lista_sus_tracks(client, db_session):
+    uid = _tester(db_session).id
+    _track(db_session, uid, "Priku & Traumer", "Operation", label="Cadenza")
+    _track(db_session, uid, "Traumer", "Spot", label="Phonica")
+    _track(db_session, uid, "Traumer", "Pendiente", status=TrackStatus.pending)
+
+    assert 'href="/descubrir/tracks?productor=Traumer"' in client.get("/descubrir").text
+
+    html = client.get("/descubrir/tracks", params={"productor": "traumer"}).text
+    assert "Operation" in html and "Spot" in html and "Pendiente" not in html
+    assert 'href="/descubrir"' in html  # la flecha para volver
+
+    html = client.get("/descubrir/tracks", params={"sello": "Cadenza"}).text
+    assert "Operation" in html and "Spot" not in html
+
+    sin_filtro = client.get("/descubrir/tracks", follow_redirects=False)
+    assert sin_filtro.status_code == 302 and sin_filtro.headers["location"] == "/descubrir"
