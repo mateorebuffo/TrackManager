@@ -13,6 +13,9 @@
   .ds-bar { height: 4px; border-radius: 2px; background: var(--tm-primary); opacity: .55; margin-top: .2rem; }
   .ds-link { color: inherit; text-decoration: none; }
   .ds-link:hover, .ds-link:focus-visible { color: var(--tm-primary); text-decoration: underline; }
+  .ds-refresh { border: 1px solid var(--tm-border); background: transparent; color: var(--tm-muted);
+                border-radius: 8px; width: 2rem; height: 2rem; font-size: 1.05rem; line-height: 1; }
+  .ds-refresh:hover, .ds-refresh:focus-visible { color: var(--tm-primary); border-color: var(--tm-primary); }
   .ds-count { font-weight: 600; font-variant-numeric: tabular-nums; }
 </style>
 
@@ -64,21 +67,28 @@
 </div>
 
 <div class="ds-section">Para descubrir</div>
-<div id="ds-recs">
-  <div class="card"><div class="card-body ds-meta">
-    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-    Buscando productores y sellos parecidos a lo que bajaste… puede tardar unos segundos.
-  </div></div>
-</div>
+<div id="ds-recs"></div>
 
 <script>
-fetch('/descubrir/recomendaciones')
-  .then(r => { if (!r.ok) throw new Error(r.status); return r.text(); })
-  .then(html => { document.getElementById('ds-recs').innerHTML = html; })
-  .catch(() => {
-    document.getElementById('ds-recs').innerHTML =
-      '<div class="alert alert-warning py-2">No se pudieron cargar las recomendaciones. Recargá la página en un rato.</div>';
-  });
+function loadRecs(nuevas) {
+  const box = document.getElementById('ds-recs');
+  // Un tooltip abierto queda flotando si se borra su botón.
+  box.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => bootstrap.Tooltip.getInstance(el)?.dispose());
+  box.innerHTML = '<div class="card"><div class="card-body ds-meta">'
+    + '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>'
+    + (nuevas ? 'Buscando nuevas sugerencias…' : 'Buscando productores y sellos parecidos a lo que bajaste… puede tardar unos segundos.')
+    + '</div></div>';
+  fetch('/descubrir/recomendaciones' + (nuevas ? '?nuevas=1' : ''))
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.text(); })
+    .then(html => {
+      box.innerHTML = html;
+      box.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
+    })
+    .catch(() => {
+      box.innerHTML = '<div class="alert alert-warning py-2">No se pudieron cargar las recomendaciones. Recargá la página en un rato.</div>';
+    });
+}
+loadRecs(false);
 </script>
 {% endif %}
 {% endblock %}

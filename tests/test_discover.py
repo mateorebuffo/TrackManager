@@ -153,3 +153,21 @@ def test_tocar_un_productor_o_sello_lista_sus_tracks(client, db_session):
 
     sin_filtro = client.get("/descubrir/tracks", follow_redirects=False)
     assert sin_filtro.status_code == 302 and sin_filtro.headers["location"] == "/descubrir"
+
+
+def test_nuevas_sugerencias_no_repiten_y_al_agotarse_vuelven_a_empezar(db_session, client, monkeypatch, limpio):
+    uid = _tester(db_session).id
+    _track(db_session, uid, "Traumer", "Spot", label="Cadenza")
+    monkeypatch.setattr(discovery, "TOP", 1)
+    monkeypatch.setattr(discovery, "_cosine", lambda seeds: [{"query": "Traumer - Spot", "similar_tracks": [
+        {"id": "a", "artist": "Rossi.", "score": 0.9, "external_link": "https://discogs.com/release/10"},
+        {"id": "b", "artist": "Newbie", "score": 0.8},
+    ]}])
+    monkeypatch.setattr(discovery.httpx, "get", lambda url, **_kw: SimpleNamespace(
+        status_code=200, json=lambda: {"labels": [{"name": "Phonica", "id": 1}]}))
+
+    nombres = lambda r: ([p["name"] for p in r["producers"]], [l["label"] for l in r["labels"]])
+    assert nombres(discovery.recommend(db_session, uid)) == (["Rossi."], ["Phonica"])
+    assert nombres(discovery.recommend(db_session, uid)) == (["Rossi."], ["Phonica"])  # caché
+    assert nombres(discovery.recommend(db_session, uid, fresh=True)) == (["Newbie"], [])
+    assert nombres(discovery.recommend(db_session, uid, fresh=True)) == (["Rossi."], ["Phonica"])

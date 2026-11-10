@@ -35,12 +35,12 @@ PER_SEED = 2          # recomendaciones por tema bajado, para que no lo acapare 
 SEEDS = 50            # máximo de /search/bulk
 SEEDS_PER_PRODUCER = 3  # 50 semillas = los ~17 productores que más bajó
 DISCOGS_CALLS = 40    # por refresco: Discogs da 25-60 req/min
-LABEL_CANDIDATES = 20
 CACHE_SECONDS = 24 * 3600
 
 # ponytail: caches en memoria, se pierden en cada deploy; pasar a tabla si molesta.
 _releases: dict[str, dict | None] = {}
 _recs: dict[int, tuple[float, dict]] = {}
+_shown: dict[int, set[str]] = {}  # lo ya sugerido, para que "nuevas sugerencias" no repita
 
 
 def set_label(st: SourceTrack, label: str | None) -> None:
@@ -176,10 +176,12 @@ def _cosine(seeds: list[str]) -> list[dict]:
     return r.json()["data"]["results"]
 
 
-def recommend(db: Session, user_id: int) -> dict:
+def recommend(db: Session, user_id: int, fresh: bool = False) -> dict:
+    """fresh: saltear la caché y no repetir nada de lo ya sugerido."""
     hit = _recs.get(user_id)
-    if hit and time.time() - hit[0] < CACHE_SECONDS:
+    if not fresh and hit and time.time() - hit[0] < CACHE_SECONDS:
         return hit[1]
+    shown = _shown.get(user_id, set()) if fresh else set()
     if not settings.cosine_api_key:
         return {"error": "Falta configurar COSINE_API_KEY."}
 
@@ -232,15 +234,17 @@ def recommend(db: Session, user_id: int) -> dict:
     producers: dict[str, dict] = {}
     for t in ranked:
         for name in split_artists(t.get("artist")):
-            if name.casefold() in known_artists:
+            if name.casefold() in known_artists or f"p:{name.casefold()}" in shown:
                 continue
             p = producers.setdefault(name.casefold(), {"name": name, "score": 0.0, "track": t})
             p["score"] += t["score"]
 
     labels: dict[str, dict] = {}
-    for t in _spread(ranked, LABEL_CANDIDATES, lambda t: t["because"]):
+    for t in _spread(ranked, len(ranked), lambda t: t["because"]):
+        if len(labels) == TOP:
+            break
         rel = _discogs_release(t.get("external_link"), budget)
-        if not rel or rel["label"].casefold() in known_labels:
+        if not rel or rel["label"].casefold() in known_labels or f"l:{rel['label'].casefold()}" in shown:
             continue
         lab = labels.setdefault(rel["label"].casefold(), {**rel, "score": 0.0, "track": t})
         lab["score"] += t["score"]
@@ -251,6 +255,11 @@ def recommend(db: Session, user_id: int) -> dict:
         "labels": _spread(sorted(labels.values(), key=lambda p: -p["score"]), TOP,
                           lambda p: p["track"]["because"]),
     }
+    if fresh and not (out["producers"] or out["labels"]):
+        _shown.pop(user_id, None)  # ya se mostró todo: volver a empezar por lo mejor
+        _recs.pop(user_id, None)
+        return recommend(db, user_id)
+    _shown[user_id] = shown | {f"p:{p['name'].casefold()}" for p in out["producers"]}         | {f"l:{l['label'].casefold()}" for l in out["labels"]}
     if budget[0] > 0:  # si Discogs cortó, el próximo refresco completa los sellos
         _recs[user_id] = (time.time(), out)
     return out

@@ -6,13 +6,22 @@
   </div>
 {% endmacro %}
 
+{% macro refresh() %}
+  <button type="button" class="ds-refresh ms-auto" onclick="loadRecs(true)"
+          data-bs-toggle="tooltip" data-bs-title="Obtener nuevas sugerencias"
+          aria-label="Obtener nuevas sugerencias">↻</button>
+{% endmacro %}
+
+{% if wait %}
+  <div class="alert alert-info py-2">Esperá unos segundos antes de pedir más sugerencias.</div>
+{% endif %}
 {% if error %}
   <div class="alert alert-warning py-2">{{ error }}</div>
 {% else %}
 <div class="row g-3">
   <div class="col-12 col-lg-6">
     <div class="card h-100">
-      <div class="card-header">Productores nuevos</div>
+      <div class="card-header d-flex align-items-center">Productores nuevos {{ refresh() }}</div>
       <div class="card-body">
         {% for p in producers %}
           <div class="py-2 {% if not loop.last %}border-bottom{% endif %}">
@@ -27,7 +36,7 @@
   </div>
   <div class="col-12 col-lg-6">
     <div class="card h-100">
-      <div class="card-header">Sellos nuevos</div>
+      <div class="card-header d-flex align-items-center">Sellos nuevos {{ refresh() }}</div>
       <div class="card-body">
         {% for l in labels %}
           <div class="py-2 {% if not loop.last %}border-bottom{% endif %}">
