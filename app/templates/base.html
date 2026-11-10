@@ -17,17 +17,35 @@
       --tm-bg:          #f0f2f5;
       --tm-card:        #ffffff;
       --tm-nav:         #0f172a;
-      --tm-primary:     #6366f1;
-      --tm-primary-h:   #4f46e5;
+      /* Índigo: --tm-primary para botones y links (5.4:1 con blanco);
+         --tm-accent, el vivo de la marca, solo para lo que no es texto. */
+      --tm-primary:     #5558e3;
+      --tm-primary-h:   #4338ca;
+      --tm-primary-soft:#eef2ff;
+      --tm-accent:      #6366f1;
       --tm-success:     #10b981;
       --tm-success-h:   #059669;
       --tm-danger:      #ef4444;
       --tm-danger-h:    #dc2626;
       --tm-warning:     #f59e0b;
       --tm-info:        #0ea5e9;
-      --tm-muted:       #64748b;
+      /* Variantes para usar como TEXTO sobre blanco (todas ≥ 5:1). */
+      --tm-success-text:#047857;
+      --tm-warning-text:#b45309;
+      --tm-danger-text: #b91c1c;
+      --tm-muted:       #56657a;
       --tm-text:        #1e293b;
       --tm-border:      #e2e8f0;
+      --tm-surface-2:   #f8fafc;
+      /* Estados de un track: fondo / texto (todos ≥ 4.5:1) */
+      --s-pending-bg:   #f1f5f9;  --s-pending:   #475569;
+      --s-queued-bg:    #ede9fe;  --s-queued:    #6d28d9;
+      --s-done-bg:      #d1fae5;  --s-done:      #065f46;
+      --s-notfound-bg:  #fee2e2;  --s-notfound:  #991b1b;
+      --s-vinyl-bg:     #fef3c7;  --s-vinyl:     #92400e;
+      --s-bandcamp-bg:  #dbeafe;  --s-bandcamp:  #1e40af;
+      --s-set-bg:       #e0f2fe;  --s-set:       #075985;
+      --s-discarded-bg: #f8fafc;  --s-discarded: #64748b;
       --tm-radius:      10px;
       --tm-radius-lg:   12px;
       --tm-shadow:      0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.04);
@@ -35,7 +53,7 @@
       --tm-display:     "Unbounded", "Arial Black", system-ui, sans-serif;
       --tm-body:        "Instrument Sans", "Segoe UI", system-ui, sans-serif;
       /* Colores de marca de las plataformas */
-      --tm-sc: #c84b00;  --tm-sc-bg: #fff3e0;  --tm-sc-bd: #fed7aa;
+      --tm-sc: #a84000;  --tm-sc-bg: #fff3e0;  --tm-sc-bd: #fed7aa;
       --tm-sp: #065f46;  --tm-sp-bg: #d1fae5;  --tm-sp-bd: #a7f3d0;
       --tm-yt: #991b1b;  --tm-yt-bg: #fee2e2;  --tm-yt-bd: #fecaca;
     }
@@ -87,7 +105,7 @@
     .tm-nav-spacer { flex: 1; }
     .tm-nav-links { display: flex; align-items: center; gap: 0.15rem; }
     .tm-nav-link {
-      color: rgba(255,255,255,.6);
+      color: rgba(255,255,255,.72);
       text-decoration: none;
       font-size: 0.84rem;
       font-weight: 500;
@@ -99,6 +117,13 @@
     }
     .tm-nav-link:hover { background: rgba(255,255,255,.07); color: #fff; }
     .tm-nav-link.tm-active { background: rgba(255,255,255,.1); color: #fff; }
+    .tm-nav-link.dropdown-toggle { border: 0; background: transparent; }
+    .tm-nav-link.dropdown-toggle:hover, .tm-nav-link.dropdown-toggle.show { background: rgba(255,255,255,.07); color: #fff; }
+    .tm-nav-link.dropdown-toggle.tm-active { background: rgba(255,255,255,.1); color: #fff; }
+    .tm-nav-link.dropdown-toggle::after { vertical-align: 0.15em; margin-left: 0.35em; }
+    .tm-admin-menu { font-size: 0.84rem; min-width: 180px; }
+    .tm-admin-menu .dropdown-item.active { background: var(--tm-primary-soft); color: var(--tm-primary-h); }
+    .tm-admin-menu .bi { width: 1.2em; color: var(--tm-muted); }
     .tm-nav-sep { width: 1px; height: 18px; background: rgba(255,255,255,.1); margin: 0 0.35rem; flex-shrink: 0; }
     .tm-nav-user {
       color: rgba(255,255,255,.72);
@@ -123,7 +148,7 @@
     .tm-queue-count {
       background: var(--tm-warning);
       color: #000;
-      font-size: 0.6rem;
+      font-size: 0.7rem;
       font-weight: 700;
       line-height: 1;
       padding: 2px 5px;
@@ -133,7 +158,7 @@
     /* Buscador global: manda a Tracks con status=all */
     .tm-nav-search { position: relative; margin: 0 0.5rem; }
     .tm-nav-search input {
-      width: 190px; height: 30px;
+      width: 170px; height: 30px;
       background: rgba(255,255,255,.07);
       border: 1px solid rgba(255,255,255,.1);
       border-radius: 6px;
@@ -141,13 +166,13 @@
       padding: 0 0.6rem 0 1.8rem;
       transition: width .15s, background .15s;
     }
-    .tm-nav-search input::placeholder { color: rgba(255,255,255,.4); }
-    .tm-nav-search input:focus { outline: none; width: 260px; background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.25); }
-    .tm-nav-search .bi { position: absolute; left: 0.55rem; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,.45); font-size: 0.8rem; pointer-events: none; }
+    .tm-nav-search input::placeholder { color: rgba(255,255,255,.62); }
+    .tm-nav-search input:focus { outline: none; width: 240px; background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.25); }
+    .tm-nav-search .bi { position: absolute; left: 0.55rem; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,.62); font-size: 0.8rem; pointer-events: none; }
     /* Indicador del agente */
     .tm-agent {
       display: inline-flex; align-items: center; gap: 0.4rem;
-      color: rgba(255,255,255,.6); font-size: 0.76rem; font-weight: 500;
+      color: rgba(255,255,255,.72); font-size: 0.78rem; font-weight: 500;
       text-decoration: none; padding: 0.3rem 0.6rem; border-radius: 6px; white-space: nowrap;
     }
     .tm-agent:hover { color: #fff; background: rgba(255,255,255,.07); }
@@ -172,6 +197,7 @@
       margin: 0;
     }
     .tm-page-sub { color: var(--tm-muted); font-size: 0.875rem; margin: 0.25rem 0 0; }
+    h2.tm-h, .tm-empty h2, .modal-title { font-family: var(--tm-body); letter-spacing: 0; }
     .tm-section {
       font-size: .74rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
       color: var(--tm-muted); margin: 2rem 0 .75rem;
@@ -214,14 +240,14 @@
     /* Cabecera clara: el bloque negro pesaba más que los datos. Se mantiene la clase
        table-dark para no tocar cada template. */
     .table > thead.table-dark, .table > thead.table-light {
-      --bs-table-bg: #f8fafc;
+      --bs-table-bg: var(--tm-surface-2);
       --bs-table-color: var(--tm-muted);
       --bs-table-border-color: var(--tm-border);
       color: var(--tm-muted);
     }
-    .table-dark th, .table-light th { color: var(--tm-muted); background: #f8fafc; border-color: var(--tm-border); }
+    .table-dark th, .table-light th { color: var(--tm-muted); background: var(--tm-surface-2); border-color: var(--tm-border); }
     .table-dark a { color: var(--tm-text); }
-    .table-hover > tbody > tr:hover > * { background: #f8fafc; }
+    .table-hover > tbody > tr:hover > * { background: var(--tm-surface-2); }
     .table.bg-white { border-radius: var(--tm-radius-lg); overflow: hidden; box-shadow: var(--tm-shadow); border: 1px solid var(--tm-border); }
     .table-responsive { border-radius: var(--tm-radius-lg); }
 
@@ -243,16 +269,16 @@
     .btn-icon .bi { font-size: 0.95rem; }
     .btn-primary   { background: var(--tm-primary);  border-color: var(--tm-primary); }
     .btn-primary:hover, .btn-primary:focus   { background: var(--tm-primary-h); border-color: var(--tm-primary-h); }
-    .btn-success   { background: var(--tm-success);  border-color: var(--tm-success); }
-    .btn-success:hover   { background: var(--tm-success-h); border-color: var(--tm-success-h); }
-    .btn-danger    { background: var(--tm-danger);   border-color: var(--tm-danger); }
-    .btn-danger:hover    { background: var(--tm-danger-h);  border-color: var(--tm-danger-h); }
+    .btn-success   { background: var(--tm-success-text); border-color: var(--tm-success-text); }
+    .btn-success:hover   { background: #065f46; border-color: #065f46; }
+    .btn-danger    { background: var(--tm-danger-h); border-color: var(--tm-danger-h); }
+    .btn-danger:hover    { background: var(--tm-danger-text); border-color: var(--tm-danger-text); }
     .btn-outline-primary { border-color: #c7d2fe; color: var(--tm-primary); }
-    .btn-outline-primary:hover { background: #eef2ff; border-color: var(--tm-primary); color: var(--tm-primary-h); }
-    .btn-outline-secondary { border-color: var(--tm-border); color: var(--tm-muted); background: #fff; }
-    .btn-outline-secondary:hover { background: #f1f5f9; border-color: #cbd5e1; color: var(--tm-text); }
-    .btn-outline-danger { border-color: #fecaca; color: var(--tm-danger); }
-    .btn-outline-danger:hover { background: #fef2f2; border-color: var(--tm-danger); color: var(--tm-danger-h); }
+    .btn-outline-primary:hover { background: var(--tm-primary-soft); border-color: var(--tm-primary); color: var(--tm-primary-h); }
+    .btn-outline-secondary { border-color: var(--tm-border); color: var(--tm-muted); background: var(--tm-card); }
+    .btn-outline-secondary:hover { background: var(--s-pending-bg); border-color: #cbd5e1; color: var(--tm-text); }
+    .btn-outline-danger { border-color: var(--tm-yt-bd); color: var(--tm-danger-text); }
+    .btn-outline-danger:hover { background: #fef2f2; border-color: var(--tm-danger); color: var(--tm-danger-text); }
     /* Botones de plataforma (importar / filtrar) */
     .btn-src { font-weight: 600; display: inline-flex; align-items: center; gap: .4rem; border: 1px solid transparent; }
     .btn-src-sc { background: var(--tm-sc-bg); color: var(--tm-sc); border-color: var(--tm-sc-bd); }
@@ -267,7 +293,7 @@
 
     /* ── Badges ──────────────────────────────────────────────── */
     .badge {
-      font-size: 0.67rem;
+      font-size: 0.75rem;
       font-weight: 600;
       border-radius: 999px;
       padding: 0.25em 0.6em;
@@ -275,20 +301,20 @@
     }
 
     /* Status badges */
-    .s-pending    { background: #f1f5f9; color: #475569; }
-    .s-queued     { background: #ede9fe; color: #6d28d9; }
-    .s-downloaded { background: #d1fae5; color: #065f46; }
-    .s-not_found  { background: #fee2e2; color: #991b1b; }
-    .s-vinyl      { background: #fef3c7; color: #92400e; }
-    .s-bandcamp   { background: #dbeafe; color: #1e40af; }
-    .s-set        { background: #e0f2fe; color: #075985; }
-    .s-discarded  { background: #f8fafc; color: #94a3b8; border: 1px solid var(--tm-border); }
+    .s-pending    { background: var(--s-pending-bg);   color: var(--s-pending); }
+    .s-queued     { background: var(--s-queued-bg);    color: var(--s-queued); }
+    .s-downloaded { background: var(--s-done-bg);      color: var(--s-done); }
+    .s-not_found  { background: var(--s-notfound-bg);  color: var(--s-notfound); }
+    .s-vinyl      { background: var(--s-vinyl-bg);     color: var(--s-vinyl); }
+    .s-bandcamp   { background: var(--s-bandcamp-bg);  color: var(--s-bandcamp); }
+    .s-set        { background: var(--s-set-bg);       color: var(--s-set); }
+    .s-discarded  { background: var(--s-discarded-bg); color: var(--s-discarded); border: 1px solid var(--tm-border); }
 
     /* Source badges */
     .src-sc  { background: var(--tm-sc-bg); color: var(--tm-sc); }
     .src-sp  { background: var(--tm-sp-bg); color: var(--tm-sp); }
     .src-yt  { background: var(--tm-yt-bg); color: var(--tm-yt); }
-    .src-tx  { background: #e0f2fe; color: #075985; }
+    .src-tx  { background: var(--s-set-bg); color: var(--s-set); }
 
     /* ── Form controls ───────────────────────────────────────── */
     .form-control, .form-select {
@@ -299,14 +325,17 @@
     }
     .form-control:focus, .form-select:focus {
       border-color: var(--tm-primary);
-      box-shadow: 0 0 0 3px rgba(99,102,241,.12);
+      box-shadow: 0 0 0 3px rgba(85,88,227,.15);
     }
     .form-control-sm, .form-select-sm { border-radius: 6px; }
     .form-label { font-size: 0.82rem; font-weight: 600; color: var(--tm-text); margin-bottom: 0.3rem; }
     .form-check-input, input[type="checkbox"] { width: 17px; height: 17px; cursor: pointer; }
     .form-check-input:checked { background-color: var(--tm-primary); border-color: var(--tm-primary); }
-    .form-check-input:focus { box-shadow: 0 0 0 3px rgba(99,102,241,.2); border-color: var(--tm-primary); }
-    :focus-visible { outline: 2px solid var(--tm-primary); outline-offset: 2px; }
+    .form-check-input:focus { box-shadow: 0 0 0 3px rgba(85,88,227,.2); border-color: var(--tm-primary); }
+    :focus-visible { outline: 2px solid var(--tm-accent); outline-offset: 2px; }
+    ::selection { background: #c7d2fe; color: var(--tm-text); }
+    p, .tm-page-sub { text-wrap: pretty; }
+    td, .tm-num { font-variant-numeric: tabular-nums; }
 
     /* ── Modals ──────────────────────────────────────────────── */
     .modal-content { border-radius: 14px; border: 1px solid var(--tm-border); box-shadow: var(--tm-shadow-md); }
@@ -325,8 +354,8 @@
       background: var(--tm-card); border: 1px dashed #cbd5e1; border-radius: var(--tm-radius-lg);
       padding: 3rem 1.5rem; text-align: center;
     }
-    .tm-empty > .bi { font-size: 2rem; color: #a5b4fc; display: block; margin-bottom: .6rem; }
-    .tm-empty h5 { font-weight: 700; font-size: 1rem; margin-bottom: .3rem; }
+    .tm-empty > .bi { font-size: 2rem; color: var(--tm-accent); display: block; margin-bottom: .6rem; }
+    .tm-empty h2 { font-weight: 700; font-size: 1rem; margin-bottom: .3rem; }
     .tm-empty p { color: var(--tm-muted); max-width: 42em; margin: 0 auto .9rem; }
 
     /* ── Misc ────────────────────────────────────────────────── */
@@ -347,11 +376,17 @@
     .tooltip { font-family: var(--tm-body); font-size: 0.75rem; }
 
     /* ── Progress ────────────────────────────────────────────── */
-    .progress { border-radius: 999px; background: #e2e8f0; }
+    .progress { border-radius: 999px; background: var(--tm-border); }
     .progress-bar { border-radius: 999px; }
 
     /* ── Platform icons ─────────────────────────────────────── */
     /* Se pintan con currentColor vía mask, en vez de filtros sobre <img>. */
+    .tm-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,.55); z-index: 9000; align-items: center; justify-content: center; }
+    .tm-overlay-box { background: var(--tm-card); border-radius: 14px; padding: 1.75rem 2.25rem; display: flex; flex-direction: column; align-items: center; gap: 0.9rem; box-shadow: 0 24px 48px rgba(0,0,0,.3); min-width: 300px; max-width: 380px; text-align: center; }
+    .tm-overlay-box .spinner-border { color: var(--tm-accent); width: 2rem; height: 2rem; }
+    .tm-overlay-box .progress-bar { width: 100%; background: var(--tm-accent); }
+    #tm-loading-msg { font-size: 0.9rem; font-weight: 600; color: var(--tm-text); }
+    #tm-loading-hint { font-size: 0.8rem; color: var(--tm-muted); display: none; }
     .pi { display:inline-block; width:1em; height:1em; vertical-align:-.15em; flex-shrink:0; }
     .pi img { width:100%; height:100%; object-fit:contain; display:block; }
     .pi-sc, .pi-sp, .pi-yt {
@@ -395,17 +430,24 @@
     {% if request.state.user is defined and request.state.user %}
       {% set nav_user = request.state.user %}
       {% if nav_user.is_admin %}
-        <div class="tm-nav-sep"></div>
-        <a href="/analitica" class="tm-nav-link" data-path="/analitica">Analítica</a>
-        <a href="/admin/users" class="tm-nav-link" data-path="/admin">Usuarios</a>
-        <a href="/debug/events" class="tm-nav-link" data-path="/debug/events">Logs</a>
+        {% set p = request.url.path %}
+        {% set in_admin = p.startswith('/analitica') or p.startswith('/admin') or p.startswith('/debug/events') %}
+        <div class="dropdown">
+          <button type="button" class="tm-nav-link dropdown-toggle {% if in_admin %}tm-active{% endif %}"
+                  data-bs-toggle="dropdown" aria-expanded="false">Admin</button>
+          <ul class="dropdown-menu dropdown-menu-end tm-admin-menu">
+            <li><a class="dropdown-item {% if p.startswith('/analitica') %}active{% endif %}" href="/analitica"><i class="bi bi-activity"></i> Analítica</a></li>
+            <li><a class="dropdown-item {% if p.startswith('/admin') %}active{% endif %}" href="/admin/users"><i class="bi bi-people"></i> Usuarios</a></li>
+            <li><a class="dropdown-item {% if p.startswith('/debug/events') %}active{% endif %}" href="/debug/events"><i class="bi bi-journal-text"></i> Logs</a></li>
+          </ul>
+        </div>
       {% endif %}
       <div class="tm-nav-sep"></div>
       {% set agent_on = nav_user.agent_online %}
       <a href="/settings#agente" class="tm-agent {% if agent_on %}on{% endif %}"
          data-bs-toggle="tooltip"
          data-bs-title="{% if agent_on %}El agente está abierto y conectado.{% else %}El agente no está conectado: abrilo en tu computadora para que las descargas funcionen.{% endif %}">
-        Agente {% if agent_on %}conectado{% else %}desconectado{% endif %}
+        Agente<span class="visually-hidden"> {% if agent_on %}conectado{% else %}desconectado{% endif %}</span>
       </a>
       <span class="tm-nav-user">{{ nav_user.username }}</span>
       <form method="POST" action="/logout" class="mb-0">
@@ -416,24 +458,21 @@
 </nav>
 {% endblock %}
 
-<div class="tm-content">
+<main class="tm-content" id="contenido">
   {% block content %}{% endblock %}
-</div>
+</main>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
 <!-- ── Loading overlay ──────────────────────────────────────────── -->
-<div id="tm-loading-overlay"
-     style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9000;align-items:center;justify-content:center;">
-  <div style="background:#fff;border-radius:14px;padding:1.75rem 2.25rem;display:flex;flex-direction:column;align-items:center;gap:0.9rem;box-shadow:0 24px 48px rgba(0,0,0,.3);min-width:300px;max-width:380px;text-align:center;">
-    <div class="spinner-border" style="color:#6366f1;width:2rem;height:2rem;flex-shrink:0;" role="status">
-      <span class="visually-hidden">Cargando…</span>
-    </div>
-    <div id="tm-loading-msg" style="font-size:0.9rem;font-weight:600;color:#1e293b;">Cargando…</div>
+<div id="tm-loading-overlay" class="tm-overlay">
+  <div class="tm-overlay-box" role="status" aria-live="polite">
+    <div class="spinner-border" aria-hidden="true"></div>
+    <div id="tm-loading-msg">Cargando…</div>
     <div class="progress w-100" style="height:6px;">
-      <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%;background:#6366f1;"></div>
+      <div class="progress-bar progress-bar-striped progress-bar-animated"></div>
     </div>
-    <div id="tm-loading-hint" style="font-size:0.78rem;color:#64748b;display:none;"></div>
+    <div id="tm-loading-hint"></div>
   </div>
 </div>
 
@@ -442,7 +481,7 @@
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header" style="border-bottom:1px solid #fecaca;">
-        <h5 class="modal-title" style="color:var(--tm-danger);"><i class="bi bi-exclamation-triangle-fill me-1"></i> <span id="tm-error-title">Error</span></h5>
+        <h2 class="modal-title" style="color:var(--tm-danger-text);"><i class="bi bi-exclamation-triangle-fill me-1"></i> <span id="tm-error-title">Error</span></h2>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
       <div class="modal-body">
@@ -460,8 +499,8 @@
   <div class="modal-dialog modal-dialog-centered modal-sm">
     <div class="modal-content">
       <div class="modal-body pt-4 pb-2 text-center">
-        <i id="tm-confirm-icon" class="bi bi-question-circle" style="font-size:1.8rem;color:var(--tm-primary);"></i>
-        <h5 id="tm-confirm-title" class="mt-2 mb-1" style="font-size:0.95rem;font-weight:700;">¿Seguro?</h5>
+        <i id="tm-confirm-icon" class="bi bi-question-circle" style="font-size:1.8rem;color:var(--tm-primary);" aria-hidden="true"></i>
+        <h2 id="tm-confirm-title" class="modal-title mt-2 mb-1" style="font-weight:700;">¿Seguro?</h2>
         <p id="tm-confirm-msg" class="text-muted mb-0" style="font-size:0.84rem;white-space:pre-wrap;"></p>
       </div>
       <div class="modal-footer border-0 justify-content-center pt-1 pb-3">
@@ -570,7 +609,7 @@ function tmConfirm(msg, opts) {
   ok.className = 'btn btn-sm px-3 ' + (opts.danger ? 'btn-danger' : 'btn-primary');
   const icon = document.getElementById('tm-confirm-icon');
   icon.className = 'bi ' + (opts.danger ? 'bi-exclamation-triangle' : 'bi-question-circle');
-  icon.style.color = opts.danger ? 'var(--tm-danger)' : 'var(--tm-primary)';
+  icon.style.color = opts.danger ? 'var(--tm-danger-text)' : 'var(--tm-primary)';
   const modal = bootstrap.Modal.getOrCreateInstance(el);
   return new Promise(resolve => {
     ok.onclick = () => { resolve(true); modal.hide(); };

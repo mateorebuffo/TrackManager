@@ -1,0 +1,222 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-10T17:14:52Z",
+  "title": "Design System: Track Manager",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Índigo de acción",
+        "canonical": "#5558e3",
+        "tonalRamp": [
+          "#1e1b4b",
+          "#312e81",
+          "#3730a3",
+          "#4338ca",
+          "#5558e3",
+          "#818cf8",
+          "#c7d2fe",
+          "#eef2ff"
+        ]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Índigo vivo",
+        "canonical": "#6366f1"
+      },
+      "booth-night": {
+        "role": "neutral",
+        "displayName": "Noche de cabina",
+        "canonical": "#0f172a"
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Papel",
+        "canonical": "#f0f2f5"
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Tinta",
+        "canonical": "#1e293b"
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Gris de apoyo",
+        "canonical": "#56657a"
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Línea",
+        "canonical": "#e2e8f0"
+      },
+      "booth-ink": {
+        "role": "neutral",
+        "displayName": "Tinta de cabina (landing)",
+        "canonical": "#0b0d17"
+      },
+      "booth-panel": {
+        "role": "neutral",
+        "displayName": "Panel de cabina (landing)",
+        "canonical": "#141727"
+      },
+      "booth-muted": {
+        "role": "neutral",
+        "displayName": "Gris lavanda (landing)",
+        "canonical": "#9296b6"
+      },
+      "booth-accent": {
+        "role": "primary",
+        "displayName": "Índigo claro (landing)",
+        "canonical": "#8286f7"
+      },
+      "booth-button": {
+        "role": "primary",
+        "displayName": "Índigo botón (landing)",
+        "canonical": "#4f46e5"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Título de página",
+        "purpose": "Un solo h1 por página, en Unbounded."
+      },
+      "label": {
+        "displayName": "Etiqueta",
+        "purpose": "Cabeceras de tabla y tarjeta, en mayúsculas."
+      },
+      "badge": {
+        "displayName": "Badge",
+        "purpose": "Estados de track y fuentes."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Solo en la landing: maqueta de la app, rutas de carpeta y rótulos."
+      }
+    },
+    "shadows": [
+      {
+        "name": "apoyo",
+        "value": "0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.04)",
+        "purpose": "Tarjetas y barras de herramientas."
+      },
+      {
+        "name": "flotante",
+        "value": "0 4px 16px rgba(0,0,0,.08)",
+        "purpose": "Modales, barra de selección, menús."
+      }
+    ],
+    "motion": [
+      {
+        "name": "estado",
+        "value": "150ms ease",
+        "purpose": "Hover y foco de botones, links e inputs."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "desktop",
+        "value": "1280px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Botón primario",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "La acción principal de una zona.",
+      "html": "<button class=\"ds-btn-primary\">Armar cola de descarga</button>",
+      "css": ".ds-btn-primary{background:#5558e3;color:#fff;border:1px solid #5558e3;border-radius:6px;padding:5px 10px;font:500 .78rem 'Instrument Sans',system-ui,sans-serif;transition:background .15s}.ds-btn-primary:hover{background:#4338ca;border-color:#4338ca}.ds-btn-primary:focus-visible{outline:2px solid #6366f1;outline-offset:2px}"
+    },
+    {
+      "name": "Botón secundario",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Acciones de apoyo.",
+      "html": "<button class=\"ds-btn-sec\">Limpiar filtros</button>",
+      "css": ".ds-btn-sec{background:#fff;color:#56657a;border:1px solid #e2e8f0;border-radius:6px;padding:5px 10px;font:500 .78rem 'Instrument Sans',system-ui,sans-serif;transition:all .15s}.ds-btn-sec:hover{background:#f1f5f9;border-color:#cbd5e1;color:#1e293b}.ds-btn-sec:focus-visible{outline:2px solid #6366f1;outline-offset:2px}"
+    },
+    {
+      "name": "Badge de estado",
+      "kind": "chip",
+      "refersTo": "badge-status",
+      "description": "Estado de un track.",
+      "html": "<span class=\"ds-badge ds-done\">Descargado</span> <span class=\"ds-badge ds-nf\">No encontrado</span> <span class=\"ds-badge ds-vinyl\">Solo vinilo</span>",
+      "css": ".ds-badge{display:inline-block;border-radius:999px;padding:3px 7px;font:600 .75rem 'Instrument Sans',system-ui,sans-serif}.ds-done{background:#d1fae5;color:#065f46}.ds-nf{background:#fee2e2;color:#991b1b}.ds-vinyl{background:#fef3c7;color:#92400e}"
+    },
+    {
+      "name": "Botón de plataforma",
+      "kind": "button",
+      "description": "Importar desde una plataforma.",
+      "html": "<button class=\"ds-src ds-sc\">Importar SoundCloud</button>",
+      "css": ".ds-src{border-radius:6px;padding:5px 10px;font:600 .78rem 'Instrument Sans',system-ui,sans-serif;border:1px solid}.ds-sc{background:#fff3e0;color:#a84000;border-color:#fed7aa}.ds-sc:hover{border-color:#a84000}"
+    },
+    {
+      "name": "Navegación",
+      "kind": "nav",
+      "refersTo": "nav",
+      "description": "Barra superior.",
+      "html": "<nav class=\"ds-nav\"><a class=\"on\">Tracks</a><a>Cola</a><a>Descubrir</a></nav>",
+      "css": ".ds-nav{background:#0f172a;height:52px;display:flex;align-items:center;gap:4px;padding:0 16px}.ds-nav a{color:rgba(255,255,255,.72);font:500 .84rem 'Instrument Sans',system-ui,sans-serif;padding:6px 11px;border-radius:6px;cursor:pointer}.ds-nav a:hover{background:rgba(255,255,255,.07);color:#fff}.ds-nav a.on{background:rgba(255,255,255,.1);color:#fff}"
+    },
+    {
+      "name": "Tarjeta",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Superficie de contenido.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-h\">Productores</div><p>Traumer · 7</p></div>",
+      "css": ".ds-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);font:400 .9rem 'Instrument Sans',system-ui,sans-serif;color:#1e293b}.ds-card-h{border-bottom:1px solid #e2e8f0;padding:12px 20px;font-size:.72rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#56657a}.ds-card p{margin:0;padding:20px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "La cabina del DJ",
+    "overview": "Track Manager es una herramienta de trabajo, no una vidriera. La app es clara, densa y tranquila: fondo papel, tarjetas blancas, una sola voz de color (el índigo) y tipografía con carácter solo en los títulos. La noche de la cabina aparece en la barra de navegación y en la landing.",
+    "keyCharacteristics": [
+      "Una sola voz de color: índigo para acción y selección.",
+      "Títulos de página en Unbounded; todo lo demás en Instrument Sans.",
+      "Estados de track como badges con fondo tenue y texto oscuro del mismo tono.",
+      "Íconos de Bootstrap Icons, nunca emojis.",
+      "Densidad alta en tablas, aire generoso entre secciones."
+    ],
+    "rules": [
+      {
+        "name": "La regla del color que se lee",
+        "body": "Un color vivo nunca es texto sobre blanco; se usa su variante oscura.",
+        "section": "colors"
+      },
+      {
+        "name": "La regla de una sola voz",
+        "body": "El índigo es la única acción; verde, ámbar y rojo informan estados.",
+        "section": "colors"
+      },
+      {
+        "name": "La regla del piso de 11px",
+        "body": "Ningún texto que el usuario tenga que leer baja de 11px.",
+        "section": "typography"
+      },
+      {
+        "name": "La regla de un h1",
+        "body": "Un único h1 por página; lo siguiente es h2.",
+        "section": "typography"
+      },
+      {
+        "name": "La regla sin halo",
+        "body": "Ninguna sombra de color ni resplandor.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do usar los helpers de la base: confirmSubmit / tmConfirm para confirmar, showToast con Deshacer para acciones reversibles.",
+      "Do escribir los estados como badges con su clase.",
+      "Do darle a cada botón de ícono un aria-label y un tooltip.",
+      "Do usar las variantes oscuras cuando un estado es texto."
+    ],
+    "donts": [
+      "Don't usar emojis como íconos.",
+      "Don't usar confirm() del navegador.",
+      "Don't poner franjas de color en el borde izquierdo de tarjetas, filas o avisos.",
+      "Don't usar sombras de color ni resplandores.",
+      "Don't bajar de 11px en texto que se lee."
+    ]
+  }
+}

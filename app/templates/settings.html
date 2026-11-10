@@ -25,17 +25,11 @@
     flex-direction: column;
     gap: 0.6rem;
     padding: 1rem 1.25rem;
-    border-left: 3px solid transparent;
     transition: background .15s;
   }
   .svc-row + .svc-row { border-top: 1px solid var(--tm-border); }
-  .svc-row:hover { background: #fafbfc; }
+  .svc-row:hover { background: var(--tm-surface-2); }
 
-  .svc-sc      { border-left-color: #f97316; }
-  .svc-spotify { border-left-color: #22c55e; }
-  .svc-youtube { border-left-color: #ef4444; }
-  .svc-muzpa   { border-left-color: #6366f1; }
-  .svc-deezer  { border-left-color: #ec4899; }
 
   .svc-name { font-size: 0.85rem; font-weight: 700; color: var(--tm-text); }
   .svc-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; flex-shrink: 0; }

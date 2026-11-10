@@ -61,13 +61,13 @@
       </thead>
       <tbody>
         {% for e in events %}
-        {% set lvl_class = {"info": "text-info", "warning": "text-warning", "error": "text-danger"}.get(e.level.value, "") %}
+        {% set lvl_class = {"info": "text-info-emphasis", "warning": "text-warning-emphasis", "error": "text-danger-emphasis"}.get(e.level.value, "") %}
         <tr>
           <td style="white-space:nowrap;font-size:0.75rem;color:var(--tm-muted)">
             {{ e.created_at.strftime("%d/%m %H:%M:%S") if e.created_at else "—" }}
           </td>
           <td>
-            <span class="badge {{ lvl_class }}" style="background:transparent;border:1px solid currentColor;font-size:0.65rem">
+            <span class="badge {{ lvl_class }}" style="background:transparent;border:1px solid currentColor;">
               {{ e.level.value }}
             </span>
           </td>
@@ -85,11 +85,11 @@
             {% if e.context_json %}
               <details>
                 <summary style="font-size:0.72rem;cursor:pointer;color:var(--tm-muted)">ver</summary>
-                <pre style="font-size:0.68rem;margin:4px 0 0;max-height:120px;overflow:auto;background:#f8fafc;padding:4px;border-radius:4px">{{ e.context_json | tojson(indent=2) }}</pre>
+                <pre style="font-size:0.75rem;margin:4px 0 0;max-height:120px;overflow:auto;background:var(--tm-surface-2);padding:6px;border-radius:6px">{{ e.context_json | tojson(indent=2) }}</pre>
               </details>
             {% else %}—{% endif %}
           </td>
-          <td style="font-size:0.68rem;font-family:monospace;color:var(--tm-muted);max-width:80px;overflow:hidden;text-overflow:ellipsis"
+          <td style="font-size:0.75rem;font-family:monospace;color:var(--tm-muted);max-width:80px;overflow:hidden;text-overflow:ellipsis"
               title="{{ e.operation_id or '' }}">
             {{ e.operation_id[:8] if e.operation_id else "—" }}
           </td>
@@ -101,6 +101,6 @@
 </div>
 <p class="text-muted mt-2" style="font-size:0.78rem">Mostrando {{ events | length }} evento{{ 's' if events | length != 1 else '' }}.</p>
 {% else %}
-<div class="tm-empty"><i class="bi bi-journal-text"></i><h5>No hay eventos</h5><p>Con estos filtros no se registró nada todavía.</p></div>
+<div class="tm-empty"><i class="bi bi-journal-text"></i><h2>No hay eventos</h2><p>Con estos filtros no se registró nada todavía.</p></div>
 {% endif %}
 {% endblock %}

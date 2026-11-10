@@ -3,14 +3,17 @@
 
 {% block content %}
 <style>
-  .hc-card { border-left: 4px solid var(--hc); height: 100%; }
-  .hc-ok         { --hc: #16a34a; }
-  .hc-con_fallas { --hc: #d97706; }
-  .hc-caido      { --hc: #dc2626; }
-  .hc-sin_datos  { --hc: #94a3b8; }
+  /* --hc pinta el punto; --hc-text es la versión legible para texto (≥ 5:1). */
+  .hc-card { height: 100%; }
+  .hc-ok         { --hc: #16a34a; --hc-text: var(--tm-success-text); }
+  .hc-con_fallas { --hc: #d97706; --hc-text: var(--tm-warning-text); }
+  .hc-caido      { --hc: #dc2626; --hc-text: var(--tm-danger-text); }
+  .hc-sin_datos  { --hc: #94a3b8; --hc-text: var(--tm-muted); }
+  .hc-caido.hc-card { background: #fef2f2; border-color: #fecaca; }
+  .hc-con_fallas.hc-card { background: #fffbeb; border-color: #fde68a; }
   .hc-dot { width: .7rem; height: .7rem; border-radius: 50%; background: var(--hc); display: inline-block; }
-  .hc-label { font-size: .75rem; font-weight: 600; color: var(--hc); }
-  .hc-meta { font-size: .72rem; color: var(--tm-muted); }
+  .hc-label { font-size: .78rem; font-weight: 600; color: var(--hc-text); }
+  .hc-meta { font-size: .75rem; color: var(--tm-muted); }
   .hc-num { font-size: 1.8rem; font-weight: 700; line-height: 1; }
   .hc-section { font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
                 color: var(--tm-muted); margin: 2rem 0 .75rem; }
@@ -75,7 +78,7 @@
             {% endfor %}
           </ul>
         {% else %}
-          <div style="font-size:.8rem" class="text-success">Ningún alumno tiene descargas esperando a un agente cerrado.</div>
+          <div style="font-size:.8rem" style="color:var(--tm-success-text);">Ningún alumno tiene descargas esperando a un agente cerrado.</div>
         {% endif %}
       </div>
     </div>
@@ -86,7 +89,7 @@
       <div class="card-header">Descargas trabadas</div>
       <div class="card-body">
         {% if stuck %}
-          <div class="hc-num text-warning">{{ stuck | length }}</div>
+          <div class="hc-num" style="color:var(--tm-warning-text);">{{ stuck | length }}</div>
           <ul class="mb-0 ps-3 mt-2" style="font-size:.8rem">
             {% for j in stuck[:6] %}
               <li><strong>{{ j.user }}</strong> — {{ j.query }} <span class="hc-meta">({{ j.status }}, {{ j.since }})</span></li>
@@ -94,7 +97,7 @@
           </ul>
           {% if stuck | length > 6 %}<div class="hc-meta mt-1">y {{ stuck | length - 6 }} más</div>{% endif %}
         {% else %}
-          <div class="hc-num text-success">0</div>
+          <div class="hc-num" style="color:var(--tm-success-text);">0</div>
           <div class="hc-meta">Nada trabado: ninguna descarga en curso hace más de 30 min ni esperando más de un día.</div>
         {% endif %}
       </div>
@@ -116,7 +119,7 @@
             {% endfor %}
           </table>
         {% else %}
-          <div class="hc-num text-success">0</div>
+          <div class="hc-num" style="color:var(--tm-success-text);">0</div>
           <div class="hc-meta">Sin errores en el último día.</div>
         {% endif %}
       </div>
@@ -142,7 +145,7 @@
               <td class="fw-semibold">{{ p.user }}</td>
               <td>
                 {% for msg in p.problems %}
-                  <span class="badge text-bg-light border me-1 mb-1" style="font-weight:500;white-space:normal;text-align:left">{{ msg }}</span>
+                  <span class="badge s-pending border me-1 mb-1" style="font-weight:500;white-space:normal;text-align:left">{{ msg }}</span>
                 {% endfor %}
               </td>
             </tr>
@@ -151,7 +154,7 @@
         </table>
       </div>
       {% else %}
-      <div class="card-body text-success">Ningún alumno tiene problemas detectados.</div>
+      <div class="card-body" style="color:var(--tm-success-text);">Ningún alumno tiene problemas detectados.</div>
       {% endif %}
     </div>
   </div>
@@ -173,7 +176,7 @@
           {% for r in reports.rows %}
           <tr>
             <td style="white-space:nowrap">{{ r.label }}</td>
-            <td class="text-end {% if r.open %}fw-semibold text-danger{% endif %}">{{ r.open }}</td>
+            <td class="text-end {% if r.open %}fw-semibold" style="color:var(--tm-danger-text);{% endif %}">{{ r.open }}</td>
             <td class="text-end">{{ r.reviewed }}</td>
             <td class="text-end">{{ r.resolved }}</td>
           </tr>

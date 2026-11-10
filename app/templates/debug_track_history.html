@@ -40,7 +40,7 @@
                 {% if h.details_json %}
                   <details>
                     <summary style="font-size:0.72rem;cursor:pointer;color:var(--tm-muted)">ver</summary>
-                    <pre style="font-size:0.68rem;margin:4px 0 0;max-height:100px;overflow:auto;background:#f8fafc;padding:4px;border-radius:4px">{{ h.details_json | tojson(indent=2) }}</pre>
+                    <pre style="font-size:0.75rem;margin:4px 0 0;max-height:100px;overflow:auto;background:var(--tm-surface-2);padding:6px;border-radius:6px">{{ h.details_json | tojson(indent=2) }}</pre>
                   </details>
                 {% else %}—{% endif %}
               </td>
@@ -72,7 +72,7 @@
           </thead>
           <tbody>
             {% for e in events %}
-            {% set lvl_class = {"info": "text-info", "warning": "text-warning", "error": "text-danger"}.get(e.level.value, "") %}
+            {% set lvl_class = {"info": "text-info-emphasis", "warning": "text-warning-emphasis", "error": "text-danger-emphasis"}.get(e.level.value, "") %}
             <tr>
               <td style="white-space:nowrap;font-size:0.75rem;color:var(--tm-muted)">
                 {{ e.created_at.strftime("%d/%m %H:%M") if e.created_at else "—" }}

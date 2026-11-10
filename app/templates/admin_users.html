@@ -51,10 +51,10 @@
         <td>
           <span class="fw-semibold" style="font-size:0.875rem;">{{ u.username }}</span>
           {% if u.id == current_user.id %}
-            <span class="badge s-queued ms-1" style="font-size:0.65rem;">vos</span>
+            <span class="badge s-queued ms-1">vos</span>
           {% endif %}
           {% if not u.is_active %}
-            <span class="badge s-discarded ms-1" style="font-size:0.65rem;">Inactivo</span>
+            <span class="badge s-discarded ms-1">Inactivo</span>
           {% endif %}
         </td>
         <td>
@@ -78,7 +78,8 @@
             {% if u.id != current_user.id %}
             <form method="POST" action="/admin/users/{{ u.id }}/toggle-active"
                   onsubmit="return confirmSubmit(this, '{% if u.is_active %}{{ u.username }} no va a poder entrar hasta que lo reactives.{% else %}{{ u.username }} va a poder entrar de nuevo.{% endif %}', {title: '{% if u.is_active %}¿Desactivar a {{ u.username }}?{% else %}¿Reactivar a {{ u.username }}?{% endif %}', label: '{% if u.is_active %}Desactivar{% else %}Reactivar{% endif %}'})">
-              <button class="btn btn-sm {% if u.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %}">
+              <button class="btn btn-sm btn-outline-secondary"
+                      style="color:{% if u.is_active %}var(--tm-warning-text){% else %}var(--tm-success-text){% endif %};">
                 {% if u.is_active %}Desactivar{% else %}Reactivar{% endif %}
               </button>
             </form>
@@ -132,9 +133,9 @@
     <div class="modal-content">
       <form method="POST" id="reset-form">
         <div class="modal-header">
-          <h6 class="modal-title" style="font-size:0.9rem;">
+          <h2 class="modal-title">
             Nueva contraseña para <span id="reset-username"></span>
-          </h6>
+          </h2>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
         </div>
         <div class="modal-body">

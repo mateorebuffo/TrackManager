@@ -18,7 +18,7 @@
   .tm-stat-card.tab-active  { transform: translateY(-3px); box-shadow: var(--tm-shadow-md); opacity: 1 !important; }
   .tm-stat-card.clickable:not(.tab-active) { opacity: 0.6; }
   .tm-stat-num  { font-size: 1.8rem; font-weight: 700; line-height: 1; }
-  .tm-stat-label{ font-size: 0.72rem; font-weight: 500; margin-top: 0.25rem; }
+  .tm-stat-label{ font-size: 0.78rem; font-weight: 500; margin-top: 0.25rem; }
   .tm-section-header {
     display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; flex-wrap: wrap;
   }
@@ -38,34 +38,34 @@
 {# ── Stat cards ────────────────────────────────────────────────── #}
 <div class="d-flex gap-3 mb-4 flex-wrap">
   <div class="tm-stat-card">
-    <div class="tm-stat-num text-success">{{ summary.downloaded | length }}</div>
+    <div class="tm-stat-num" style="color:var(--tm-success-text);">{{ summary.downloaded | length }}</div>
     <div class="tm-stat-label text-muted">Descargados</div>
   </div>
 
   {% if summary.not_found %}
   <div class="tm-stat-card clickable summary-tab" onclick="showTab('not_found')">
-    <div class="tm-stat-num" style="color:var(--tm-danger);">{{ summary.not_found | length }}</div>
+    <div class="tm-stat-num" style="color:var(--tm-danger-text);">{{ summary.not_found | length }}</div>
     <div class="tm-stat-label text-muted">No encontrados</div>
   </div>
   {% endif %}
 
   {% if summary.low_quality %}
   <div class="tm-stat-card clickable summary-tab" onclick="showTab('low_quality')">
-    <div class="tm-stat-num" style="color:var(--tm-warning);">{{ summary.low_quality | length }}</div>
+    <div class="tm-stat-num" style="color:var(--tm-warning-text);">{{ summary.low_quality | length }}</div>
     <div class="tm-stat-label text-muted">Calidad baja</div>
   </div>
   {% endif %}
 
   {% if summary.vinyl_only %}
   <div class="tm-stat-card clickable summary-tab" onclick="showTab('vinyl_only')">
-    <div class="tm-stat-num" style="color:#f59e0b;">{{ summary.vinyl_only | length }}</div>
+    <div class="tm-stat-num" style="color:var(--tm-warning-text);">{{ summary.vinyl_only | length }}</div>
     <div class="tm-stat-label text-muted">Solo vinilo</div>
   </div>
   {% endif %}
 
   {% if summary.bandcamp_only %}
   <div class="tm-stat-card clickable summary-tab" onclick="showTab('bandcamp_only')">
-    <div class="tm-stat-num" style="color:var(--tm-info);">{{ summary.bandcamp_only | length }}</div>
+    <div class="tm-stat-num" style="color:var(--s-bandcamp);">{{ summary.bandcamp_only | length }}</div>
     <div class="tm-stat-label text-muted">Solo Bandcamp</div>
   </div>
   {% endif %}
@@ -172,7 +172,7 @@
 {% if summary.not_found %}
 <div id="section-not_found" class="mb-4 summary-section" style="display:none;">
   <div class="tm-section-header">
-    <h5 class="tm-section-title" style="color:var(--tm-danger);">No encontrados</h5>
+    <h2 class="tm-section-title" style="color:var(--tm-danger-text);">No encontrados</h2>
     <span class="badge s-not_found">{{ summary.not_found | length }}</span>
     <button type="button" class="btn btn-outline-secondary btn-sm ms-auto"
             onclick="toggleSection('not_found', true); document.getElementById('check-all-not_found').checked = true; updateSelectionBar()">
@@ -186,7 +186,7 @@
 {% if summary.vinyl_only %}
 <div id="section-vinyl_only" class="mb-4 summary-section" style="display:none;">
   <div class="tm-section-header">
-    <h5 class="tm-section-title" style="color:#f59e0b;">Solo vinilo</h5>
+    <h2 class="tm-section-title" style="color:var(--tm-warning-text);">Solo vinilo</h2>
     <span class="badge s-vinyl">{{ summary.vinyl_only | length }}</span>
     <span class="tm-section-hint">Encontrado en Muzpa, solo disponible en vinilo.</span>
     <button type="button" class="btn btn-outline-secondary btn-sm ms-auto"
@@ -201,7 +201,7 @@
 {% if summary.bandcamp_only %}
 <div id="section-bandcamp_only" class="mb-4 summary-section" style="display:none;">
   <div class="tm-section-header">
-    <h5 class="tm-section-title" style="color:var(--tm-info);">Solo Bandcamp</h5>
+    <h2 class="tm-section-title" style="color:var(--s-bandcamp);">Solo Bandcamp</h2>
     <span class="badge s-bandcamp">{{ summary.bandcamp_only | length }}</span>
     <span class="tm-section-hint">No disponible para descarga automática.</span>
     <button type="button" class="btn btn-outline-secondary btn-sm ms-auto"
@@ -216,7 +216,7 @@
 {% if summary.low_quality %}
 <div id="section-low_quality" class="mb-4 summary-section" style="display:none;">
   <div class="tm-section-header">
-    <h5 class="tm-section-title" style="color:var(--tm-warning);">Calidad insuficiente</h5>
+    <h2 class="tm-section-title" style="color:var(--tm-warning-text);">Calidad insuficiente</h2>
     <span class="badge s-vinyl">{{ summary.low_quality | length }}</span>
     <span class="tm-section-hint">Encontrado, pero calidad menor a 320 kbps — descartado.</span>
     <button type="button" class="btn btn-outline-secondary btn-sm ms-auto"
@@ -235,14 +235,14 @@
 {% if summary.downloaded %}
 <div class="mb-4">
   <div class="tm-section-header mb-2">
-    <h5 class="tm-section-title text-success">Descargados</h5>
+    <h2 class="tm-section-title" style="color:var(--tm-success-text);">Descargados</h2>
     <span class="badge s-downloaded">{{ summary.downloaded | length }}</span>
   </div>
   <div class="card">
     <ul class="list-group list-group-flush" style="border-radius:var(--tm-radius-lg);overflow:hidden;">
       {% for row in summary.downloaded %}
       <li class="list-group-item py-2" style="font-size:0.84rem;">
-        <i class="bi bi-check-lg" style="color:var(--tm-success);margin-right:0.4rem;"></i>{{ row.label }}
+        <i class="bi bi-check-lg" style="color:var(--tm-success-text);margin-right:0.4rem;" aria-hidden="true"></i>{{ row.label }}
       </li>
       {% endfor %}
     </ul>
@@ -251,7 +251,7 @@
 {% endif %}
 
 {% if total == 0 %}
-<div class="tm-empty"><i class="bi bi-inbox"></i><h5>No había nada para procesar</h5><p>La cola estaba vacía cuando arrancó la descarga.</p></div>
+<div class="tm-empty"><i class="bi bi-inbox"></i><h2>No había nada para procesar</h2><p>La cola estaba vacía cuando arrancó la descarga.</p></div>
 {% endif %}
 
 <script>

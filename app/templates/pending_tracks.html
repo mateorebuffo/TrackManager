@@ -15,7 +15,7 @@
   .tm-tab:hover { background: var(--tm-bg); color: var(--tm-text); }
   .tm-tab.tm-tab-active { background: var(--tm-primary); color: #fff; }
   .tm-tab.tm-tab-active:hover { background: var(--tm-primary-h); color: #fff; }
-  .tm-tab-n { font-size: 0.68rem; font-weight: 700; background: rgba(0,0,0,.08); color: inherit; border-radius: 999px; padding: 0.1em 0.45em; line-height: 1.4; }
+  .tm-tab-n { font-size: 0.72rem; font-weight: 700; background: rgba(0,0,0,.08); color: inherit; border-radius: 999px; padding: 0.1em 0.45em; line-height: 1.4; }
   .tm-tab.tm-tab-active .tm-tab-n { background: rgba(255,255,255,.25); }
   .tm-filters { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; padding: 0.6rem 0.75rem; }
   .tm-filters .bi-search { color: var(--tm-muted); }
@@ -37,7 +37,7 @@
   .tm-row-focus > * { background: #eef2ff !important; box-shadow: inset 3px 0 0 var(--tm-primary); }
   .copy-track { cursor: copy; }
   .copy-track:hover { color: var(--tm-primary); }
-  .tm-channel { color: var(--tm-muted); font-size: 0.72rem; display: block; }
+  .tm-channel { color: var(--tm-muted); font-size: 0.78rem; display: block; }
   /* Anchos fijos: la tabla nunca es más ancha que la tarjeta. Artista y Título se
      reparten lo que sobra y truncan con "…"; el resto tiene el ancho justo. */
   .tm-content { max-width: 1440px; }
@@ -565,32 +565,32 @@ function dismissSetupBanner(){
 <div class="tm-empty">
   {% if q %}
     <i class="bi bi-search"></i>
-    <h5>Sin resultados para "{{ q }}"</h5>
+    <h2>Sin resultados para "{{ q }}"</h2>
     <p>{% if active_status != 'all' %}Probá en la pestaña <strong>Todos</strong>, o {% else %}Revisá la ortografía, o {% endif %}limpiá la búsqueda.</p>
     <a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}" class="btn btn-outline-secondary btn-sm">Limpiar búsqueda</a>
     {% if active_status != 'all' %}<a href="/tracks/pending?status=all&q={{ q | urlencode }}" class="btn btn-primary btn-sm ms-1">Buscar en todos</a>{% endif %}
   {% elif active_status == 'pending' %}
     <i class="bi bi-music-note-list"></i>
-    <h5>No hay tracks pendientes</h5>
+    <h2>No hay tracks pendientes</h2>
     <p>Importá tus likes y van a aparecer acá para que los revises y elijas qué bajar.</p>
     <div class="d-flex gap-2 justify-content-center flex-wrap">{{ import_buttons('') }}</div>
   {% elif active_status == 'queued' %}
     <i class="bi bi-download"></i>
-    <h5>No hay tracks en cola</h5>
+    <h2>No hay tracks en cola</h2>
     <p>Marcá tracks en <strong>Pendiente</strong> y tocá «Armar cola de descarga».</p>
     <a href="/tracks/pending?status=pending" class="btn btn-primary btn-sm">Ir a pendientes</a>
   {% elif active_status == 'downloaded' %}
     <i class="bi bi-check2-circle"></i>
-    <h5>Todavía no descargaste nada</h5>
+    <h2>Todavía no descargaste nada</h2>
     <p>Cuando el agente baje tus primeros temas, van a aparecer acá.</p>
     <a href="/tracks/download-queue" class="btn btn-primary btn-sm">Ver la cola</a>
   {% elif active_status == 'discarded' %}
     <i class="bi bi-trash3"></i>
-    <h5>No hay tracks descartados</h5>
+    <h2>No hay tracks descartados</h2>
     <p>Lo que descartes desde Pendiente queda acá por si te arrepentís.</p>
   {% else %}
     <i class="bi bi-inbox"></i>
-    <h5>Nada por acá</h5>
+    <h2>Nada por acá</h2>
     <p>No hay tracks en este estado{% if source or date_filter_active %} con los filtros activos{% endif %}.</p>
     {% if source or date_filter_active %}<a href="/tracks/pending?status={{ active_status }}&sort={{ sort }}" class="btn btn-outline-secondary btn-sm">Limpiar filtros</a>{% endif %}
   {% endif %}
@@ -613,7 +613,7 @@ function dismissSetupBanner(){
     <div class="modal-content">
       <form method="POST" id="edit-form">
         <div class="modal-header">
-          <h5 class="modal-title" id="editModalTitle">Editar artista y título</h5>
+          <h2 class="modal-title" id="editModalTitle">Editar artista y título</h2>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
         </div>
         <div class="modal-body">
@@ -822,7 +822,7 @@ function closePlayer() {
   <div class="modal-dialog modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header py-2">
-        <h5 class="modal-title" id="playlistPickerTitle" style="font-size:0.95rem;">Elegir playlist</h5>
+        <h2 class="modal-title" id="playlistPickerTitle">Elegir playlist</h2>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
       <div class="modal-body p-0">

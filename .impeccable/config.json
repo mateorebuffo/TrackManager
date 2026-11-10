@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "instrument sans",
+        "createdAt": "2026-11-10T17:14:52.844Z",
+        "reason": "Claude: brand body face shared with the landing (/para-que-sirve) and declared in DESIGN.md typography"
+      }
+    ]
+  }
+}

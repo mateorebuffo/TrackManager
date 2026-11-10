@@ -7,10 +7,10 @@
   .hp { display: grid; grid-template-columns: 210px 1fr; gap: 2rem; align-items: start; max-width: 1040px; }
   .hp-toc { position: sticky; top: 72px; display: grid; gap: 2px; font-size: .84rem; }
   .hp-toc a { color: var(--tm-muted); text-decoration: none; padding: .35rem .6rem; border-radius: 6px; }
-  .hp-toc a:hover { background: #e9ecf3; color: var(--tm-text); }
+  .hp-toc a:hover { background: var(--tm-border); color: var(--tm-text); }
   .hp-search { max-width: 420px; }
   .hp-section { margin-bottom: 2rem; scroll-margin-top: 72px; }
-  .hp-section > h5 { font-weight: 700; margin-bottom: .25rem; }
+  .hp-section > h2 { font-size: 1.2rem; font-weight: 700; margin-bottom: .25rem; }
   .hp-section > p.hp-lead { color: var(--tm-muted); margin-bottom: .75rem; }
   .hp details { background: var(--tm-card); border: 1px solid var(--tm-border); border-radius: var(--tm-radius); margin-bottom: .5rem; }
   .hp summary { cursor: pointer; padding: .75rem 1rem; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 1rem; }
@@ -21,8 +21,9 @@
   .hp .hp-body { padding: 0 1rem 1rem; line-height: 1.6; }
   .hp .hp-body ol, .hp .hp-body ul { padding-left: 1.2rem; margin-bottom: .5rem; }
   .hp .hp-body li { margin-bottom: .3rem; }
-  .hp .hp-tip { background: #eef2ff; border-left: 3px solid var(--tm-primary); padding: .5rem .75rem; border-radius: 4px; margin-top: .5rem; }
-  .hp .ui { display: inline-block; font-size: .78rem; font-weight: 600; padding: .05rem .45rem; border: 1px solid var(--tm-border); border-radius: 5px; background: #f8fafc; white-space: nowrap; }
+  .hp .hp-tip { background: var(--tm-primary-soft); color: #312e81; padding: .6rem .85rem; border-radius: 8px; margin-top: .6rem; }
+  .hp .hp-tip a { color: var(--tm-primary-h); }
+  .hp .ui { display: inline-block; font-size: .8rem; font-weight: 600; padding: .05rem .45rem; border: 1px solid var(--tm-border); border-radius: 5px; background: var(--tm-surface-2); white-space: nowrap; }
   .hp .badge { font-weight: 600; }
   .hp-states td { padding: .45rem .6rem; vertical-align: top; }
   .hp-empty { display: none; }
@@ -53,7 +54,7 @@
   <div id="hp-content">
 
     <section class="hp-section" id="empezar">
-      <h5>Cómo funciona</h5>
+      <h2>Cómo funciona</h2>
       <p class="hp-lead">Likeás en SoundCloud o guardás en una playlist de YouTube, Track Manager junta esos temas y el agente los descarga a tu computadora.</p>
 
       <details open>
@@ -71,7 +72,7 @@
     </section>
 
     <section class="hp-section" id="importar">
-      <h5>Importar tu música</h5>
+      <h2>Importar tu música</h2>
       <p class="hp-lead">Los botones de importar están arriba a la derecha en <span class="ui">Tracks</span>.</p>
 
       <details>
@@ -112,7 +113,7 @@
           No. Al importar, Track Manager compara cada tema con los que ya tenés:
           <ul>
             <li>Si es claramente el mismo, no lo agrega.</li>
-            <li>Si se parece mucho pero no es seguro, lo agrega con una nota <span class="text-warning fw-semibold">⚠</span> en la columna <em>Notas</em>. Tocala para ver los dos temas juntos y descartar el que sobra.</li>
+            <li>Si se parece mucho pero no es seguro, lo agrega con una nota <i class="bi bi-exclamation-triangle-fill" style="color:var(--tm-warning-text);" aria-label="aviso de duplicado"></i> en la columna <em>Notas</em>. Tocala para ver los dos temas juntos y descartar el que sobra.</li>
           </ul>
           <div class="hp-tip">Una versión <strong>remix, extended o Edit</strong> cuenta como un tema distinto del original, a propósito: para un DJ son archivos diferentes y suele querer los dos.</div>
         </div>
@@ -120,7 +121,7 @@
     </section>
 
     <section class="hp-section" id="revisar">
-      <h5>Revisar tracks</h5>
+      <h2>Revisar tracks</h2>
       <p class="hp-lead">En <span class="ui">Tracks</span> ves todo lo que importaste, separado en pestañas por estado.</p>
 
       <details>
@@ -169,7 +170,7 @@
     </section>
 
     <section class="hp-section" id="descargar">
-      <h5>Descargar</h5>
+      <h2>Descargar</h2>
       <p class="hp-lead">Primero armás la cola con lo que querés bajar, después la descargás de una sola vez.</p>
 
       <details>
@@ -212,7 +213,7 @@
     </section>
 
     <section class="hp-section" id="no-encontrados">
-      <h5>Temas que no se encuentran</h5>
+      <h2>Temas que no se encuentran</h2>
       <p class="hp-lead">No todo está disponible para descargar. Track Manager te dice por qué y te deja buscarlo a mano.</p>
 
       <details>
@@ -243,7 +244,7 @@
     </section>
 
     <section class="hp-section" id="agente">
-      <h5>El agente y las cuentas</h5>
+      <h2>El agente y las cuentas</h2>
       <p class="hp-lead">El agente es un programa chico que corre en tu computadora y hace las descargas.</p>
 
       <details>
@@ -290,7 +291,7 @@
     </section>
 
     <section class="hp-section" id="estados">
-      <h5>Qué significa cada estado</h5>
+      <h2>Qué significa cada estado</h2>
       <p class="hp-lead">Cada tema tiene un estado, y en <span class="ui">Tracks</span> hay una pestaña por cada uno.</p>
       <div class="table-responsive">
         <table class="table table-sm bg-white hp-states mb-0">
@@ -309,7 +310,7 @@
     </section>
 
     <section class="hp-section" id="problemas">
-      <h5>Problemas frecuentes</h5>
+      <h2>Problemas frecuentes</h2>
 
       <details>
         <summary>El botón "Auto-descargar todo" está gris</summary>

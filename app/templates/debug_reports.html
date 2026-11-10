@@ -90,7 +90,7 @@
           </td>
           <td style="font-size:0.78rem">{{ cat_labels.get(r.category, r.category) }}</td>
           <td style="font-size:0.82rem;max-width:260px">{{ r.description }}</td>
-          <td><span class="{{ st_badge }}" style="font-size:0.67rem">{{ st_labels.get(r.status.value, r.status.value) }}</span></td>
+          <td><span class="{{ st_badge }}">{{ st_labels.get(r.status.value, r.status.value) }}</span></td>
           <td style="font-size:0.78rem;color:var(--tm-muted);max-width:160px">
             {{ r.resolution_notes or "—" }}
           </td>
@@ -122,6 +122,6 @@
 </div>
 <p class="text-muted mt-2" style="font-size:0.78rem">{{ reports | length }} reporte(s).</p>
 {% else %}
-<div class="tm-empty"><i class="bi bi-chat-square-text"></i><h5>No hay reportes</h5><p>Cuando mandes uno, acá vas a ver en qué estado está.</p></div>
+<div class="tm-empty"><i class="bi bi-chat-square-text"></i><h2>No hay reportes</h2><p>Cuando mandes uno, acá vas a ver en qué estado está.</p></div>
 {% endif %}
 {% endblock %}
