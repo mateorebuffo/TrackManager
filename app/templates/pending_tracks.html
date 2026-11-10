@@ -192,10 +192,7 @@ function dismissSetupBanner(){
 {% if compare_mode %}
 <div class="alert alert-warning d-flex align-items-center justify-content-between gap-3 flex-wrap mb-3">
   <span><i class="bi bi-intersect me-1"></i><strong>Modo comparación:</strong> estos dos tracks pueden ser el mismo. Revisalos y descartá el que no necesites.</span>
-  <div class="d-flex gap-2">
-    <a href="{{ compare_back }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i> Atrás</a>
-    <a href="/tracks/pending" class="btn btn-sm btn-outline-secondary">Ver todos</a>
-  </div>
+  <a href="{{ compare_back }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i> Atrás</a>
 </div>
 {% endif %}
 
