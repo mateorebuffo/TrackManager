@@ -38,13 +38,15 @@
   .copy-track { cursor: copy; }
   .copy-track:hover { color: var(--tm-primary); }
   .tm-channel { color: var(--tm-muted); font-size: 0.72rem; display: block; }
-  /* Fija a la derecha: si la tabla se pasa de ancho, los botones no se cortan. */
-  .tm-actions { white-space: nowrap; text-align: right; width: 1%; position: sticky; right: 0; background: #fff; box-shadow: -8px 0 8px -8px rgba(15,23,42,.12); }
-  .table-hover > tbody > tr:hover > .tm-actions { background: #f8fafc; }
-  .tm-row-focus > .tm-actions { background: #eef2ff; }
+  /* Anchos fijos: la tabla nunca es más ancha que la tarjeta. Artista y Título se
+     reparten lo que sobra y truncan con "…"; el resto tiene el ancho justo. */
+  .tm-content { max-width: 1440px; }
+  #tracks-table { table-layout: fixed; width: 100%; }
+  #tracks-table > :not(caption) > * > * { padding: 0.55rem 0.6rem; }
+  #tracks-table th { overflow: hidden; text-overflow: ellipsis; }
+  .tm-actions { white-space: nowrap; text-align: right; }
   .tm-actions .btn { margin-left: 2px; }
   .tm-actions form { display: inline; }
-  #tracks-table > :not(caption) > * > * { padding: 0.55rem 0.6rem; }
   .tm-dup { color: #b45309; font-weight: 600; text-decoration: none; }
 
   /* ── Banner de bienvenida ───────────────────────────────────── */
@@ -385,15 +387,26 @@ function dismissSetupBanner(){
 
 <div class="table-responsive">
   <table class="table table-hover align-middle bg-white" id="tracks-table">
+    <colgroup>
+      <col style="width:44px;">
+      <col style="width:24%;">
+      <col>
+      <col style="width:124px;">
+      <col style="width:78px;">
+      <col style="width:104px;">
+      <col style="width:92px;">
+      {% if any_notes %}<col style="width:118px;">{% endif %}
+      <col style="width:232px;">
+    </colgroup>
     <thead class="table-dark">
       <tr>
-        <th style="width:40px;"><input type="checkbox" id="check-all" onclick="toggleAll()" aria-label="Seleccionar todos los de esta página"></th>
-        <th style="min-width:180px;">
+        <th><input type="checkbox" id="check-all" onclick="toggleAll()" aria-label="Seleccionar todos los de esta página"></th>
+        <th>
           <a href="/tracks/pending?{{ base_qs | replace('sort=' ~ sort, 'sort=' ~ ('artist_desc' if sort == 'artist_asc' else 'artist_asc')) }}" class="text-reset text-decoration-none">
             Artista {% if sort == 'artist_asc' %}<i class="bi bi-arrow-up"></i>{% elif sort == 'artist_desc' %}<i class="bi bi-arrow-down"></i>{% endif %}
           </a>
         </th>
-        <th style="min-width:220px;">
+        <th>
           <a href="/tracks/pending?{{ base_qs | replace('sort=' ~ sort, 'sort=' ~ ('title_desc' if sort == 'title_asc' else 'title_asc')) }}" class="text-reset text-decoration-none">
             Título {% if sort == 'title_asc' %}<i class="bi bi-arrow-up"></i>{% elif sort == 'title_desc' %}<i class="bi bi-arrow-down"></i>{% endif %}
           </a>
@@ -421,7 +434,7 @@ function dismissSetupBanner(){
           {% endif %}
         </td>
 
-        <td style="max-width:220px;">
+        <td>
           {% if row.artist and row.artist != "—" %}
             <span class="fw-semibold text-truncate d-block copy-track"
                   role="button" tabindex="0" data-copy="{{ label }}"
@@ -437,7 +450,7 @@ function dismissSetupBanner(){
           {% endif %}
         </td>
 
-        <td style="max-width:320px;">
+        <td>
           {% if row.source_url and row.source_url != "#" %}
             <a href="{{ row.source_url }}" target="_blank" rel="noopener"
                class="text-truncate d-block" title="{{ row.raw_title }}">
