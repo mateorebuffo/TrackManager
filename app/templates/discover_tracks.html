@@ -8,8 +8,6 @@
   .ds-back:hover, .ds-back:focus-visible { color: var(--tm-primary); }
   .ds-kind { font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--tm-muted); }
   .ds-meta { font-size: .75rem; color: var(--tm-muted); }
-  .ds-src img { width: 16px; height: 16px; opacity: .7; }
-  .ds-src:hover img { opacity: 1; }
 </style>
 
 {% set SOURCES = {"soundcloud": "SoundCloud", "youtube": "YouTube", "spotify": "Spotify", "traxsource": "Traxsource"} %}
@@ -35,19 +33,24 @@
             {% if kind == "Productor" %}<div class="ds-meta">{{ t.artist }}</div>{% endif %}
           </td>
           <td style="font-size:.875rem">
-            {% if kind == "Productor" %}{{ t.label or "—" }}{% else %}{{ t.artist }}{% endif %}
+            {% if kind != "Productor" %}{{ t.artist }}
+            {% elif t.label %}<a href="https://www.discogs.com/search/?q={{ t.label | urlencode }}&type=label" target="_blank" rel="noopener" title="Ver el sello en Discogs">{{ t.label }}</a>
+            {% else %}—{% endif %}
           </td>
           <td class="text-end">
             {% if t.url and t.url.startswith("https://") %}
-              {% set playable = t.source in ("soundcloud", "youtube", "spotify") %}
-              <a href="{{ t.url }}" target="_blank" rel="noopener" class="ds-src"
-                 {% if playable %}onclick="playTrack(this); return false;" data-src="{{ t.source }}"
-                 data-label="{{ t.artist }} - {{ t.title }}" title="Escuchar acá"
-                 {% else %}title="Abrir en {{ SOURCES.get(t.source, t.source) }}"{% endif %}>
-                {% if t.source in ("soundcloud", "youtube", "spotify") %}
-                  <img src="/static/icons/{{ t.source }}.svg" alt="{{ SOURCES[t.source] }}">
-                {% else %}<i class="bi bi-box-arrow-up-right"></i>{% endif %}
-              </a>
+              {# Mismo botón que "Escuchar acá" en Tracks, venga de la fuente que venga #}
+              {% if t.source in ("soundcloud", "youtube", "spotify") %}
+                <button type="button" class="btn btn-outline-secondary btn-sm btn-icon tm-play"
+                        data-url="{{ t.url }}" data-src="{{ t.source }}" data-label="{{ t.artist }} - {{ t.title }}"
+                        onclick="playTrack(this)" aria-label="Escuchar" data-bs-toggle="tooltip" data-bs-title="Escuchar acá">
+                  <i class="bi bi-play-fill"></i>
+                </button>
+              {% else %}
+                <a href="{{ t.url }}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm btn-icon"
+                   aria-label="Abrir en {{ SOURCES.get(t.source, t.source) }}" data-bs-toggle="tooltip"
+                   data-bs-title="Abrir en {{ SOURCES.get(t.source, t.source) }}"><i class="bi bi-box-arrow-up-right"></i></a>
+              {% endif %}
             {% endif %}
           </td>
         </tr>
