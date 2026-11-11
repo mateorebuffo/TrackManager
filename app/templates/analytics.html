@@ -72,10 +72,8 @@
           <strong style="white-space:nowrap;">{{ s.name }}</strong>
         </div>
         <div class="hc-label mb-1">{{ LABELS[s.status] }}</div>
-        <div style="font-size:.8rem">{{ s.detail }}</div>
-        {% for sig in s.signals %}
-          <div style="font-size:.75rem" class="text-warning-emphasis mt-1"><i class="bi bi-exclamation-triangle-fill"></i> {{ sig }}</div>
-        {% endfor %}
+        {% if s.use %}<div style="font-size:.8rem" class="{% if s.status != 'ok' %}text-warning-emphasis {% endif %}mb-1">{{ s.use }}</div>{% endif %}
+        <div style="font-size:.8rem" class="hc-meta">{% if s.own_account %}Tu sesión: {% endif %}{{ s.detail }}</div>
         <div class="hc-meta mt-2">Probado {{ s.tested }} · funcionó por última vez {{ s.worked }}</div>
       </div>
     </div>

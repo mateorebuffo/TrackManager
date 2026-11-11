@@ -136,12 +136,12 @@ def _classify(name: str, r: dict | None) -> tuple[str, str]:
     la cuenta para poder probarlo.
     """
     if not r or not r["connected"]:
-        return "sin_datos", f"Conectá tu cuenta de {name} en Configuración para poder probarlo."
+        return "sin_datos", f"sin conectar. Conectá tu cuenta de {name} en el agente para probarla."
     if r["ok"]:
-        return "ok", "Responde con tu cuenta."
+        return "ok", "válida."
     if credential_check.is_service_error(r["msg"]):
         return "caido", r["msg"]
-    return "sin_datos", f"Tu sesión de {name} venció: reconectala para poder probarlo."
+    return "sin_datos", f"vencida. Reconectá {name} en el agente para probarla."
 
 
 def log_credential_check(db: Session, user_id: int, results: dict) -> None:
@@ -193,21 +193,44 @@ def run_checks(db: Session, admin_id: int) -> None:
 
 # ── Lo que muestra la pantalla ──────────────────────────────────────────────
 
+def _usage(db: Session) -> dict[str, tuple[int, int]]:
+    """Uso real de las últimas 24 h, por servicio: (salieron bien, fallaron)."""
+    day_ago = _now() - timedelta(hours=24)
+    jobs = dict(db.query(DownloadJob.status, func.count(DownloadJob.id))
+                .filter(DownloadJob.status.in_((JobStatus.completed, JobStatus.failed)),
+                        DownloadJob.updated_at >= day_ago)
+                .group_by(DownloadJob.status).all())
+    syncs: dict[str, list[int]] = defaultdict(lambda: [0, 0])
+    for src, typ, n in (db.query(AppEvent.source, AppEvent.event_type, func.count(AppEvent.id))
+                        .filter(AppEvent.event_type.in_(("sync_completed", "sync_failed")),
+                                AppEvent.created_at >= day_ago)
+                        .group_by(AppEvent.source, AppEvent.event_type).all()):
+        syncs[src][typ == "sync_failed"] += n
+    # ponytail: los trabajos no guardan la tienda; todas las descargas cuentan para Muzpa.
+    out = {"muzpa": (jobs.get(JobStatus.completed, 0), jobs.get(JobStatus.failed, 0))}
+    out.update({src: (ok, bad) for src, (ok, bad) in syncs.items()})
+    return out
+
+
+def _last_success(db: Session, svc: str) -> datetime | None:
+    if svc == "muzpa":
+        return db.query(func.max(DownloadJob.updated_at)).filter(
+            DownloadJob.status == JobStatus.completed).scalar()
+    return db.query(func.max(AppEvent.created_at)).filter(
+        AppEvent.event_type == "sync_completed", AppEvent.source == svc).scalar()
+
+
 def service_status(db: Session) -> list[dict]:
-    """Una tarjeta por servicio: última prueba + señales de las últimas 24 h."""
+    """
+    Una tarjeta por servicio. El veredicto sale del uso real de las últimas 24 h
+    (descargas e importaciones de los alumnos); sin uso, queda el de la prueba
+    de sesión del admin, que sólo dice que la página responde.
+    """
     since_month = _now() - timedelta(days=30)
     checks = (db.query(AppEvent)
               .filter(AppEvent.event_type == "health_check", AppEvent.created_at >= since_month)
               .order_by(AppEvent.created_at.desc()).all())
-
-    day_ago = _now() - timedelta(hours=24)
-    muzpa_failed = (db.query(func.count(DownloadJob.id))
-                    .filter(DownloadJob.status == JobStatus.failed,
-                            DownloadJob.updated_at >= day_ago).scalar())
-    sync_failed = dict(db.query(AppEvent.source, func.count(AppEvent.id))
-                       .filter(AppEvent.event_type == "sync_failed",
-                               AppEvent.created_at >= day_ago)
-                       .group_by(AppEvent.source).all())
+    usage = _usage(db)
 
     cards = []
     for svc, name in SERVICES.items():
@@ -215,20 +238,28 @@ def service_status(db: Session) -> list[dict]:
         last = mine[0] if mine else None
         worked = next((e for e in mine if e.context_json.get("status") in ("ok", "con_fallas")), None)
         status = last.context_json["status"] if last else "sin_datos"
-        signals = []
-        if svc == "muzpa" and muzpa_failed:
-            signals.append(f"{_n(muzpa_failed, 'descarga falló', 'descargas fallaron')} "
-                           "porque Muzpa no respondió (24 h)")
-        if sync_failed.get(svc):
-            signals.append(f"{_n(sync_failed[svc], 'importación fallida', 'importaciones fallidas')} (24 h)")
-        if signals and status == "ok":
-            status = "con_fallas"  # respondía al probar, pero en el uso real falla
+        detail = last.context_json.get("detail") if last else "Todavía no se probó."
+        ok, bad = usage.get(svc, (0, 0))
+        what = ("descargas", "completadas") if svc == "muzpa" else ("importaciones", "completadas")
+        if ok or bad:
+            if bad > ok:
+                status = "caido"
+            elif bad:
+                status = "con_fallas"
+            elif status != "caido":
+                status = "ok"
+            use = f"Últimas 24 h: {ok} {what[1]}, {bad} {'falló' if bad == 1 else 'fallaron'}."
+        elif svc in ("muzpa", "soundcloud", "youtube"):
+            # Sin uso no hay forma de saber si descargar anda: se dice, no se inventa.
+            use = (f"Sin {what[0]} en las últimas 24 h (la última salió bien "
+                   f"{ago(_last_success(db, svc))}). Sólo se sabe que la página responde.")
+        else:
+            use = ""
         cards.append({
-            "service": svc, "name": name, "status": status,
-            "detail": last.context_json.get("detail") if last else "Todavía no se probó.",
+            "service": svc, "name": name, "status": status, "detail": detail, "use": use,
+            "own_account": svc not in ("discogs", "cosine"),
             "tested": ago(last.created_at) if last else "nunca",
             "worked": ago(worked.created_at) if worked else "sin registro",
-            "signals": signals,
         })
     return cards
 
@@ -315,6 +346,9 @@ def user_problems(db: Session) -> list[dict]:
         if not (us and (us.soundcloud_oauth_token or us.youtube_token_json)):
             add(uid, "No conectó SoundCloud ni YouTube: no puede importar",
                 "No puede importar: no conectó SoundCloud ni YouTube")
+        if not users[uid].email:
+            add(uid, "Sin email: no puede recuperar la contraseña",
+                "No puede recuperar la contraseña: no tiene email cargado")
 
     # La última revisión de cuentas de cada alumno.
     latest = (db.query(AppEvent.user_id, func.max(AppEvent.id).label("last_id"))

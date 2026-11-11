@@ -127,6 +127,7 @@ def test_detecta_los_problemas_de_un_alumno(db_session, client):
     texto = probs["dj"]
     assert "No puede descargar" in texto
     assert "No puede importar" in texto
+    assert "no tiene email cargado" in texto
     assert "Falló la importación de SoundCloud" in texto
     assert "No se encontró el 83 %" in texto
     assert "el agente no se abre" in texto
@@ -181,3 +182,28 @@ def test_cosine_sin_key_aparece_caido(db_session, client, monkeypatch):
     health.run_checks(db_session, _tester(db_session).id)
     cosine = next(s for s in health.service_status(db_session) if s["service"] == "cosine")
     assert cosine["status"] == "caido" and "COSINE_API_KEY" in cosine["detail"]
+
+
+def _card(db, svc):
+    return next(s for s in health.service_status(db) if s["service"] == svc)
+
+
+def test_el_veredicto_sale_de_las_descargas_reales(db_session, client):
+    uid = _tester(db_session).id
+    # La prueba de sesión dio bien, pero en el uso real fallan casi todas.
+    db_session.add(AppEvent(event_type="health_check", message="x", source="muzpa",
+                            context_json={"service": "muzpa", "status": "ok", "detail": "válida."}))
+    for i, st in enumerate([JobStatus.completed] + [JobStatus.failed] * 3):
+        db_session.add(DownloadJob(user_id=uid, review_id=4000 + i, query="q", status=st))
+    db_session.commit()
+    card = _card(db_session, "muzpa")
+    assert card["status"] == "caido" and "1 completadas, 3 fallaron" in card["use"]
+
+
+def test_sin_uso_lo_dice_en_vez_de_inventar(db_session, client):
+    db_session.add(DownloadJob(user_id=_tester(db_session).id, review_id=5000, query="q",
+                               status=JobStatus.completed, updated_at=NOW - timedelta(days=2)))
+    db_session.commit()
+    use = _card(db_session, "muzpa")["use"]
+    assert "Sin descargas en las últimas 24 h" in use and "hace 2 días" in use
+    assert _card(db_session, "discogs")["use"] == ""
