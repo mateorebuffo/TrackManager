@@ -2,10 +2,14 @@
 Analítica del admin: salud del sistema y alumnos con problemas.
 
 Todo sale de tablas que ya existen. Lo único que sale a la red es `run_checks`,
-que prueba las cuentas de cada alumno contra su servicio (los mismos chequeos
-que usa el agente) y deja el resultado como eventos `health_check` y
-`credential_check`. No hay tarea programada: corre cuando el admin abre la
-pantalla y la última prueba tiene más de 12 horas, o cuando toca "Probar ahora".
+que prueba las cuentas del admin que abre la pantalla contra cada servicio (los
+mismos chequeos que usa el agente) y deja el resultado como eventos
+`health_check`. No hay tarea programada: corre cuando el admin abre la pantalla
+y la última prueba tiene más de 12 horas, o cuando toca "Probar ahora".
+
+Las cuentas de los alumnos no se prueban desde acá: su agente ya las valida al
+abrirse, y ese resultado queda como evento `credential_check` (ver
+`log_credential_check`). De ahí sale "Sesión vencida" en cada alumno.
 """
 from __future__ import annotations
 
@@ -125,69 +129,60 @@ def is_stale(db: Session) -> bool:
     return last is None or _now() - last > STALE_AFTER
 
 
-def _classify(results: list[dict]) -> tuple[str, str]:
+def _classify(name: str, r: dict | None) -> tuple[str, str]:
     """
-    Estado de un servicio a partir de las pruebas con las cuentas de los alumnos.
-    Una sesión vencida es problema del alumno, no del servicio: el servicio respondió.
+    Estado de un servicio a partir de la prueba con la cuenta del admin.
+    Una sesión vencida no dice nada del servicio (respondió): hay que reconectar
+    la cuenta para poder probarlo.
     """
-    tested = [r for r in results if r["connected"]]
-    if not tested:
-        return "sin_datos", "Ningún alumno tiene esta cuenta conectada para probarla."
-    ok = sum(r["ok"] for r in tested)
-    down = [r for r in tested if not r["ok"] and credential_check.is_service_error(r["msg"])]
-    expired = len(tested) - ok - len(down)
-    if down and not ok:
-        return "caido", down[0]["msg"]
-    detail = f"{ok} de {len(tested)} cuentas funcionan"
-    if expired:
-        detail += f", {expired} con la sesión vencida"
-    if down:
-        return "con_fallas", f"{detail}. Falló para {len(down)}: {down[0]['msg']}"
-    return "ok", detail + "."
+    if not r or not r["connected"]:
+        return "sin_datos", f"Conectá tu cuenta de {name} en Configuración para poder probarlo."
+    if r["ok"]:
+        return "ok", "Responde con tu cuenta."
+    if credential_check.is_service_error(r["msg"]):
+        return "caido", r["msg"]
+    return "sin_datos", f"Tu sesión de {name} venció: reconectala para poder probarlo."
 
 
-def run_checks(db: Session) -> None:
-    """Probar todos los servicios con las cuentas de todos los alumnos activos."""
-    users = db.query(User).filter(User.is_active.is_(True)).all()
+def log_credential_check(db: Session, user_id: int, results: dict) -> None:
+    """Guardar la revisión de cuentas de un usuario (la usa "Alumnos con problemas")."""
+    problems = [s for s, r in results.items()
+                if r["connected"] and not r["ok"] and not credential_check.is_service_error(r["msg"])]
+    log_service.log_event(
+        db, "credential_check",
+        f"Cuentas revisadas: {len(problems)} con la sesión vencida" if problems
+        else "Cuentas revisadas: sin problemas",
+        user_id=user_id, context={"results": results},
+    )
 
-    # La base se lee en este hilo; sólo las requests van en paralelo.
-    by_user: dict[int, dict] = {}
-    tasks = []
-    for u in users:
-        known, pending = credential_check.plan_checks(db, u.id)
-        by_user[u.id] = known
-        tasks += [(u.id, svc, run) for svc, run, _extra in pending]
 
+def run_checks(db: Session, admin_id: int) -> None:
+    """Probar todos los servicios con las cuentas del admin (unas pocas requests)."""
+    # ponytail: una sola cuenta de prueba; si la del admin falla por algo suyo,
+    # el servicio queda "sin datos" hasta que la reconecte.
+    known, pending = credential_check.plan_checks(db, admin_id)
+    results = dict(known)
     with ThreadPoolExecutor(max_workers=4) as pool:
-        futures = [(uid, svc, pool.submit(run)) for uid, svc, run in tasks]
-        # Servicios sin cuenta de alumno: una sola prueba con la de la app.
+        futures = [(svc, pool.submit(run)) for svc, run, _extra in pending]
+        # Servicios sin cuenta de usuario: se prueban con la de la app.
         pings = {svc: pool.submit(fn) for svc, fn in
                  (("discogs", _ping_discogs), ("cosine", _ping_cosine))}
-        for uid, svc, fut in futures:
+        for svc, fut in futures:
             try:
                 ok, msg = fut.result()
             except Exception as e:  # un servicio raro no tiene que tirar la pantalla
-                logger.exception("Health check %s failed for user %s", svc, uid)
+                logger.exception("Health check %s failed", svc)
                 ok, msg = False, f"Error de conexión: {e}"
-            by_user[uid][svc] = {"ok": ok, "connected": True, "msg": msg}
+            results[svc] = {"ok": ok, "connected": True, "msg": msg}
         pinged = {svc: fut.result() for svc, fut in pings.items()}
 
-    for uid, results in by_user.items():
-        problems = [s for s, r in results.items()
-                    if r["connected"] and not r["ok"] and not credential_check.is_service_error(r["msg"])]
-        log_service.log_event(
-            db, "credential_check",
-            f"Cuentas revisadas: {len(problems)} con la sesión vencida" if problems
-            else "Cuentas revisadas: sin problemas",
-            user_id=uid, context={"results": results},
-        )
-
+    log_credential_check(db, admin_id, results)
     for svc, name in SERVICES.items():
         if svc in pinged:
             ok, msg = pinged[svc]
             status, detail = ("ok", "Responde.") if ok else ("caido", msg)
         else:
-            status, detail = _classify([r[svc] for r in by_user.values() if svc in r])
+            status, detail = _classify(name, results.get(svc))
         level = {"caido": "error", "con_fallas": "warning"}.get(status, "info")
         log_service.log_event(
             db, "health_check", f"{name}: {detail}", level=level,
@@ -299,18 +294,27 @@ def recent_errors(db: Session) -> list[dict]:
 
 
 def user_problems(db: Session) -> list[dict]:
-    """Una fila por alumno que tiene al menos un problema, con la lista de cuáles."""
+    """
+    Una fila por alumno que tiene al menos un problema. Cada problema guarda su
+    grupo (para la vista "problema → alumnos"), si es urgente, el texto completo
+    (para la búsqueda por alumno) y el dato propio del alumno dentro del grupo.
+    """
     users = {u.id: u for u in db.query(User).filter(User.is_active.is_(True)).all()}
-    problems: dict[int, list[str]] = defaultdict(list)
+    problems: dict[int, list[dict]] = defaultdict(list)
     now = _now()
+
+    def add(uid: int, group: str, msg: str, detail: str = "", urgent: bool = False) -> None:
+        problems[uid].append({"group": group, "msg": msg, "detail": detail, "urgent": urgent})
 
     settings = {s.user_id: s for s in db.query(UserSettings).all()}
     for uid in users:
         us = settings.get(uid)
         if not (us and (us.muzpa_sess or us.deezer_arl)):
-            problems[uid].append("No puede descargar: no conectó Muzpa ni Deezer")
+            add(uid, "No conectó Muzpa ni Deezer: no puede descargar",
+                "No puede descargar: no conectó Muzpa ni Deezer")
         if not (us and (us.soundcloud_oauth_token or us.youtube_token_json)):
-            problems[uid].append("No puede importar: no conectó SoundCloud ni YouTube")
+            add(uid, "No conectó SoundCloud ni YouTube: no puede importar",
+                "No puede importar: no conectó SoundCloud ni YouTube")
 
     # La última revisión de cuentas de cada alumno.
     latest = (db.query(AppEvent.user_id, func.max(AppEvent.id).label("last_id"))
@@ -319,14 +323,16 @@ def user_problems(db: Session) -> list[dict]:
     for ev in db.query(AppEvent).join(latest, AppEvent.id == latest.c.last_id).all():
         for svc, r in ((ev.context_json or {}).get("results") or {}).items():
             if r.get("connected") and not r.get("ok") and not credential_check.is_service_error(r.get("msg", "")):
-                problems[ev.user_id].append(f"Sesión vencida en {SERVICES.get(svc, svc)}")
+                msg = f"Sesión vencida en {SERVICES.get(svc, svc)}"
+                add(ev.user_id, msg, msg, urgent=True)
 
     week = now - timedelta(days=7)
     for uid, src, n in (db.query(AppEvent.user_id, AppEvent.source, func.count(AppEvent.id))
                         .filter(AppEvent.event_type == "sync_failed", AppEvent.created_at >= week)
                         .group_by(AppEvent.user_id, AppEvent.source).all()):
         name = SERVICES.get(src, src or "una fuente")
-        problems[uid].append(f"Falló la importación de {name} ({n} {'vez' if n == 1 else 'veces'} en 7 días)")
+        times = f"{n} {'vez' if n == 1 else 'veces'} en 7 días"
+        add(uid, f"Falló la importación de {name}", f"Falló la importación de {name} ({times})", times)
 
     month = now - timedelta(days=30)
     finished = (JobStatus.completed, JobStatus.not_found, JobStatus.failed,
@@ -341,24 +347,46 @@ def user_problems(db: Session) -> list[dict]:
             misses[uid] += n
     for uid, total in totals.items():
         if total >= NOT_FOUND_MIN_JOBS and misses[uid] / total > NOT_FOUND_RATIO:
-            problems[uid].append(
-                f"No se encontró el {round(100 * misses[uid] / total)} % de sus descargas (30 días)")
+            pct = f"{round(100 * misses[uid] / total)} %"
+            add(uid, f"No se encuentra lo que pide (más del {round(100 * NOT_FOUND_RATIO)} %, 30 días)",
+                f"No se encontró el {pct} de sus descargas (30 días)", f"{pct} sin encontrar")
 
     for a in agents(db)["forgotten"]:
-        problems[a["user_id"]].append(f"{a['pending']} tracks esperando y el agente no se abre ({a['seen']})")
+        add(a["user_id"], "Tracks esperando y el agente cerrado",
+            f"{a['pending']} tracks esperando y el agente no se abre ({a['seen']})",
+            f"{a['pending']} tracks, se conectó {a['seen']}", urgent=True)
 
     for uid, n in (db.query(UserReport.user_id, func.count(UserReport.id))
                    .filter(UserReport.status == ReportStatus.open)
                    .group_by(UserReport.user_id).all()):
-        problems[uid].append(f"{n} reporte{'s' if n > 1 else ''} sin resolver")
+        msg = f"{n} reporte{'s' if n > 1 else ''} sin resolver"
+        add(uid, "Reportes sin resolver", msg, msg, urgent=True)
 
     for uid, n in Counter(j["user_id"] for j in stuck_jobs(db)).items():
-        problems[uid].append(f"{n} descarga{'s' if n > 1 else ''} trabada{'s' if n > 1 else ''}")
+        msg = f"{n} descarga{'s' if n > 1 else ''} trabada{'s' if n > 1 else ''}"
+        add(uid, "Descargas trabadas", msg, msg, urgent=True)
 
     return sorted(
-        ({"user": users[uid].username, "problems": p} for uid, p in problems.items() if uid in users),
+        ({"user": users[uid].username, "problems": [i["msg"] for i in p], "items": p}
+         for uid, p in problems.items() if uid in users),
         key=lambda r: (-len(r["problems"]), r["user"]),
     )
+
+
+def problem_groups(rows: list[dict]) -> list[dict]:
+    """
+    La misma información dada vuelta: un renglón por problema con sus alumnos.
+    Con muchos alumnos los conteos escalan y los nombres no: primero lo urgente
+    (lo que bloquea al alumno o espera al admin), después lo informativo.
+    """
+    groups: dict[str, dict] = {}
+    for row in rows:
+        for i in row["items"]:
+            g = groups.setdefault(i["group"], {"label": i["group"], "urgent": i["urgent"], "users": []})
+            g["users"].append({"user": row["user"], "detail": i["detail"]})
+    for g in groups.values():
+        g["users"].sort(key=lambda u: u["user"].lower())
+    return sorted(groups.values(), key=lambda g: (not g["urgent"], -len(g["users"]), g["label"]))
 
 
 def report_summary(db: Session) -> dict:
@@ -383,12 +411,16 @@ def report_summary(db: Session) -> dict:
 
 
 def dashboard(db: Session) -> dict:
+    problems = user_problems(db)
     return {
         "services": service_status(db),
         "last_run": ago(last_run(db)),
         "agents": agents(db),
         "stuck": stuck_jobs(db),
         "errors": recent_errors(db),
-        "problems": user_problems(db),
+        "problems": problems,
+        "groups": problem_groups(problems),
+        "students": sorted((u for (u,) in db.query(User.username).filter(User.is_active.is_(True))),
+                           key=str.lower),
         "reports": report_summary(db),
     }

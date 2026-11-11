@@ -58,35 +58,49 @@ def test_un_alumno_no_entra(client, db_session):
 
 def test_probar_ahora_respeta_el_limite(client, monkeypatch):
     monkeypatch.setattr(analytics, "_probe_limiter", SimpleNamespace(acquire=lambda uid: False))
-    monkeypatch.setattr(health, "run_checks", lambda db: pytest.fail("no tenía que probar"))
+    monkeypatch.setattr(health, "run_checks", lambda db, uid: pytest.fail("no tenía que probar"))
     r = client.post("/analitica/probar", follow_redirects=False)
     assert r.status_code == 303 and "espera=1" in r.headers["location"]
 
 
-@pytest.mark.parametrize("results,esperado", [
-    ([], "sin_datos"),
-    ([{"connected": False, "ok": False, "msg": "Sin conectar."}], "sin_datos"),
-    ([{"connected": True, "ok": False, "msg": "Error de conexión: timeout"}], "caido"),
-    ([{"connected": True, "ok": True, "msg": "ok"},
-      {"connected": True, "ok": False, "msg": "Respuesta inesperada: 503."}], "con_fallas"),
-    # Una sesión vencida es problema del alumno: el servicio respondió.
-    ([{"connected": True, "ok": False, "msg": "Sesión expirada o inválida. Reconectá Muzpa."}], "ok"),
+@pytest.mark.parametrize("result,esperado", [
+    (None, "sin_datos"),
+    ({"connected": False, "ok": False, "msg": "Sin conectar."}, "sin_datos"),
+    ({"connected": True, "ok": False, "msg": "Error de conexión: timeout"}, "caido"),
+    ({"connected": True, "ok": True, "msg": "ok"}, "ok"),
+    # Una sesión vencida no dice nada del servicio: hay que reconectar para probarlo.
+    ({"connected": True, "ok": False, "msg": "Sesión expirada o inválida. Reconectá Muzpa."}, "sin_datos"),
 ])
-def test_distingue_servicio_caido_de_sesion_vencida(results, esperado):
-    assert health._classify(results)[0] == esperado
+def test_distingue_servicio_caido_de_sesion_vencida(result, esperado):
+    assert health._classify("Muzpa", result)[0] == esperado
 
 
-def test_la_sesion_vencida_aparece_en_el_alumno(db_session, client, monkeypatch):
+def test_la_prueba_usa_solo_las_cuentas_del_admin(db_session, client, monkeypatch, sin_red):
+    probadas = []
+    monkeypatch.setattr(credential_check, "plan_checks",
+                        lambda db, uid: (probadas.append(uid) or {}, []))
+    dj = User(username="dj", hashed_password="x", is_admin=False)
+    db_session.add(dj)
+    db_session.commit()
+    health.run_checks(db_session, _tester(db_session).id)
+    assert probadas == [_tester(db_session).id]
+
+
+def test_la_sesion_vencida_llega_desde_el_agente(db_session, client, monkeypatch):
+    """El agente valida sus cuentas al abrirse; la analítica no las vuelve a probar."""
+    from app.models.user_settings import UserSettings
     monkeypatch.setattr(credential_check, "check",
                         lambda svc, v: (False, "Token expirado o inválido. Reconectá SoundCloud."))
-    monkeypatch.setattr(health, "_ping_discogs", lambda: (True, "Responde"))
-    monkeypatch.setattr(health, "_ping_cosine", lambda: (True, "Responde"))
-    health.run_checks(db_session)
+    db_session.query(UserSettings).filter_by(user_id=_tester(db_session).id).one().soundcloud_oauth_token = "viejo"
+    db_session.commit()
+    r = client.get("/api/me/credentials", headers={"Authorization": "Bearer tok-test"})
+    assert r.status_code == 200 and r.json()["soundcloud"]["ok"] is False
 
     probs = {p["user"]: p["problems"] for p in health.user_problems(db_session)}
     assert "Sesión vencida en SoundCloud" in probs["tester"]
-    sc = next(s for s in health.service_status(db_session) if s["service"] == "soundcloud")
-    assert sc["status"] == "ok"
+    # Con un servicio filtrado (la ventana de login pollea así) no se guarda nada.
+    client.get("/api/me/credentials?service=muzpa", headers={"Authorization": "Bearer tok-test"})
+    assert db_session.query(AppEvent).filter_by(event_type="credential_check").count() == 1
 
 
 def test_detecta_los_problemas_de_un_alumno(db_session, client):
@@ -120,6 +134,23 @@ def test_detecta_los_problemas_de_un_alumno(db_session, client):
     assert "1 descarga trabada" in texto
     assert [j["query"] for j in health.stuck_jobs(db_session)] == ["trabada"]
 
+    # Dado vuelta: un renglón por problema, lo urgente primero.
+    groups = health.problem_groups(health.user_problems(db_session))
+    by_label = {g["label"]: g for g in groups}
+    trabadas = by_label["Descargas trabadas"]
+    assert trabadas["urgent"] and trabadas["users"] == [{"user": "dj", "detail": "1 descarga trabada"}]
+    assert by_label["Falló la importación de SoundCloud"]["users"][0]["detail"] == "1 vez en 7 días"
+    urgent = [g["urgent"] for g in groups]
+    assert urgent == sorted(urgent, reverse=True)
+    # "No conectó Muzpa ni Deezer" junta a los dos alumnos en un solo renglón.
+    assert {u["user"] for u in by_label["No conectó Muzpa ni Deezer: no puede descargar"]["users"]} >= {"dj", "tester"}
+
+
+def test_buscar_un_alumno(client, db_session, sin_red):
+    r = client.get("/analitica?alumno=TESTER")
+    assert r.status_code == 200 and "No puede descargar" in r.text
+    assert "ningún alumno activo llamado" in client.get("/analitica?alumno=nadie").text
+
 
 def test_el_agente_avisa_que_esta_vivo(client, db_session):
     assert _tester(db_session).agent_seen_at is None
@@ -147,6 +178,6 @@ def test_cosine_sin_key_aparece_caido(db_session, client, monkeypatch):
     monkeypatch.setattr(credential_check, "check", lambda svc, v: (True, "Cuenta conectada"))
     monkeypatch.setattr(health, "_ping_discogs", lambda: (True, "Responde"))
     monkeypatch.setattr(health.settings, "cosine_api_key", "")  # sin key no sale a la red
-    health.run_checks(db_session)
+    health.run_checks(db_session, _tester(db_session).id)
     cosine = next(s for s in health.service_status(db_session) if s["service"] == "cosine")
     assert cosine["status"] == "caido" and "COSINE_API_KEY" in cosine["detail"]

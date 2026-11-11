@@ -20,6 +20,21 @@
   .hc-label { font-size: .78rem; font-weight: 600; color: var(--hc-text); }
   .hc-meta { font-size: .75rem; color: var(--tm-muted); }
   .hc-num { font-size: 1.8rem; font-weight: 700; line-height: 1; }
+  /* Alumnos con problemas, agrupados por problema. */
+  .hc-group { border-top: 1px solid var(--tm-border); }
+  .hc-group:first-of-type { border-top: 0; }
+  .hc-group summary { display: flex; align-items: center; gap: .5rem; padding: .55rem 0;
+                      font-size: .85rem; font-weight: 600; cursor: pointer; }
+  .hc-group summary .bi { color: var(--tm-warning-text); }
+  .hc-group.hc-info summary { font-weight: 500; color: var(--tm-muted); }
+  .hc-group.hc-info summary .bi { color: var(--tm-muted); }
+  .hc-group summary::-webkit-details-marker { display: none; }
+  .hc-group summary .hc-chev { font-size: .7rem; color: var(--tm-muted); transition: transform .15s; }
+  .hc-group[open] .hc-chev { transform: rotate(180deg); }
+  .hc-count { margin-left: auto; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .hc-users { columns: 2 14rem; font-size: .8rem; padding-left: 1.6rem; margin-bottom: .6rem; }
+  .hc-users li { break-inside: avoid; }
+  .hc-found { font-size: .85rem; padding: .6rem .75rem; border-radius: var(--tm-radius); background: var(--tm-bg); }
   .hc-section { font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
                 color: var(--tm-muted); margin: 2rem 0 .75rem; }
 </style>
@@ -83,7 +98,7 @@
             {% endfor %}
           </ul>
         {% else %}
-          <div style="font-size:.8rem" style="color:var(--tm-success-text);">Ningún alumno tiene descargas esperando a un agente cerrado.</div>
+          <div style="font-size:.8rem;color:var(--tm-success-text);">Ningún alumno tiene descargas esperando a un agente cerrado.</div>
         {% endif %}
       </div>
     </div>
@@ -138,29 +153,53 @@
 <div class="row g-3">
   <div class="col-12 col-xl-7">
     <div class="card h-100">
-      {% if problems %}
-      <div class="table-responsive">
-        <table class="table table-hover mb-0">
-          <thead class="table-dark">
-            <tr><th style="width:160px">Alumno</th><th>Qué le pasa</th></tr>
-          </thead>
-          <tbody>
-            {% for p in problems %}
-            <tr>
-              <td class="fw-semibold">{{ p.user }}</td>
-              <td>
-                {% for msg in p.problems %}
-                  <span class="badge s-pending border me-1 mb-1" style="font-weight:500;white-space:normal;text-align:left">{{ msg }}</span>
-                {% endfor %}
-              </td>
-            </tr>
+      <div class="card-body">
+        {# Buscar un alumno puntual ("me escribió Juan, ¿qué le pasa?"). #}
+        <form method="GET" action="/analitica" class="d-flex gap-2 mb-3">
+          <input type="search" name="alumno" list="hc-alumnos" value="{{ buscado.query if buscado else '' }}"
+                 class="form-control form-control-sm" style="max-width:280px"
+                 placeholder="Buscar alumno…" aria-label="Buscar alumno" autocomplete="off">
+          <datalist id="hc-alumnos">{% for u in students %}<option value="{{ u }}">{% endfor %}</datalist>
+          <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-search"></i> Buscar</button>
+        </form>
+
+        {% if buscado %}
+        <div class="hc-found mb-3">
+          {% if not buscado.name %}
+            No hay ningún alumno activo llamado <strong>{{ buscado.query }}</strong>.
+          {% elif buscado.problems %}
+            <div class="fw-semibold mb-1">{{ buscado.name }}</div>
+            {% for msg in buscado.problems %}
+              <span class="badge s-pending border me-1 mb-1" style="font-weight:500;white-space:normal;text-align:left">{{ msg }}</span>
             {% endfor %}
-          </tbody>
-        </table>
+          {% else %}
+            <span style="color:var(--tm-success-text);"><strong>{{ buscado.name }}</strong> no tiene problemas detectados.</span>
+          {% endif %}
+          <a href="/analitica" class="hc-meta ms-2">Limpiar</a>
+        </div>
+        {% endif %}
+
+        {% if groups %}
+          {# Problema → alumnos: los conteos escalan, los nombres se abren sólo si hace falta. #}
+          {% for g in groups %}
+          <details class="hc-group{% if not g.urgent %} hc-info{% endif %}">
+            <summary>
+              <i class="bi {{ 'bi-exclamation-triangle-fill' if g.urgent else 'bi-circle' }}" aria-hidden="true"></i>
+              <span>{{ g.label }}</span>
+              <span class="hc-count">{{ g.users | length }} alumno{{ 's' if g.users | length != 1 }}</span>
+              <i class="bi bi-chevron-down hc-chev" aria-hidden="true"></i>
+            </summary>
+            <ul class="hc-users">
+              {% for u in g.users %}
+              <li><a href="/analitica?alumno={{ u.user | urlencode }}" class="text-decoration-none">{{ u.user }}</a>{% if u.detail %} <span class="hc-meta">— {{ u.detail }}</span>{% endif %}</li>
+              {% endfor %}
+            </ul>
+          </details>
+          {% endfor %}
+        {% else %}
+          <div style="color:var(--tm-success-text);">Ningún alumno tiene problemas detectados.</div>
+        {% endif %}
       </div>
-      {% else %}
-      <div class="card-body" style="color:var(--tm-success-text);">Ningún alumno tiene problemas detectados.</div>
-      {% endif %}
     </div>
   </div>
 

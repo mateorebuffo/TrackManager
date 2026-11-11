@@ -128,8 +128,14 @@ def get_credential_status(
     Muzpa, Deezer y SoundCloud — ~40 requests por minuto a cada uno, al pedo y
     buen camino para que te bloqueen.
     """
-    from app.services import credential_check
-    return credential_check.credential_status(db, user.id, service)
+    from app.services import credential_check, health
+    status = credential_check.credential_status(db, user.id, service)
+    if not service:
+        # El agente las valida al abrirse: la analítica usa este resultado para
+        # "Sesión vencida" en vez de volver a probar las cuentas de cada alumno.
+        health.log_credential_check(db, user.id, status)
+        db.commit()
+    return status
 
 
 @router.post("/api/me/credentials")
