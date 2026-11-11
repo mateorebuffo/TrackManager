@@ -147,10 +147,11 @@ def test_detecta_los_problemas_de_un_alumno(db_session, client):
     assert {u["user"] for u in by_label["No conectó Muzpa ni Deezer: no puede descargar"]["users"]} >= {"dj", "tester"}
 
 
-def test_buscar_un_alumno(client, db_session, sin_red):
-    r = client.get("/analitica?alumno=TESTER")
-    assert r.status_code == 200 and "No puede descargar" in r.text
-    assert "ningún alumno activo llamado" in client.get("/analitica?alumno=nadie").text
+def test_la_ficha_del_alumno(client, db_session, sin_red):
+    r = client.get("/debug/events?user=TESTER")
+    assert r.status_code == 200 and "Problemas detectados" in r.text
+    assert "No puede descargar" in r.text
+    assert "Problemas detectados" not in client.get("/debug/events").text
 
 
 def test_el_agente_avisa_que_esta_vivo(client, db_session):
@@ -207,3 +208,16 @@ def test_sin_uso_lo_dice_en_vez_de_inventar(db_session, client):
     use = _card(db_session, "muzpa")["use"]
     assert "Sin descargas en las últimas 24 h" in use and "hace 2 días" in use
     assert _card(db_session, "discogs")["use"] == ""
+
+
+def test_el_log_filtra_por_alumno(db_session, client):
+    dj = User(username="Benja", hashed_password="x")
+    db_session.add(dj)
+    db_session.commit()
+    db_session.add(AppEvent(event_type="sync_failed", message="evento-de-benja", user_id=dj.id))
+    db_session.add(AppEvent(event_type="sync_failed", message="evento-del-sistema"))
+    db_session.commit()
+    r = client.get("/debug/events?user=benja")
+    assert "evento-de-benja" in r.text and "evento-del-sistema" not in r.text
+    r = client.get("/debug/events?user=nadie")
+    assert "evento-de-benja" not in r.text and "evento-del-sistema" not in r.text

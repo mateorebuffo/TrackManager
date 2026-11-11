@@ -49,6 +49,7 @@ def debug_events(
     request: Request,
     level: str | None = Query(default=None),
     event_type: str | None = Query(default=None),
+    user: str | None = Query(default=None),
     limit: int = Query(default=100, le=500),
     cleanup: int | None = Query(default=None),
     db: Session = Depends(get_db),
@@ -61,6 +62,17 @@ def debug_events(
         q = q.filter(AppEvent.level == level)
     if event_type:
         q = q.filter(AppEvent.event_type == event_type)
+    users = dict(db.query(User.id, User.username).order_by(User.username).all())
+    uid = None
+    if user:
+        uid = next((i for i, name in users.items() if name.lower() == user.strip().lower()), None)
+        q = q.filter(AppEvent.user_id == (uid or -1))  # si no existe, ningún evento (no los del sistema)
+    # Con un alumno elegido la página es "su ficha": sus problemas arriba, su log abajo.
+    student = None
+    if uid:
+        from app.services import health
+        row = next((r for r in health.user_problems(db) if r["user"] == users[uid]), None)
+        student = {"name": users[uid], "problems": sorted(row["items"], key=lambda i: not i["urgent"]) if row else []}
     events = q.order_by(AppEvent.created_at.desc()).limit(limit).all()
 
     event_types = [
@@ -76,6 +88,9 @@ def debug_events(
             "event_types": event_types,
             "active_level": level or "",
             "active_type": event_type or "",
+            "active_user": user or "",
+            "student": student,
+            "users": users,
             "limit": limit,
             "cleanup_deleted": cleanup,
         },

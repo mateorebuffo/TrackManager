@@ -4,18 +4,46 @@
 {% block content %}
 <div class="d-flex align-items-end gap-3 mb-4 flex-wrap">
   <div>
+    {% if student %}
+    <a href="/analitica" style="font-size:.8rem"><i class="bi bi-arrow-left"></i> Analítica</a>
+    <h1 class="tm-page-title">{{ student.name }}</h1>
+    <p class="tm-page-sub">Sus problemas y todo lo que registró el sistema sobre este alumno.</p>
+    {% else %}
     <h1 class="tm-page-title">Logs</h1>
     <p class="tm-page-sub">Eventos del sistema. Retención: info 30 días · warning 60 · error 180.</p>
+    {% endif %}
   </div>
+  {% if not student %}
   <form method="POST" action="/debug/cleanup" class="mb-0 ms-auto"
         onsubmit="return confirmSubmit(this, 'Se borran los eventos que ya pasaron su tiempo de retención.', {title: '¿Limpiar expirados?', label: 'Limpiar', danger: true})">
     <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash3"></i> Limpiar expirados</button>
   </form>
+  {% endif %}
 </div>
 
 {% if cleanup_deleted is not none %}
 <div class="alert alert-success py-2 mb-3">
   Limpieza completada: <strong>{{ cleanup_deleted }}</strong> evento(s) eliminado(s).
+</div>
+{% endif %}
+
+{% if student %}
+<div class="card mb-3">
+  <div class="card-header">Problemas detectados</div>
+  <div class="card-body py-2">
+    {% for p in student.problems %}
+    <div class="d-flex align-items-center gap-2 py-1" style="font-size:.85rem">
+      <i class="bi {{ 'bi-exclamation-triangle-fill' if p.urgent else 'bi-circle' }}"
+         style="color:{{ 'var(--tm-warning-text)' if p.urgent else 'var(--tm-muted)' }}" aria-hidden="true"></i>
+      <span>{{ p.msg }}</span>
+      {% if p.event %}
+        <a href="/debug/events?user={{ student.name | urlencode }}&event_type={{ p.event }}" class="ms-auto text-decoration-none" style="font-size:.78rem;white-space:nowrap">Ver en el log <i class="bi bi-arrow-down"></i></a>
+      {% endif %}
+    </div>
+    {% else %}
+    <div style="font-size:.85rem;color:var(--tm-success-text)">No tiene problemas detectados.</div>
+    {% endfor %}
+  </div>
 </div>
 {% endif %}
 
@@ -31,6 +59,12 @@
     <option value="">Todos los tipos</option>
     {% for et in event_types %}
       <option value="{{ et }}" {% if active_type == et %}selected{% endif %}>{{ et }}</option>
+    {% endfor %}
+  </select>
+  <select name="user" class="form-select form-select-sm" style="width:auto">
+    <option value="">Todos los usuarios</option>
+    {% for name in users.values() | sort(case_sensitive=false) %}
+      <option value="{{ name }}" {% if active_user | lower == name | lower %}selected{% endif %}>{{ name }}</option>
     {% endfor %}
   </select>
   <select name="limit" class="form-select form-select-sm" style="width:auto">
@@ -73,7 +107,11 @@
           </td>
           <td style="font-size:0.78rem;font-family:monospace">{{ e.event_type }}</td>
           <td style="font-size:0.75rem;color:var(--tm-muted)">{{ e.source or "—" }}</td>
-          <td style="font-size:0.75rem;color:var(--tm-muted)">{{ e.user_id or "—" }}</td>
+          <td style="font-size:0.75rem;white-space:nowrap">
+            {% if e.user_id %}
+              <a href="/debug/events?user={{ users.get(e.user_id, e.user_id) | urlencode }}" class="text-decoration-none">{{ users.get(e.user_id, e.user_id) }}</a>
+            {% else %}<span style="color:var(--tm-muted)">—</span>{% endif %}
+          </td>
           <td style="font-size:0.75rem">
             {% if e.track_id %}
               <a href="/debug/track/{{ e.track_id }}" class="text-decoration-none">{{ e.track_id }}</a>

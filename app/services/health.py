@@ -334,8 +334,9 @@ def user_problems(db: Session) -> list[dict]:
     problems: dict[int, list[dict]] = defaultdict(list)
     now = _now()
 
-    def add(uid: int, group: str, msg: str, detail: str = "", urgent: bool = False) -> None:
-        problems[uid].append({"group": group, "msg": msg, "detail": detail, "urgent": urgent})
+    def add(uid: int, group: str, msg: str, detail: str = "", urgent: bool = False, event: str = "") -> None:
+        # event: el tipo de evento del log donde se ve el detalle (si hay uno).
+        problems[uid].append({"group": group, "msg": msg, "detail": detail, "urgent": urgent, "event": event})
 
     settings = {s.user_id: s for s in db.query(UserSettings).all()}
     for uid in users:
@@ -358,7 +359,7 @@ def user_problems(db: Session) -> list[dict]:
         for svc, r in ((ev.context_json or {}).get("results") or {}).items():
             if r.get("connected") and not r.get("ok") and not credential_check.is_service_error(r.get("msg", "")):
                 msg = f"Sesión vencida en {SERVICES.get(svc, svc)}"
-                add(ev.user_id, msg, msg, urgent=True)
+                add(ev.user_id, msg, msg, urgent=True, event="credential_check")
 
     week = now - timedelta(days=7)
     for uid, src, n in (db.query(AppEvent.user_id, AppEvent.source, func.count(AppEvent.id))
@@ -366,7 +367,8 @@ def user_problems(db: Session) -> list[dict]:
                         .group_by(AppEvent.user_id, AppEvent.source).all()):
         name = SERVICES.get(src, src or "una fuente")
         times = f"{n} {'vez' if n == 1 else 'veces'} en 7 días"
-        add(uid, f"Falló la importación de {name}", f"Falló la importación de {name} ({times})", times)
+        add(uid, f"Falló la importación de {name}", f"Falló la importación de {name} ({times})", times,
+            event="sync_failed")
 
     month = now - timedelta(days=30)
     finished = (JobStatus.completed, JobStatus.not_found, JobStatus.failed,

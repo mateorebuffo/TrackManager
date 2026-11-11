@@ -1,8 +1,7 @@
 """
 Analítica del admin: salud del sistema y alumnos con problemas.
 
-GET  /analitica         — el panel (prueba los servicios si la última prueba es vieja);
-                          ?alumno=<nombre> muestra los problemas de ese alumno
+GET  /analitica         — el panel (prueba los servicios si la última prueba es vieja)
 POST /analitica/probar  — "Probar ahora", como mucho una vez cada 5 minutos
 """
 from __future__ import annotations
@@ -34,7 +33,6 @@ def analytics_page(
     request: Request,
     probado: int | None = Query(default=None),
     espera: int | None = Query(default=None),
-    alumno: str | None = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> HTMLResponse:
@@ -43,16 +41,9 @@ def analytics_page(
     # quedan una o dos por día y nunca un golpe constante a los servicios.
     if health.is_stale(db):
         health.run_checks(db, current_user.id)
-    data = health.dashboard(db)
-    buscado = None
-    if alumno and alumno.strip():
-        q = alumno.strip().lower()
-        name = next((u for u in data["students"] if u.lower() == q), None)
-        row = next((p for p in data["problems"] if p["user"] == name), None)
-        buscado = {"query": alumno.strip(), "name": name, "problems": row["problems"] if row else []}
     return templates.TemplateResponse(
         "analytics.html",
-        {"request": request, "probado": probado, "espera": espera, "buscado": buscado, **data},
+        {"request": request, "probado": probado, "espera": espera, **health.dashboard(db)},
     )
 
 
