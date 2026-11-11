@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 from typing import Annotated
+from urllib.parse import urlencode
 
 logger = logging.getLogger(__name__)
 
@@ -44,13 +45,16 @@ def _require_admin(user: User) -> None:
 
 # ── App Events ────────────────────────────────────────────────────────────────
 
+_EVENTS_PAGE = 50  # filas por página en /debug/events
+
+
 @router.get("/events", response_class=HTMLResponse)
 def debug_events(
     request: Request,
     level: str | None = Query(default=None),
     event_type: str | None = Query(default=None),
     user: str | None = Query(default=None),
-    limit: int = Query(default=100, le=500),
+    page: int = Query(default=1, ge=1),
     cleanup: int | None = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -73,7 +77,11 @@ def debug_events(
         from app.services import health
         row = next((r for r in health.user_problems(db) if r["user"] == users[uid]), None)
         student = {"name": users[uid], "problems": sorted(row["items"], key=lambda i: not i["urgent"]) if row else []}
-    events = q.order_by(AppEvent.created_at.desc()).limit(limit).all()
+    total = q.count()
+    pages = max(1, -(-total // _EVENTS_PAGE))
+    page = min(page, pages)
+    events = (q.order_by(AppEvent.created_at.desc())
+              .offset((page - 1) * _EVENTS_PAGE).limit(_EVENTS_PAGE).all())
 
     event_types = [
         row[0]
@@ -91,7 +99,12 @@ def debug_events(
             "active_user": user or "",
             "student": student,
             "users": users,
-            "limit": limit,
+            "page": page,
+            "pages": pages,
+            "page_size": _EVENTS_PAGE,
+            "count": total,
+            "base_qs": urlencode({k: v for k, v in
+                                  (("level", level), ("event_type", event_type), ("user", user)) if v}),
             "cleanup_deleted": cleanup,
         },
     )

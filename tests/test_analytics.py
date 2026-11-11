@@ -221,3 +221,15 @@ def test_el_log_filtra_por_alumno(db_session, client):
     assert "evento-de-benja" in r.text and "evento-del-sistema" not in r.text
     r = client.get("/debug/events?user=nadie")
     assert "evento-de-benja" not in r.text and "evento-del-sistema" not in r.text
+
+
+def test_el_log_pagina_de_a_50(db_session, client):
+    for i in range(60):
+        db_session.add(AppEvent(event_type="sync_started", message=f"ev-{i:02d}",
+                                created_at=NOW - timedelta(minutes=i)))
+    db_session.commit()
+    r1 = client.get("/debug/events?event_type=sync_started")
+    assert "ev-00" in r1.text and "ev-49" in r1.text and "ev-50" not in r1.text
+    assert "Página 1 de 2" in r1.text and "event_type=sync_started&page=2" in r1.text
+    r2 = client.get("/debug/events?event_type=sync_started&page=2")
+    assert "ev-50" in r2.text and "ev-49" not in r2.text

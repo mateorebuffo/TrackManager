@@ -67,11 +67,6 @@
       <option value="{{ name }}" {% if active_user | lower == name | lower %}selected{% endif %}>{{ name }}</option>
     {% endfor %}
   </select>
-  <select name="limit" class="form-select form-select-sm" style="width:auto">
-    {% for n in [50, 100, 200, 500] %}
-      <option value="{{ n }}" {% if limit == n %}selected{% endif %}>{{ n }} filas</option>
-    {% endfor %}
-  </select>
   <button type="submit" class="btn btn-sm btn-outline-secondary">Filtrar</button>
   <a href="/debug/events" class="btn btn-sm btn-outline-secondary">Limpiar filtros</a>
 </form>
@@ -137,7 +132,22 @@
     </table>
   </div>
 </div>
-<p class="text-muted mt-2" style="font-size:0.78rem">Mostrando {{ events | length }} evento{{ 's' if events | length != 1 else '' }}.</p>
+{% if pages > 1 %}
+<nav class="tm-pager" aria-label="Paginación">
+  <span>Mostrando {{ (page - 1) * page_size + 1 }}–{{ [page * page_size, count] | min }} de {{ count }}</span>
+  <div class="d-flex align-items-center gap-2">
+    {% if page > 1 %}
+      <a href="/debug/events?{{ base_qs }}&page={{ page - 1 }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-chevron-left"></i> Anterior</a>
+    {% endif %}
+    <span>Página {{ page }} de {{ pages }}</span>
+    {% if page < pages %}
+      <a href="/debug/events?{{ base_qs }}&page={{ page + 1 }}" class="btn btn-outline-secondary btn-sm">Siguiente <i class="bi bi-chevron-right"></i></a>
+    {% endif %}
+  </div>
+</nav>
+{% else %}
+<p class="text-muted mt-2" style="font-size:0.78rem">Mostrando {{ count }} evento{{ 's' if count != 1 else '' }}.</p>
+{% endif %}
 {% else %}
 <div class="tm-empty"><i class="bi bi-journal-text"></i><h2>No hay eventos</h2><p>Con estos filtros no se registró nada todavía.</p></div>
 {% endif %}
