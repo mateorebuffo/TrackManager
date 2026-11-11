@@ -7,127 +7,83 @@
   <link rel="icon" type="image/svg+xml" href="/static/icons/logo.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;700&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <style>
-    /* Pantalla dividida: a la izquierda la cabina de noche (paleta de la landing),
-       a la derecha el papel de la app. Se entra de la vidriera a la herramienta. */
+    /* La noche de la cabina (el color de la nav), sin tarjeta ni vidriera:
+       es la puerta de una herramienta, no una landing. */
     :root {
-      --ink: #0b0d17; --panel: #141727; --panel-2: #1b1f33; --line-d: #272b46;
-      --text-d: #e8e9f4; --muted-d: #9296b6; --accent-d: #8286f7;
-      --ok: #22c38e; --warn: #f5a524; --sc: #ff5500; --yt: #ff0033;
-      --paper: #f0f2f5; --card: #fff; --line: #e2e8f0; --text: #1e293b; --muted: #56657a;
-      --primary: #5558e3; --primary-h: #4338ca; --primary-vivid: #6366f1;
-      --danger-bg: #fef2f2; --danger-text: #b91c1c; --ok-bg: #ecfdf5; --ok-text: #047857;
+      --bg: #0f172a; --line: #263147; --text: #e8e9f4; --muted: #9aa3b8;
+      --field: #141d33; --primary: #5558e3; --primary-h: #4338ca; --focus: #6366f1;
+      --error: #fca5a5; --ok: #6ee7b7;
       --display: "Unbounded", "Arial Black", system-ui, sans-serif;
       --body: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
       --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
     }
     * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(400px, 1fr);
-           font: 400 0.95rem/1.55 var(--body); color: var(--text); background: var(--paper); }
+    body { margin: 0; min-height: 100vh; display: grid; grid-template-rows: auto 1fr auto; position: relative; overflow: hidden;
+           background: var(--bg); color: var(--text); font: 400 0.95rem/1.55 var(--body); }
+    header, footer { padding: 28px clamp(24px, 6vw, 96px); position: relative; z-index: 1; }
+    .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--text); text-decoration: none; font-weight: 600; }
+    .brand img { width: 26px; height: 26px; }
+    main { padding: 24px clamp(24px, 6vw, 96px); display: flex; align-items: center; justify-content: flex-end; position: relative; z-index: 1; }
 
-    /* Cabina */
-    .booth { background: var(--ink); color: var(--text-d); padding: 40px clamp(32px, 5vw, 72px);
-             display: flex; flex-direction: column; gap: 40px; }
-    .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; color: var(--text-d); text-decoration: none; }
-    .brand img { width: 30px; height: 30px; }
-    .booth-copy { margin-top: auto; display: grid; gap: 16px; max-width: 36rem; }
-    .eyebrow { font: 500 0.72rem/1 var(--mono); text-transform: uppercase; letter-spacing: 0.14em; color: var(--accent-d); margin: 0; }
-    .booth h2 { font: 700 clamp(1.7rem, 2.8vw, 2.4rem)/1.08 var(--display); letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
-    .booth h2 em { font-style: normal; color: var(--accent-d); }
-    .booth p.lede { color: var(--muted-d); margin: 0; font-size: 1rem; text-wrap: pretty; }
+    /* El vinilo: surcos con un gradiente radial repetido, el brillo con uno cónico que gira. */
+    .vinyl { position: absolute; z-index: 0; width: 120vmin; height: 120vmin; left: -42vmin; top: 50%; margin-top: -60vmin;
+             border-radius: 50%; background: repeating-radial-gradient(circle at center, #0a1020 0 1.6px, #1a2238 1.6px 3.4px);
+             box-shadow: 0 0 0 1px #1f2a44, 40px 0 120px -40px rgba(0,0,0,.8); }
+    .vinyl::before { content: ""; position: absolute; inset: 0; border-radius: 50%;
+             background: conic-gradient(from 0deg, transparent 0 18%, rgba(255,255,255,.07) 24%, transparent 30%,
+                                        transparent 56%, rgba(255,255,255,.05) 62%, transparent 68%);
+             animation: spin 24s linear infinite; }
+    .vinyl::after { content: ""; position: absolute; inset: 36%; border-radius: 50%; background: var(--primary);
+             background-image: radial-gradient(circle, var(--bg) 0 3.5%, transparent 3.6%), repeating-radial-gradient(circle, transparent 0 46%, rgba(255,255,255,.08) 46% 48%, transparent 48% 100%);
+             box-shadow: 0 0 0 2px #0a1020; }
+    .vinyl img { position: absolute; z-index: 1; left: 50%; top: 50%; width: 9vmin; transform: translate(-50%, -175%); opacity: .9; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .vinyl::before { animation: none; } }
+    @media (max-width: 760px) { .vinyl { display: none; } main { justify-content: center; } }
 
-    .mock { margin: 0 0 auto; background: var(--panel); border: 1px solid var(--line-d); border-radius: 14px; overflow: hidden; max-width: 34em; }
-    .mock-top { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: #0f1222;
-                border-bottom: 1px solid var(--line-d); font: 500 0.78rem var(--mono); color: var(--muted-d); }
-    .mock-row { display: grid; grid-template-columns: 22px 1fr auto; align-items: center; gap: 12px; padding: 10px 16px;
-                border-bottom: 1px solid var(--line-d); font: 400 0.8rem var(--mono); }
-    .mock-row:last-child { border-bottom: 0; }
-    .mock-row svg { width: 20px; height: 20px; }
-    .mock-row b { font-weight: 500; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .mock-row small { display: block; color: var(--muted-d); font-size: 0.75rem; }
-    .chip { font-size: 0.72rem; font-weight: 500; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line-d); color: var(--muted-d); }
-    .chip.done { color: var(--ok); border-color: rgba(34,195,142,.45); background: rgba(34,195,142,.1); }
-    .chip.queued { color: var(--accent-d); border-color: rgba(130,134,247,.45); background: rgba(130,134,247,.1); }
-    .chip.dup { color: var(--warn); border-color: rgba(245,165,36,.45); background: rgba(245,165,36,.1); }
-    .sc { color: var(--sc); } .yt { color: var(--yt); }
-
-    /* Formulario */
-    .side { display: flex; flex-direction: column; justify-content: center; padding: 40px clamp(24px, 5vw, 72px); }
-    .form-wrap { width: 100%; max-width: 380px; margin-inline: auto; }
-    .form-wrap h1 { font: 700 1.45rem/1.2 var(--display); margin: 0 0 6px; color: var(--text); }
-    .form-sub { color: var(--muted); margin: 0 0 28px; }
-    .field { margin-bottom: 18px; }
-    .field-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 6px; }
-    label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--text); }
-    .field > label { margin-bottom: 6px; }
-    .field-head label { margin: 0; }
-    .input { width: 100%; background: var(--card); border: 1px solid #cbd5e1; border-radius: 6px; padding: 0.6rem 0.8rem;
-             font: inherit; color: var(--text); outline: none; transition: border-color .15s, box-shadow .15s; }
-    .input:focus { border-color: var(--primary-vivid); box-shadow: 0 0 0 3px rgba(99,102,241,.18); }
+    .form-wrap { width: 100%; max-width: 340px; }
+    .form-wrap h1 { font: 700 2.2rem/1.1 var(--display); margin: 0 0 8px; letter-spacing: -0.01em; }
+    .form-sub { color: var(--muted); margin: 0 0 32px; }
+    .field { margin-bottom: 20px; }
+    .field-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+    label { display: block; margin-bottom: 8px; font: 500 0.72rem/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+    .input { width: 100%; background: var(--field); border: 1px solid var(--line); border-radius: 6px; padding: 0.65rem 0.8rem;
+             font: inherit; color: var(--text); outline: none; transition: border-color .15s; }
+    .input:focus { border-color: var(--focus); }
     .pw { position: relative; }
     .pw .input { padding-right: 2.6rem; }
     .pw button { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 36px; height: 36px;
                  border: 0; background: none; color: var(--muted); border-radius: 6px; cursor: pointer; font-size: 1rem; }
     .pw button:hover { color: var(--text); }
-    .btn-main { width: 100%; min-height: 44px; margin-top: 6px; border: 0; border-radius: 6px; background: var(--primary);
-                color: #fff; font: 600 0.95rem var(--body); cursor: pointer; transition: background .15s; }
-    .btn-main:hover { background: var(--primary-h); }
-    a.btn-main, a.btn-main:hover { display: grid; place-items: center; color: #fff; text-decoration: none; }
-    a { color: var(--primary); text-decoration: none; }
-    a:hover { color: var(--primary-h); text-decoration: underline; }
-    a:focus-visible, button:focus-visible { outline: 2px solid var(--primary-vivid); outline-offset: 2px; border-radius: 6px; }
-    .small-link { font-size: 0.82rem; font-weight: 500; }
-    .msg { border-radius: 10px; padding: 0.65rem 0.9rem; font-size: 0.875rem; margin-bottom: 20px; }
-    .msg.error { background: var(--danger-bg); color: var(--danger-text); }
-    .msg.ok { background: var(--ok-bg); color: var(--ok-text); }
+    .btn-main { display: grid; place-items: center; width: 100%; min-height: 44px; margin-top: 8px; border: 0; border-radius: 6px;
+                background: var(--primary); color: #fff; font: 600 0.95rem var(--body); cursor: pointer; text-decoration: none; transition: background .15s; }
+    .btn-main:hover { background: var(--primary-h); color: #fff; }
+    a { color: var(--text); text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+    a:hover { text-decoration-color: var(--text); }
+    a:focus-visible, button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+    .small-link { font-size: 0.8rem; color: var(--muted); }
+    .msg { border-left: 2px solid currentColor; padding: 0.2rem 0 0.2rem 0.8rem; font-size: 0.875rem; margin-bottom: 24px; }
+    .msg.error { color: var(--error); }
+    .msg.ok { color: var(--ok); }
+    .form-foot { margin-top: 32px; font-size: 0.875rem; color: var(--muted); }
     .form-foot a { white-space: nowrap; }
-    .form-foot { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 0.875rem; color: var(--muted); }
-
-    @media (max-width: 900px) {
-      body { grid-template-columns: 1fr; }
-      .booth { display: none; }
-    }
+    footer { display: flex; gap: 24px; font: 400 0.75rem var(--mono); color: var(--muted); }
+    footer a { color: var(--muted); text-decoration: none; }
+    footer a:hover { color: var(--text); }
   </style>
 </head>
 <body>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <symbol id="i-sc" viewBox="0 0 24 24">
-    <g fill="currentColor">
-      <rect x="0" y="14" width="2" height="3" rx="1"/><rect x="3" y="11" width="2" height="6" rx="1"/>
-      <rect x="6" y="8" width="2" height="9" rx="1"/>
-      <path d="M9 17V13A3 3 0 0 1 12.5 10.2Q15 8 19.5 9A3.5 3.5 0 0 1 23 12.5V17Z"/>
-    </g>
-  </symbol>
-  <symbol id="i-yt" viewBox="0 0 24 24">
-    <path fill="#fff" d="M9 8l7 4-7 4z"/>
-    <path fill="currentColor" d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-  </symbol>
-</svg>
-
-<aside class="booth" aria-label="Track Manager">
-  <a class="brand" href="/para-que-sirve"><img src="/static/icons/logo.svg" alt=""> Track Manager</a>
-  <div class="booth-copy">
-    <p class="eyebrow">Para DJs que diggean</p>
-    <h2>Dejá de buscar música. <em>Que la música te encuentre.</em></h2>
-    <p class="lede">Likeás lo que te gusta en SoundCloud y YouTube. Track Manager lo junta, saca los repetidos y lo descarga solo en tu computadora.</p>
-  </div>
-  <figure class="mock" aria-hidden="true">
-    <div class="mock-top"><span>tus likes de esta semana</span><span>Música/2026/2026-11/</span></div>
-    <div class="mock-row"><svg class="sc"><use href="#i-sc"/></svg><div><b>RaKe (Italy) — Tripline</b><small>After Rave</small></div><span class="chip done">Descargado</span></div>
-    <div class="mock-row"><svg class="sc"><use href="#i-sc"/></svg><div><b>Eden Burns — Time</b><small>5:32</small></div><span class="chip queued">En cola</span></div>
-    <div class="mock-row"><svg class="yt"><use href="#i-yt"/></svg><div><b>RaKe (Italy) — Tripline</b><small>ya lo tenés de SoundCloud</small></div><span class="chip dup">Duplicado</span></div>
-    <div class="mock-row"><svg class="yt"><use href="#i-yt"/></svg><div><b>Joujouka — Ai 305</b><small>5:07</small></div><span class="chip">Pendiente</span></div>
-  </figure>
-</aside>
-
-<main class="side">
+<header><a class="brand" href="/para-que-sirve"><img src="/static/icons/logo.svg" alt=""> Track Manager</a></header>
+<div class="vinyl" aria-hidden="true"><img src="/static/icons/logo.svg" alt=""></div>
+<main>
   <div class="form-wrap">
     {% block form %}{% endblock %}
   </div>
 </main>
-
+<footer><span>trackmanager.app</span><a href="/para-que-sirve">Qué es Track Manager</a></footer>
 <script>
 function toggleField(id, btn) {
   const f = document.getElementById(id);
