@@ -319,6 +319,45 @@
 </div>{# /row #}
 </form>
 
+{# ── Tu cuenta: formularios propios, fuera de settings-form ─────────── #}
+{% set cuenta = request.query_params.get('cuenta') %}
+{% set cuenta_msgs = {
+  'email_ok':    ('success', 'Email guardado.'),
+  'email_dup':   ('danger',  'Ese email ya lo usa otra cuenta.'),
+  'pw_ok':       ('success', 'Contraseña cambiada.'),
+  'pw_wrong':    ('danger',  'La contraseña actual no es correcta.'),
+  'pw_mismatch': ('danger',  'Las contraseñas nuevas no coinciden.'),
+  'pw_short':    ('danger',  'La contraseña nueva debe tener al menos 8 caracteres.'),
+} %}
+<div class="cfg-card mt-4" id="tu-cuenta">
+  <div class="cfg-card-head"><i class="bi bi-shield-lock"></i> Tu cuenta</div>
+  {% if cuenta in cuenta_msgs %}
+    <div class="alert alert-{{ cuenta_msgs[cuenta][0] }} py-2 mx-3 mt-3 mb-0" role="status">{{ cuenta_msgs[cuenta][1] }}</div>
+  {% endif %}
+  <div class="row g-0">
+    <form class="col-lg-6 pref-section" method="POST" action="/settings/email" style="border-right:1px solid var(--tm-border);">
+      <div class="pref-title">Email</div>
+      <label class="form-label" for="acc-email">Tu email</label>
+      <input type="email" name="email" id="acc-email" class="form-control form-control-sm mb-2"
+             value="{{ account_email }}" autocomplete="email" placeholder="vos@ejemplo.com">
+      <p class="text-muted small mb-3">Lo usamos solo para mandarte un link si te olvidás la contraseña.
+        {% if not account_email %}<strong>Sin email no vas a poder recuperarla.</strong>{% endif %}</p>
+      <button type="submit" class="btn btn-outline-primary btn-sm">Guardar email</button>
+    </form>
+    <form class="col-lg-6 pref-section" method="POST" action="/settings/password">
+      <div class="pref-title">Cambiar contraseña</div>
+      <input type="text" name="username" value="{{ request.state.user.username if request.state.user is defined and request.state.user else '' }}" autocomplete="username" hidden>
+      <label class="form-label" for="acc-pw-current">Contraseña actual</label>
+      <input type="password" name="current" id="acc-pw-current" class="form-control form-control-sm mb-2" autocomplete="current-password" required>
+      <label class="form-label" for="acc-pw-new">Contraseña nueva</label>
+      <input type="password" name="password" id="acc-pw-new" class="form-control form-control-sm mb-2" autocomplete="new-password" minlength="8" required>
+      <label class="form-label" for="acc-pw-new2">Repetí la contraseña nueva</label>
+      <input type="password" name="password2" id="acc-pw-new2" class="form-control form-control-sm mb-3" autocomplete="new-password" minlength="8" required>
+      <button type="submit" class="btn btn-outline-primary btn-sm">Cambiar contraseña</button>
+    </form>
+  </div>
+</div>
+
 <script>
 async function verifyCredential(service) {
   const fieldMap = {muzpa: 'field-muzpa-sess', deezer: 'field-deezer-arl', soundcloud: 'field-sc-token'};

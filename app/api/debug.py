@@ -11,7 +11,6 @@ POST /debug/cleanup                — run log retention cleanup (admin only)
 from __future__ import annotations
 
 import logging
-import os
 from datetime import datetime, timezone
 from typing import Annotated
 
@@ -220,31 +219,19 @@ def update_report_status(
 
 
 def _send_report_email(report, user: User) -> None:
-    api_key = os.getenv("RESEND_API_KEY", "")
-    if not api_key:
-        logger.debug("RESEND_API_KEY not set, skipping report email")
-        return
-    try:
-        import resend
-        resend.api_key = api_key
-        track_line = f"Track ID: #{report.track_id}" if report.track_id else "Track ID: —"
-        resend.Emails.send({
-            "from": "Track Manager <onboarding@resend.dev>",
-            "to": ["trackmanager.web@gmail.com"],
-            "subject": f"[Reporte] {report.category} — #{report.id}",
-            "text": (
-                f"Nuevo reporte de problema\n"
-                f"{'─' * 40}\n"
-                f"ID:          #{report.id}\n"
-                f"Usuario:     {user.username} (ID {user.id})\n"
-                f"{track_line}\n"
-                f"Categoría:   {report.category}\n\n"
-                f"Descripción:\n{report.description}\n"
-            ),
-        })
-        logger.info("Report email sent for report #%d", report.id)
-    except Exception:
-        logger.exception("Failed to send report email for report #%d", report.id)
+    from app.services.mail import send_email
+    track_line = f"Track ID: #{report.track_id}" if report.track_id else "Track ID: —"
+    send_email(
+        "trackmanager.web@gmail.com",
+        f"[Reporte] {report.category} — #{report.id}",
+        f"Nuevo reporte de problema\n"
+        f"{'─' * 40}\n"
+        f"ID:          #{report.id}\n"
+        f"Usuario:     {user.username} (ID {user.id})\n"
+        f"{track_line}\n"
+        f"Categoría:   {report.category}\n\n"
+        f"Descripción:\n{report.description}\n",
+    )
 
 
 # ── Cleanup ───────────────────────────────────────────────────────────────────

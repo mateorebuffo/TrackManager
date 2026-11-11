@@ -55,6 +55,11 @@ class Settings(BaseSettings):
     cosine_api_key: str = ""
     discogs_token: str = ""
 
+    # Mails (Resend). onboarding@resend.dev solo le llega al dueño de la cuenta de
+    # Resend: para mandarle a los alumnos hay que verificar el dominio y cambiar esto.
+    resend_api_key: str = ""
+    mail_from: str = "Track Manager <onboarding@resend.dev>"
+
     # Deduplication thresholds
     dedup_strong_match_score: float = 90.0
     dedup_weak_match_score: float = 75.0

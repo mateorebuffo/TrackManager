@@ -44,10 +44,15 @@ from app.models.user import User
 from app.services.auth import (
     authenticate,
     create_user,
+    get_user_by_email,
     has_any_user,
     hash_password,
     get_user_by_username,
+    make_reset_token,
+    read_reset_token,
 )
+from app.services.mail import send_email
+from app.utils.rate_limit import UserRateLimiter
 
 router = APIRouter(tags=["auth"])
 templates = Jinja2Templates(directory="app/templates")
@@ -117,6 +122,88 @@ def logout() -> Response:
     return response
 
 
+# ── Recuperar contraseña ─────────────────────────────────────────────────────
+
+_reset_limiter = UserRateLimiter(calls=5, window=15 * 60)  # por IP
+
+
+def _public_base_url(request: Request) -> str:
+    """Detrás del proxy de Railway, request.base_url viene con http://."""
+    base = str(request.base_url).rstrip("/")
+    if request.headers.get("x-forwarded-proto") == "https" and base.startswith("http://"):
+        base = "https://" + base.removeprefix("http://")
+    return base
+
+
+@router.get("/recuperar", response_class=HTMLResponse, include_in_schema=False)
+def forgot_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse("recuperar.html", {"request": request, "sent": False, "error": None})
+
+
+@router.post("/recuperar", include_in_schema=False)
+def forgot(
+    request: Request,
+    email: Annotated[str, Form()],
+    db: Session = Depends(get_db),
+) -> Response:
+    if not _reset_limiter.acquire(_client_ip(request)):
+        return templates.TemplateResponse(
+            "recuperar.html",
+            {"request": request, "sent": False, "error": "Pediste demasiados links. Esperá 15 minutos."},
+            status_code=429,
+        )
+    user = get_user_by_email(email, db)
+    if user and user.is_active:
+        link = f"{_public_base_url(request)}/restablecer?token={make_reset_token(user)}"
+        send_email(
+            user.email,
+            "Elegí una contraseña nueva — Track Manager",
+            f"Hola {user.username}:\n\n"
+            f"Pediste cambiar tu contraseña de Track Manager. Entrá a este link para elegir una nueva:\n\n"
+            f"{link}\n\n"
+            f"El link vale por una hora y sirve una sola vez.\n"
+            f"Si no lo pediste vos, ignorá este mail: tu contraseña sigue igual.\n",
+        )
+    # Misma respuesta exista o no la cuenta, para no revelar qué emails están registrados.
+    return templates.TemplateResponse("recuperar.html", {"request": request, "sent": True, "error": None})
+
+
+@router.get("/restablecer", response_class=HTMLResponse, include_in_schema=False)
+def reset_page(request: Request, token: str = "", db: Session = Depends(get_db)) -> HTMLResponse:
+    valid = read_reset_token(token, db) is not None
+    return templates.TemplateResponse(
+        "restablecer.html", {"request": request, "token": token, "valid": valid, "error": None},
+        status_code=200 if valid else 400,
+    )
+
+
+@router.post("/restablecer", include_in_schema=False)
+def reset_own_password(
+    request: Request,
+    token: Annotated[str, Form()],
+    password: Annotated[str, Form()],
+    password2: Annotated[str, Form()],
+    db: Session = Depends(get_db),
+) -> Response:
+    user = read_reset_token(token, db)
+    error = None
+    if not user:
+        return templates.TemplateResponse(
+            "restablecer.html", {"request": request, "token": token, "valid": False, "error": None}, status_code=400
+        )
+    if password != password2:
+        error = "Las contraseñas no coinciden."
+    elif len(password) < 8:
+        error = "La contraseña debe tener al menos 8 caracteres."
+    if error:
+        return templates.TemplateResponse(
+            "restablecer.html", {"request": request, "token": token, "valid": True, "error": error}, status_code=400
+        )
+    user.hashed_password = hash_password(password)
+    db.commit()
+    return RedirectResponse(url="/login?restablecida=1", status_code=303)
+
+
 # ── First-run setup ──────────────────────────────────────────────────────────
 
 @router.get("/setup", response_class=HTMLResponse, include_in_schema=False)
@@ -166,26 +253,26 @@ def create_user_admin(
     username: Annotated[str, Form()],
     password: Annotated[str, Form()],
     is_admin: Annotated[str, Form()] = "off",
+    email: Annotated[str, Form()] = "",
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ) -> Response:
-    existing = get_user_by_username(username, db)
     users = db.query(User).order_by(User.created_at).all()
-    if existing:
+    error = None
+    if get_user_by_username(username, db):
+        error = f"El usuario '{username}' ya existe."
+    elif get_user_by_email(email, db):
+        error = f"Ya hay un usuario con el email {email.strip()}."
+    elif len(password) < 8:
+        error = "La contraseña debe tener al menos 8 caracteres."
+    if error:
         return templates.TemplateResponse(
             "admin_users.html",
             {"request": request, "users": users, "current_user": current_user,
-             "error": f"El usuario '{username}' ya existe.", "success": None},
+             "error": error, "success": None},
             status_code=400,
         )
-    if len(password) < 8:
-        return templates.TemplateResponse(
-            "admin_users.html",
-            {"request": request, "users": users, "current_user": current_user,
-             "error": "La contraseña debe tener al menos 8 caracteres.", "success": None},
-            status_code=400,
-        )
-    create_user(username, password, is_admin=(is_admin == "on"), db=db)
+    create_user(username, password, is_admin=(is_admin == "on"), db=db, email=email)
     return RedirectResponse(url="/admin/users?created=1", status_code=303)
 
 
@@ -243,8 +330,10 @@ def reset_password(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ) -> Response:
+    if len(new_password) < 8:
+        return RedirectResponse(url="/admin/users?error=short", status_code=303)
     user = db.query(User).filter(User.id == user_id).first()
-    if user and len(new_password) >= 8:
+    if user:
         user.hashed_password = hash_password(new_password)
         db.commit()
     return RedirectResponse(url="/admin/users?reset=1", status_code=303)

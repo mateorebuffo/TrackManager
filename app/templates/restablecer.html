@@ -1,0 +1,30 @@
+{% extends "auth_base.html" %}
+{% block title %}Contraseña nueva{% endblock %}
+
+{% block form %}
+<h1>Contraseña nueva</h1>
+{% if not valid %}
+  <div class="msg error" role="alert">Este link ya no sirve: venció (dura una hora) o ya se usó.</div>
+  <p class="form-sub">Pedí uno nuevo y usalo apenas te llegue.</p>
+  <a href="/recuperar" class="btn-main">Pedir otro link</a>
+{% else %}
+  <p class="form-sub">Elegí una contraseña de al menos 8 caracteres.</p>
+  {% if error %}<div class="msg error" role="alert">{{ error }}</div>{% endif %}
+  <form method="POST" action="/restablecer">
+    <input type="hidden" name="token" value="{{ token }}">
+    <div class="field">
+      <label for="new-pw">Contraseña nueva</label>
+      <div class="pw">
+        <input type="password" name="password" id="new-pw" class="input" autofocus autocomplete="new-password" minlength="8" required>
+        <button type="button" aria-label="Mostrar contraseña" onclick="toggleField('new-pw', this)"><i class="bi bi-eye"></i></button>
+      </div>
+    </div>
+    <div class="field">
+      <label for="new-pw2">Repetila</label>
+      <input type="password" name="password2" id="new-pw2" class="input" autocomplete="new-password" minlength="8" required>
+    </div>
+    <button type="submit" class="btn-main">Guardar contraseña</button>
+  </form>
+{% endif %}
+<p class="form-foot"><a href="/login"><i class="bi bi-arrow-left" aria-hidden="true"></i> Volver a iniciar sesión</a></p>
+{% endblock %}

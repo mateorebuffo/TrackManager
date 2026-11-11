@@ -107,6 +107,7 @@ def settings_page(
             "agent_mac_arm": bool(settings.agent_download_url_mac_arm),
             "agent_mac_intel": bool(settings.agent_download_url_mac_intel),
             "is_admin": current_user.is_admin,
+            "account_email": current_user.email or "",
         },
     )
 
@@ -145,6 +146,49 @@ async def save_settings(
     allowed = {"/sync/spotify/connect", "/sync/youtube/connect"}
     redirect_to = next_url if next_url in allowed else "/settings?saved=1"
     return RedirectResponse(url=redirect_to, status_code=303)
+
+
+# ── Tu cuenta: email y contraseña ────────────────────────────────────────────
+# Formularios aparte del de arriba: save_settings recorre una lista de campos y
+# pisaría lo que no venga en el form.
+
+def _account_redirect(code: str) -> RedirectResponse:
+    return RedirectResponse(url=f"/settings?cuenta={code}#tu-cuenta", status_code=303)
+
+
+@router.post("/email")
+def save_email(
+    email: Annotated[str, Form()] = "",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> RedirectResponse:
+    from app.services.auth import clean_email, get_user_by_email
+    other = get_user_by_email(email, db)
+    if other and other.id != current_user.id:
+        return _account_redirect("email_dup")
+    current_user.email = clean_email(email)
+    db.commit()
+    return _account_redirect("email_ok")
+
+
+@router.post("/password")
+def change_password(
+    current: Annotated[str, Form()],
+    password: Annotated[str, Form()],
+    password2: Annotated[str, Form()],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> RedirectResponse:
+    from app.services.auth import hash_password, verify_password
+    if not verify_password(current, current_user.hashed_password):
+        return _account_redirect("pw_wrong")
+    if password != password2:
+        return _account_redirect("pw_mismatch")
+    if len(password) < 8:
+        return _account_redirect("pw_short")
+    current_user.hashed_password = hash_password(password)
+    db.commit()
+    return _account_redirect("pw_ok")
 
 
 # Rutas explícitas a propósito: un /verify/{service} dinámico taparía /verify/spotify,

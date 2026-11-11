@@ -1,0 +1,21 @@
+{% extends "auth_base.html" %}
+{% block title %}Recuperar contraseña{% endblock %}
+
+{% block form %}
+<h1>Recuperar contraseña</h1>
+{% if sent %}
+  <div class="msg ok" role="status">Si hay una cuenta con ese email, te mandamos un link para elegir una contraseña nueva. Revisá también la carpeta de spam.</div>
+  <p class="form-sub">El link vale por una hora. ¿No te llegó? Fijate que el email sea el que cargaste en Configuración, o pedile a tu escuela que te resetee la contraseña.</p>
+{% else %}
+  <p class="form-sub">Escribí el email de tu cuenta y te mandamos un link para elegir una contraseña nueva.</p>
+  {% if error %}<div class="msg error" role="alert">{{ error }}</div>{% endif %}
+  <form method="POST" action="/recuperar">
+    <div class="field">
+      <label for="rec-email">Email</label>
+      <input type="email" name="email" id="rec-email" class="input" autofocus autocomplete="email" required>
+    </div>
+    <button type="submit" class="btn-main">Mandarme el link</button>
+  </form>
+{% endif %}
+<p class="form-foot"><a href="/login"><i class="bi bi-arrow-left" aria-hidden="true"></i> Volver a iniciar sesión</a></p>
+{% endblock %}

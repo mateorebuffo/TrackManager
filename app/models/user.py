@@ -9,6 +9,7 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, nullable=False, index=True)
+    email = Column(String, unique=True, nullable=True, index=True)  # en minúsculas; para recuperar la contraseña
     hashed_password = Column(String, nullable=False)
     is_admin = Column(Boolean, default=False, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
