@@ -8,6 +8,15 @@
         "value": "instrument sans",
         "createdAt": "2026-11-10T17:14:52.844Z",
         "reason": "Claude: brand body face shared with the landing (/para-que-sirve) and declared in DESIGN.md typography"
+      },
+      {
+        "rule": "radial-halo",
+        "value": "*",
+        "files": [
+          "app/templates/auth_base.html"
+        ],
+        "createdAt": "2026-11-11T18:02:52.493Z",
+        "reason": "Claude: the repeating-radial-gradient draws the grooves of a CSS vinyl record, not a glow"
       }
     ]
   }
