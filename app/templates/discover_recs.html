@@ -2,8 +2,18 @@
 {% macro example(t) %}
   <div class="ds-meta">
     {% if t.video_uri and t.video_uri.startswith('https://') %}<a href="{{ t.video_uri }}" target="_blank" rel="noopener" onclick="playTrack(this); return false;" data-bs-toggle="tooltip" data-bs-title="Escuchar acá"><i class="bi bi-play-fill" aria-hidden="true"></i> {{ t.name }}</a>{% else %}{{ t.name }}{% endif %}
-    {% if t.because %}· porque bajaste <em>{{ t.because }}</em>{% endif %}
   </div>
+  {% if t.because %}<div class="ds-meta">Similar a: <em>{{ t.because }}</em></div>{% endif %}
+{% endmacro %}
+
+{# Botón "Agregar a Pendientes": sólo con video de YouTube, que es como entra a Tracks #}
+{% macro add(t, label="") %}
+  {% if t.video_uri and ("youtube.com" in t.video_uri or "youtu.be" in t.video_uri) %}
+  <button type="button" class="btn btn-outline-secondary btn-sm btn-icon ms-auto flex-shrink-0"
+          data-url="{{ t.video_uri }}" data-name="{{ t.name }}" data-artist="{{ t.artist or '' }}" data-label="{{ label }}"
+          onclick="addSuggestion(this)" aria-label="Agregar a Pendientes"
+          data-bs-toggle="tooltip" data-bs-title="Agregar a Pendientes"><i class="bi bi-plus-lg"></i></button>
+  {% endif %}
 {% endmacro %}
 
 {% macro refresh() %}
@@ -24,9 +34,12 @@
       <div class="card-header d-flex align-items-center">Productores nuevos {{ refresh() }}</div>
       <div class="card-body">
         {% for p in producers %}
-          <div class="py-2 {% if not loop.last %}border-bottom{% endif %}">
-            <strong>{{ p.name }}</strong>
-            {{ example(p.track) }}
+          <div class="py-2 d-flex align-items-center gap-3 {% if not loop.last %}border-bottom{% endif %}">
+            <div class="ds-rec">
+              <strong>{{ p.name }}</strong>
+              {{ example(p.track) }}
+            </div>
+            {{ add(p.track) }}
           </div>
         {% else %}
           <div class="ds-meta">No encontramos productores nuevos parecidos a lo tuyo. Probá cuando tengas más descargas.</div>
@@ -39,9 +52,12 @@
       <div class="card-header d-flex align-items-center">Sellos nuevos {{ refresh() }}</div>
       <div class="card-body">
         {% for l in labels %}
-          <div class="py-2 {% if not loop.last %}border-bottom{% endif %}">
+          <div class="py-2 d-flex align-items-center gap-3 {% if not loop.last %}border-bottom{% endif %}">
+            <div class="ds-rec">
             {% if l.label_url %}<a href="{{ l.label_url }}" target="_blank" rel="noopener"><strong>{{ l.label }}</strong></a>{% else %}<strong>{{ l.label }}</strong>{% endif %}
             {{ example(l.track) }}
+            </div>
+            {{ add(l.track, l.label) }}
           </div>
         {% else %}
           <div class="ds-meta">No encontramos sellos nuevos parecidos a lo tuyo. Probá cuando tengas más descargas.</div>

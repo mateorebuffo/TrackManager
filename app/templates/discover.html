@@ -6,6 +6,7 @@
   .ds-section { font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
                 color: var(--tm-muted); margin: 2rem 0 .75rem; }
   .ds-meta { font-size: .75rem; color: var(--tm-muted); }
+  .ds-rec { min-width: 0; }  /* que el texto largo parta en vez de empujar el botón + */
   .ds-row { display: grid; grid-template-columns: 1.6rem 1fr auto; gap: .5rem; align-items: center;
             padding: .35rem 0; font-size: .875rem; }
   .ds-pos { color: var(--tm-muted); font-variant-numeric: tabular-nums; text-align: right; }
@@ -70,6 +71,26 @@
 <div id="ds-recs"></div>
 
 <script>
+async function addSuggestion(btn) {
+  btn.disabled = true;
+  const body = new URLSearchParams({url: btn.dataset.url, name: btn.dataset.name,
+                                    artist: btn.dataset.artist, label: btn.dataset.label});
+  try {
+    const r = await fetch('/descubrir/agregar', {method: 'POST', body});
+    if (!r.ok) throw new Error(r.status);
+    const {status} = await r.json();
+    bootstrap.Tooltip.getInstance(btn)?.dispose();
+    btn.innerHTML = '<i class="bi bi-check-lg"></i>';
+    btn.setAttribute('aria-label', 'Ya está en tus tracks');
+    btn.title = 'Ya está en tus tracks';
+    showToast(status === 'exists' ? 'Ya lo tenías en tus tracks.' : 'Agregado a Pendientes: ' + btn.dataset.name,
+              status === 'exists' ? 'info' : 'success', null, {label: 'Ver Pendientes', href: '/tracks/pending'});
+  } catch (e) {
+    btn.disabled = false;
+    showToast('No se pudo agregar. Probá de nuevo.', 'danger');
+  }
+}
+
 function loadRecs(nuevas) {
   const box = document.getElementById('ds-recs');
   // Un tooltip abierto queda flotando si se borra su botón.

@@ -93,7 +93,8 @@ def test_recomienda_productores_y_sellos_nuevos(client, db_session, monkeypatch,
     assert seed.raw_metadata_json["label"] == "Cadenza"
 
     html = client.get("/descubrir/recomendaciones").text
-    assert "Rossi." in html and "Phonica" in html and "porque bajaste" in html
+    assert "Rossi." in html and "Phonica" in html and "Similar a:" in html
+    assert "Agregar a Pendientes" in html
 
 
 def test_sin_api_key_avisa(client, db_session, monkeypatch, limpio):
@@ -171,3 +172,22 @@ def test_nuevas_sugerencias_no_repiten_y_al_agotarse_vuelven_a_empezar(db_sessio
     assert nombres(discovery.recommend(db_session, uid)) == (["Rossi."], ["Phonica"])  # caché
     assert nombres(discovery.recommend(db_session, uid, fresh=True)) == (["Newbie"], [])
     assert nombres(discovery.recommend(db_session, uid, fresh=True)) == (["Rossi."], ["Phonica"])
+
+
+def test_agregar_sugerencia_la_manda_a_pendiente(client, db_session):
+    uid = _tester(db_session).id
+    data = {"url": "https://youtube.com/watch?v=abcdefghijk", "name": "Rossi. - Uno",
+            "artist": "Rossi.", "label": "Phonica"}
+    assert client.post("/descubrir/agregar", data=data).json() == {"status": "added"}
+    st = db_session.query(SourceTrack).filter_by(user_id=uid, source="youtube",
+                                                 source_track_id="abcdefghijk").one()
+    assert (st.raw_artist, st.raw_title) == ("Rossi.", "Uno")
+    assert st.raw_metadata_json["label"] == "Phonica"
+    assert st.normalized_track.review_item.status == TrackStatus.pending
+    # Dos veces el mismo no lo duplica.
+    assert client.post("/descubrir/agregar", data=data).json() == {"status": "exists"}
+
+
+def test_agregar_sin_video_de_youtube_se_rechaza(client):
+    r = client.post("/descubrir/agregar", data={"url": "https://discogs.com/release/1", "name": "X - Y"})
+    assert r.status_code == 400
