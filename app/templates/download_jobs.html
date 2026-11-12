@@ -217,6 +217,12 @@
   {% if not active_filter and jobs %}
   <div class="card">
     <div class="card-header">Historial de esta cola</div>
+      <div class="historial-pagination d-flex align-items-center justify-content-between px-3 py-2 border-bottom" style="font-size:0.82rem;display:none!important;">
+        <span class="pagination-info text-muted"></span>
+        <div class="d-flex gap-2">
+          <button class="btn btn-outline-secondary btn-sm btn-prev" onclick="changePage(-1)"><i class="bi bi-chevron-left"></i> Anterior</button>
+          <button class="btn btn-outline-secondary btn-sm btn-next" onclick="changePage(1)">Siguiente <i class="bi bi-chevron-right"></i></button>
+        </div>
     <div class="table-responsive">
       <table class="table table-sm table-hover mb-0">
         <thead class="table-light">
@@ -259,11 +265,11 @@
           {% endfor %}
         </tbody>
       </table>
-      <div id="historial-pagination" class="d-flex align-items-center justify-content-between px-3 py-2 border-top" style="font-size:0.82rem;display:none!important;">
-        <span id="pagination-info" class="text-muted"></span>
+      <div class="historial-pagination d-flex align-items-center justify-content-between px-3 py-2 border-top" style="font-size:0.82rem;display:none!important;">
+        <span class="pagination-info text-muted"></span>
         <div class="d-flex gap-2">
-          <button class="btn btn-outline-secondary btn-sm" id="btn-prev" onclick="changePage(-1)"><i class="bi bi-chevron-left"></i> Anterior</button>
-          <button class="btn btn-outline-secondary btn-sm" id="btn-next" onclick="changePage(1)">Siguiente <i class="bi bi-chevron-right"></i></button>
+          <button class="btn btn-outline-secondary btn-sm btn-prev" onclick="changePage(-1)"><i class="bi bi-chevron-left"></i> Anterior</button>
+          <button class="btn btn-outline-secondary btn-sm btn-next" onclick="changePage(1)">Siguiente <i class="bi bi-chevron-right"></i></button>
         </div>
       </div>
     </div>
@@ -360,10 +366,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderPage() {
     const tbody = document.getElementById('historial-tbody');
-    const pagination = document.getElementById('historial-pagination');
-    const info = document.getElementById('pagination-info');
-    const btnPrev = document.getElementById('btn-prev');
-    const btnNext = document.getElementById('btn-next');
+    const pagers = document.querySelectorAll('.historial-pagination');
     if (!tbody) return;
 
     const q = document.getElementById('historial-search')?.value.toLowerCase() || '';
@@ -384,12 +387,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (filtered.length > PAGE_SIZE) {
       const from = _currentPage * PAGE_SIZE + 1;
       const to = Math.min((_currentPage + 1) * PAGE_SIZE, filtered.length);
-      info.textContent = `${from}–${to} de ${filtered.length}`;
-      btnPrev.disabled = _currentPage === 0;
-      btnNext.disabled = _currentPage >= totalPages - 1;
-      pagination.style.display = 'flex';
+      pagers.forEach(p => {
+        p.querySelector('.pagination-info').textContent = `${from}–${to} de ${filtered.length}`;
+        p.querySelector('.btn-prev').disabled = _currentPage === 0;
+        p.querySelector('.btn-next').disabled = _currentPage >= totalPages - 1;
+        p.style.display = 'flex';
+      });
     } else {
-      pagination.style.display = 'none';
+      pagers.forEach(p => p.style.display = 'none');
     }
   }
 

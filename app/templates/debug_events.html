@@ -2,6 +2,20 @@
 {% block title %}Logs — Track Manager{% endblock %}
 
 {% block content %}
+{% macro pager(extra='') %}
+<nav class="tm-pager {{ extra }}" aria-label="Paginación">
+  <span>Mostrando {{ (page - 1) * page_size + 1 }}–{{ [page * page_size, count] | min }} de {{ count }}</span>
+  <div class="d-flex align-items-center gap-2">
+    {% if page > 1 %}
+      <a href="/debug/events?{{ base_qs }}&page={{ page - 1 }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-chevron-left"></i> Anterior</a>
+    {% endif %}
+    <span>Página {{ page }} de {{ pages }}</span>
+    {% if page < pages %}
+      <a href="/debug/events?{{ base_qs }}&page={{ page + 1 }}" class="btn btn-outline-secondary btn-sm">Siguiente <i class="bi bi-chevron-right"></i></a>
+    {% endif %}
+  </div>
+</nav>
+{% endmacro %}
 <div class="d-flex align-items-end gap-3 mb-4 flex-wrap">
   <div>
     {% if student %}
@@ -72,6 +86,7 @@
 </form>
 
 {% if events %}
+{% if pages > 1 %}{{ pager("tm-pager-top") }}{% endif %}
 <div class="card">
   <div class="table-responsive">
     <table class="table table-hover mb-0">
@@ -133,18 +148,7 @@
   </div>
 </div>
 {% if pages > 1 %}
-<nav class="tm-pager" aria-label="Paginación">
-  <span>Mostrando {{ (page - 1) * page_size + 1 }}–{{ [page * page_size, count] | min }} de {{ count }}</span>
-  <div class="d-flex align-items-center gap-2">
-    {% if page > 1 %}
-      <a href="/debug/events?{{ base_qs }}&page={{ page - 1 }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-chevron-left"></i> Anterior</a>
-    {% endif %}
-    <span>Página {{ page }} de {{ pages }}</span>
-    {% if page < pages %}
-      <a href="/debug/events?{{ base_qs }}&page={{ page + 1 }}" class="btn btn-outline-secondary btn-sm">Siguiente <i class="bi bi-chevron-right"></i></a>
-    {% endif %}
-  </div>
-</nav>
+{{ pager() }}
 {% else %}
 <p class="text-muted mt-2" style="font-size:0.78rem">Mostrando {{ count }} evento{{ 's' if count != 1 else '' }}.</p>
 {% endif %}

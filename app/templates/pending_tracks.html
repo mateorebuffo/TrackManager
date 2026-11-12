@@ -54,9 +54,23 @@
   .tm-setup .bi-stars { font-size: 1.6rem; color: #c7d2fe; }
 
   /* ── Paginación ─────────────────────────────────────────────── */
-  .tm-pager { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 0.9rem; font-size: 0.82rem; color: var(--tm-muted); }
 
 </style>
+
+{% macro pager(extra='') %}
+<nav class="tm-pager {{ extra }}" aria-label="Paginación">
+  <span>Mostrando {{ (page - 1) * page_size + 1 }}–{{ [page * page_size, count] | min }} de {{ count }}</span>
+  <div class="d-flex align-items-center gap-2">
+    {% if page > 1 %}
+      <a href="/tracks/pending?{{ base_qs }}&page={{ page - 1 }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-chevron-left"></i> Anterior</a>
+    {% endif %}
+    <span>Página {{ page }} de {{ pages }}</span>
+    {% if page < pages %}
+      <a href="/tracks/pending?{{ base_qs }}&page={{ page + 1 }}" class="btn btn-outline-secondary btn-sm">Siguiente <i class="bi bi-chevron-right"></i></a>
+    {% endif %}
+  </div>
+</nav>
+{% endmacro %}
 
 {# ── Macro: botones de importar (header y estado vacío) ─────────── #}
 {% macro import_buttons(size) %}
@@ -377,6 +391,7 @@ function dismissSetupBanner(){
   </div>
 </div>
 
+{% if pages > 1 %}{{ pager("tm-pager-top") }}{% endif %}
 <div class="table-responsive">
   <table class="table table-hover align-middle bg-white" id="tracks-table">
     <colgroup>
@@ -537,20 +552,7 @@ function dismissSetupBanner(){
 </div>
 
 {# ── Paginación ────────────────────────────────────────────────── #}
-{% if pages > 1 %}
-<nav class="tm-pager" aria-label="Paginación">
-  <span>Mostrando {{ (page - 1) * page_size + 1 }}–{{ [page * page_size, count] | min }} de {{ count }}</span>
-  <div class="d-flex align-items-center gap-2">
-    {% if page > 1 %}
-      <a href="/tracks/pending?{{ base_qs }}&page={{ page - 1 }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-chevron-left"></i> Anterior</a>
-    {% endif %}
-    <span>Página {{ page }} de {{ pages }}</span>
-    {% if page < pages %}
-      <a href="/tracks/pending?{{ base_qs }}&page={{ page + 1 }}" class="btn btn-outline-secondary btn-sm">Siguiente <i class="bi bi-chevron-right"></i></a>
-    {% endif %}
-  </div>
-</nav>
-{% endif %}
+{% if pages > 1 %}{{ pager() }}{% endif %}
 
 {% else %}
 {# ── Estado vacío ──────────────────────────────────────────────── #}
