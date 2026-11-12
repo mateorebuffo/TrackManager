@@ -884,6 +884,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const url = new URL(window.location.href);
 
+  if (params.get('sync_wait')) {
+    showToast('Ya sincronizaste hace menos de un minuto. Esperá un poco y probá de nuevo.', 'warning');
+    url.searchParams.delete('sync_wait');
+    window.history.replaceState({}, '', url.toString());
+    return;
+  }
+
   if (syncErr) {
     let errMsg = 'Ocurrió un error durante la sincronización. Revisá tu conexión y configuración, y volvé a intentarlo.';
     if (syncErr === 'spotify_playlist_forbidden') {

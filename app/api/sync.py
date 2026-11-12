@@ -31,12 +31,8 @@ def _sync_rate_limited(user_id: int, request: Request):
     if not _sync_limiter.acquire(user_id):
         accept = request.headers.get("accept", "")
         if "text/html" in accept:
-            return HTMLResponse(
-                "<h3>Sincronización en progreso.</h3>"
-                "<p>Esperá 60 segundos antes de volver a sincronizar.</p>"
-                "<p><a href='/tracks/pending'>Volver</a></p>",
-                status_code=429,
-            )
+            # Vuelve a Tracks y el aviso sale como toast (pending_tracks.html lee sync_wait).
+            return RedirectResponse(url="/tracks/pending?sync_wait=1", status_code=303)
         return JSONResponse({"status": "error", "detail": "Rate limit: esperá 60s entre sincronizaciones."}, status_code=429)
     return None
 
