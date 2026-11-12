@@ -2,71 +2,63 @@
 {% block title %}Configuración — Track Manager{% endblock %}
 
 {% block content %}
-<div class="mb-4">
-  <h1 class="tm-page-title">Configuración</h1>
-  <p class="tm-page-sub">Tus cuentas, cómo se descarga y el agente que corre en tu computadora.</p>
-</div>
-
 <style>
+  .cfg-wrap { max-width: 780px; }
+  .cfg-section { margin-top: 2rem; }
+  .cfg-section-title { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--tm-muted); margin: 0 0 .6rem .15rem; }
   .cfg-card { border-radius: var(--tm-radius-lg); border: 1px solid var(--tm-border); box-shadow: var(--tm-shadow); overflow: hidden; background: var(--tm-card); }
-  .cfg-card-head {
-    display: flex; align-items: center; gap: .5rem;
-    border-bottom: 1px solid var(--tm-border);
-    color: var(--tm-text);
-    font-size: 0.9rem;
-    font-weight: 700;
-    padding: 0.8rem 1.25rem;
-  }
-  .cfg-card-head .bi { color: var(--tm-primary); }
+  .cfg-row { display: flex; gap: 1.25rem; align-items: center; justify-content: space-between; padding: 1.1rem 1.35rem; }
+  .cfg-row + .cfg-row { border-top: 1px solid var(--tm-border); }
+  .cfg-row-text { min-width: 0; flex: 1; }
+  .cfg-row-title { font-size: .9rem; font-weight: 600; color: var(--tm-text); margin: 0; }
+  .cfg-row-desc { font-size: .8rem; color: var(--tm-muted); margin: .2rem 0 0; }
+  .cfg-row-ctrl { flex-shrink: 0; display: flex; gap: .5rem; flex-wrap: wrap; justify-content: flex-end; }
+  .cfg-step { display: inline-grid; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: 50%; background: var(--tm-primary-soft); color: var(--tm-primary-h); font-size: .75rem; font-weight: 700; margin-right: .5rem; }
+  .cfg-token { width: 320px; max-width: 100%; }
+  .cfg-intro { padding: 1rem 1.35rem; background: var(--tm-surface-2); border-bottom: 1px solid var(--tm-border); font-size: .82rem; color: var(--tm-muted); display: flex; gap: .75rem; align-items: flex-start; }
+  .cfg-intro .bi { color: var(--tm-primary); font-size: 1.1rem; line-height: 1.2; }
+  .cfg-intro strong { color: var(--tm-text); }
+  .cfg-form { padding: 1.1rem 1.35rem; }
+  .cfg-switch .form-check-input { width: 2.6em; height: 1.4em; cursor: pointer; }
 
-  /* Filas de servicio */
-  .svc-row {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-    padding: 1rem 1.25rem;
-    transition: background .15s;
-  }
+  /* Cuentas viejas (SHOW_LEGACY_SETTINGS) y Spotify */
+  .svc-row { display: flex; flex-direction: column; gap: .6rem; padding: 1rem 1.35rem; }
   .svc-row + .svc-row { border-top: 1px solid var(--tm-border); }
-  .svc-row:hover { background: var(--tm-surface-2); }
+  .svc-name { font-size: .85rem; font-weight: 700; color: var(--tm-text); }
+  .svc-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; }
+  .dot-sc { background: #f97316; } .dot-spotify { background: #22c55e; } .dot-youtube { background: #ef4444; }
+  .dot-muzpa { background: #6366f1; } .dot-deezer { background: #ec4899; }
 
-
-  .svc-name { font-size: 0.85rem; font-weight: 700; color: var(--tm-text); }
-  .svc-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; flex-shrink: 0; }
-  .dot-sc      { background: #f97316; }
-  .dot-spotify { background: #22c55e; }
-  .dot-youtube { background: #ef4444; }
-  .dot-muzpa   { background: #6366f1; }
-  .dot-deezer  { background: #ec4899; }
-
-  .pref-section { padding: 1.25rem; }
-  .pref-section + .pref-section { border-top: 1px solid var(--tm-border); }
-  .pref-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--tm-muted); margin-bottom: 0.85rem; }
-
-  /* Avanzado (Spotify, solo admin) */
-  .cfg-adv summary { cursor: pointer; list-style: none; padding: .75rem 1.25rem; font-size: .8rem; color: var(--tm-muted); border-top: 1px solid var(--tm-border); display: flex; align-items: center; gap: .4rem; }
+  .cfg-adv summary { cursor: pointer; list-style: none; padding: .9rem 1.35rem; font-size: .85rem; color: var(--tm-muted); display: flex; align-items: center; gap: .4rem; }
   .cfg-adv summary::-webkit-details-marker { display: none; }
   .cfg-adv summary .bi-chevron-right { transition: transform .15s; }
   .cfg-adv[open] summary .bi-chevron-right { transform: rotate(90deg); }
+  .cfg-adv[open] summary { border-bottom: 1px solid var(--tm-border); }
   .cfg-adv summary:hover { color: var(--tm-text); }
+
+  @media (max-width: 640px) {
+    .cfg-row { flex-direction: column; align-items: stretch; }
+    .cfg-row-ctrl { justify-content: flex-start; }
+    .cfg-token { width: 100%; }
+  }
 </style>
 
-{% if request.query_params.get('missing') == 'soundcloud' %}
-<div class="alert alert-warning py-2 mb-3">
-  Vinculá tu cuenta de <strong>SoundCloud</strong> desde el agente antes de importar. <a href="/primeros-pasos" class="alert-link">Ver cómo</a>.
+<div class="cfg-wrap">
+<div>
+  <h1 class="tm-page-title">Configuración</h1>
+  <p class="tm-page-sub">El agente que descarga en tu computadora, cómo bajan los temas y tu cuenta.</p>
 </div>
-{% elif request.query_params.get('missing') == 'spotify' %}
-<div class="alert alert-warning py-2 mb-3">
-  Conectá tu cuenta de <strong>Spotify</strong> antes de sincronizar.
+
+{% set missing = request.query_params.get('missing') %}
+{% if missing in ('soundcloud', 'youtube') %}
+<div class="alert alert-warning py-2 mt-3 mb-0">
+  Vinculá tu cuenta de <strong>{{ 'SoundCloud' if missing == 'soundcloud' else 'YouTube' }}</strong>
+  desde el agente, en el botón <strong><i class="bi bi-person"></i> Cuentas</strong>. <a href="/primeros-pasos" class="alert-link">Ver cómo</a>.
 </div>
-{% elif request.query_params.get('missing') == 'youtube' %}
-<div class="alert alert-warning py-2 mb-3">
-  Vinculá tu cuenta de <strong>YouTube</strong> desde el agente antes de importar. <a href="/primeros-pasos" class="alert-link">Ver cómo</a>.
-</div>
-{% elif request.query_params.get('missing') == 'spotify_credentials' %}
-<div class="alert alert-warning py-2 mb-3">
-  Configurá tu <strong>Spotify Client ID y Client Secret</strong> antes de conectar.
-</div>
+{% elif missing == 'spotify' %}
+<div class="alert alert-warning py-2 mt-3 mb-0">Conectá tu cuenta de <strong>Spotify</strong> antes de sincronizar.</div>
+{% elif missing == 'spotify_credentials' %}
+<div class="alert alert-warning py-2 mt-3 mb-0">Configurá tu <strong>Spotify Client ID y Client Secret</strong> antes de conectar.</div>
 {% endif %}
 
 {# Disconnect forms must live OUTSIDE the main settings form to avoid invalid nesting #}
@@ -75,18 +67,95 @@
 <form id="youtube-disconnect-form" method="POST" action="/sync/youtube/disconnect" hidden
       onsubmit="return confirmSubmit(this, 'Vas a desconectar YouTube. Los tracks ya importados se mantienen.', {label:'Desconectar', danger:true})"></form>
 
+{# ── Agente ─────────────────────────────────────────────────────── #}
+<section class="cfg-section" id="agente">
+  <h2 class="cfg-section-title">Agente de descarga</h2>
+  <div class="cfg-card">
+    <div class="cfg-intro">
+      <i class="bi bi-pc-display"></i>
+      <div>Es una aplicación que corre en tu computadora y baja los temas a la carpeta que elijas.
+        Tus cuentas de SoundCloud, YouTube, Muzpa y Deezer se vinculan desde ahí.
+        <strong>Tiene que estar abierto para que las descargas funcionen.</strong></div>
+    </div>
+
+    <div class="cfg-row">
+      <div class="cfg-row-text">
+        <p class="cfg-row-title"><span class="cfg-step">1</span>Descargá el agente</p>
+        <p class="cfg-row-desc">No hace falta instalarlo: lo abrís y listo.</p>
+      </div>
+      <div class="cfg-row-ctrl">
+        {% if agent_available %}
+        <a href="/api/download-agent" class="btn btn-primary btn-sm"><i class="bi bi-windows"></i> Windows</a>
+        {% endif %}
+        {% if agent_mac_arm or agent_mac_intel %}
+        <a href="/agente/mac" class="btn btn-primary btn-sm"><i class="bi bi-apple"></i> Mac</a>
+        {% endif %}
+        {% if not (agent_available or agent_mac_arm or agent_mac_intel) %}
+        <span class="text-muted small">Todavía no está publicado: el administrador tiene que configurar <code>AGENT_DOWNLOAD_URL</code>.</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="cfg-row">
+      <div class="cfg-row-text">
+        <p class="cfg-row-title"><span class="cfg-step">2</span>Pegá tu token en el agente</p>
+        <p class="cfg-row-desc">Va en el campo <strong>Token de acceso</strong> de la configuración del agente.</p>
+      </div>
+      <div class="cfg-row-ctrl">
+        <div id="agent-token-empty"{% if api_token %} class="d-none"{% endif %}>
+          <button class="btn btn-primary btn-sm" type="button" onclick="generateAgentToken()">Generar token</button>
+        </div>
+        <div id="agent-token-display" class="cfg-token{% if not api_token %} d-none{% endif %}">
+          <div class="input-group input-group-sm">
+            <input type="password" class="form-control font-monospace" id="agent-token-field"
+                   value="{{ api_token or '' }}" readonly aria-label="Token de acceso">
+            <button class="btn btn-outline-secondary" type="button" onclick="toggleAgentToken()" aria-label="Mostrar u ocultar"><i class="bi bi-eye"></i></button>
+            <button class="btn btn-outline-secondary" type="button" onclick="copyAgentToken()"><i class="bi bi-clipboard"></i> Copiar</button>
+          </div>
+          <button class="btn btn-link btn-sm p-0 text-muted mt-1" type="button" style="font-size:.78rem;"
+                  onclick="generateAgentToken()">Regenerar token</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="cfg-row">
+      <div class="cfg-row-text">
+        <p class="cfg-row-title"><span class="cfg-step">3</span>Vinculá tus cuentas</p>
+        <p class="cfg-row-desc">En el agente, botón <i class="bi bi-person"></i> Cuentas: te logueás como en el navegador y la sesión queda guardada.</p>
+      </div>
+      <div class="cfg-row-ctrl">
+        <a href="/primeros-pasos" class="btn btn-outline-secondary btn-sm"><i class="bi bi-signpost"></i> Ver primeros pasos</a>
+      </div>
+    </div>
+  </div>
+</section>
+
 <form id="settings-form" method="POST" action="/settings">
-<div class="row g-4 align-items-start">
 
-  {# ── Columna izquierda: Cuentas ───────────────────────────────── #}
-  <div class="col-lg-6">
-    <div class="cfg-card" id="cuentas">
-      <div class="cfg-card-head"><i class="bi bi-person-badge"></i> Cuentas</div>
+{# ── Descargas: el interruptor guarda solo ──────────────────────── #}
+<section class="cfg-section" id="descargas">
+  <h2 class="cfg-section-title">Descargas</h2>
+  <div class="cfg-card">
+    <label class="cfg-row mb-0" for="download-eps" style="cursor:pointer;">
+      <span class="cfg-row-text">
+        <span class="cfg-row-title d-block">Descargar EPs completos</span>
+        <span class="cfg-row-desc d-block">Si el track es parte de un EP o álbum, baja todos los temas en una subcarpeta.</span>
+      </span>
+      <span class="form-check form-switch cfg-switch m-0">
+        <input class="form-check-input" type="checkbox" role="switch" name="download_full_eps" id="download-eps"
+               {% if current.get('download_full_eps') %}checked{% endif %}
+               onchange="this.form.requestSubmit()">
+      </span>
+    </label>
+  </div>
+</section>
 
-      {# SoundCloud, YouTube, Muzpa y Deezer se conectan desde el agente.
-         SHOW_LEGACY_SETTINGS=true los vuelve a mostrar acá. #}
-      {% if show_legacy_settings %}
-
+{# SoundCloud, YouTube, Muzpa y Deezer se conectan desde el agente.
+   SHOW_LEGACY_SETTINGS=true los vuelve a mostrar acá. #}
+{% if show_legacy_settings %}
+<section class="cfg-section" id="cuentas">
+  <h2 class="cfg-section-title">Cuentas</h2>
+  <div class="cfg-card">
       {# YouTube #}
       <div class="svc-row svc-youtube">
         <div class="d-flex align-items-center justify-content-between">
@@ -161,31 +230,17 @@
         </div>
       </div>
 
-      {% else %}
+    <div class="cfg-form"><button type="submit" class="btn btn-primary btn-sm px-4">Guardar cuentas</button></div>
+  </div>
+</section>
+{% endif %}
 
-      <div class="svc-row svc-sc">
-        <div class="svc-name mb-1"><span class="svc-dot dot-sc"></span>Cuentas de música</div>
-        <p style="font-size:0.85rem;color:var(--tm-muted);margin:0;">
-          SoundCloud, YouTube, Muzpa y Deezer se vinculan desde el
-          <strong style="color:var(--tm-text);">agente</strong>, en el botón
-          <strong style="color:var(--tm-text);"><i class="bi bi-person"></i> Cuentas</strong>. Te logueás en una
-          ventana como lo harías en el navegador y el agente guarda la sesión solo.
-          {% if not api_token %}
-            Generá el token y descargá el agente desde el panel de la derecha.
-          {% endif %}
-        </p>
-        <div class="d-flex gap-2 flex-wrap mt-1">
-          <a href="/primeros-pasos" class="btn btn-outline-secondary btn-sm"><i class="bi bi-signpost"></i> Ver cómo vincularlas</a>
-          <a href="/ayuda#agente" class="btn btn-link btn-sm text-muted" style="font-size:.78rem;">Más en la ayuda</a>
-        </div>
-      </div>
-
-      {% endif %}
-
-      {# Spotify — solo admin, bloqueado en Railway: va escondido en Avanzado #}
-      {% if is_admin %}
-      <details class="cfg-adv">
-        <summary><i class="bi bi-chevron-right"></i> Avanzado: Spotify (solo administrador)</summary>
+{# Spotify — solo admin, bloqueado en Railway: va escondido en Avanzado.
+   Sus campos viven en settings-form para que "Conectar" los guarde antes. #}
+{% if is_admin %}
+<section class="cfg-section">
+  <details class="cfg-card cfg-adv">
+    <summary><i class="bi bi-chevron-right"></i> Avanzado: Spotify (solo administrador)</summary>
         <div class="svc-row svc-spotify">
           <div class="d-flex align-items-center justify-content-between">
             <div class="svc-name"><span class="svc-dot dot-spotify"></span>Spotify</div>
@@ -219,108 +274,14 @@
             </button>
           {% endif %}
         </div>
-      </details>
-      {% endif %}
-    </div>
-  </div>
+  </details>
+</section>
+{% endif %}
 
-  {# ── Columna derecha: Descargas + Agente ──────────────────────── #}
-  <div class="col-lg-6 d-flex flex-column gap-4">
-
-    <div class="cfg-card" id="descargas">
-      <div class="cfg-card-head"><i class="bi bi-sliders"></i> Descargas</div>
-      <div class="pref-section">
-        <div class="form-check">
-          <input class="form-check-input" type="checkbox" name="download_full_eps" id="download-eps"
-                 {% if current.get('download_full_eps') %}checked{% endif %}>
-          <label class="form-check-label" for="download-eps" style="font-size:0.875rem; font-weight:500;">
-            Descargar EPs completos
-          </label>
-          <div class="form-text" style="font-size:0.75rem;">
-            Cuando el track pertenece a un EP o álbum, baja todos los temas en una subcarpeta.
-          </div>
-        </div>
-        <button type="submit" class="btn btn-primary btn-sm px-4 mt-3">Guardar</button>
-      </div>
-    </div>
-
-    {# ── Agente de Descarga ──────────────────────────────────── #}
-    <div class="cfg-card" id="agente">
-      <div class="cfg-card-head"><i class="bi bi-pc-display"></i> Agente de descarga</div>
-
-      <div class="pref-section" style="border-bottom:1px solid var(--tm-border);">
-        <p style="font-size:0.85rem;color:var(--tm-muted);margin:0;">
-          El agente es una aplicación que descargás y corrés en tu computadora, sin instalación. Hace las descargas
-          en la carpeta que vos elegís. <strong style="color:var(--tm-text);">Tiene que estar abierto para que las descargas funcionen.</strong>
-        </p>
-      </div>
-
-      <div class="row g-0">
-
-      {# Token #}
-      <div class="col-lg-6 pref-section" style="border-right:1px solid var(--tm-border);">
-        <div class="pref-title">Token de acceso</div>
-        <div class="form-text mb-2" style="font-size:0.75rem;">
-          Copialo y pegalo en el campo <strong>Token de acceso</strong> de la configuración del agente.
-        </div>
-
-        {% if api_token %}
-        <div id="agent-token-display">
-          <div class="input-group input-group-sm mb-1">
-            <input type="password" class="form-control font-monospace" id="agent-token-field"
-                   value="{{ api_token }}" readonly aria-label="Token de acceso">
-            <button class="btn btn-outline-secondary" type="button" onclick="toggleAgentToken()" aria-label="Mostrar u ocultar"><i class="bi bi-eye"></i></button>
-            <button class="btn btn-outline-secondary" type="button" onclick="copyAgentToken()"><i class="bi bi-clipboard"></i> Copiar</button>
-          </div>
-          <button class="btn btn-link btn-sm p-0 text-muted mt-2" type="button" style="font-size:.78rem;"
-                  onclick="generateAgentToken()">Regenerar token</button>
-        </div>
-        {% else %}
-        <div id="agent-token-empty">
-          <button class="btn btn-primary btn-sm" type="button" onclick="generateAgentToken()">Generar token</button>
-        </div>
-        <div id="agent-token-display" class="d-none">
-          <div class="input-group input-group-sm mb-1">
-            <input type="password" class="form-control font-monospace" id="agent-token-field" value="" readonly aria-label="Token de acceso">
-            <button class="btn btn-outline-secondary" type="button" onclick="toggleAgentToken()" aria-label="Mostrar u ocultar"><i class="bi bi-eye"></i></button>
-            <button class="btn btn-outline-secondary" type="button" onclick="copyAgentToken()"><i class="bi bi-clipboard"></i> Copiar</button>
-          </div>
-        </div>
-        {% endif %}
-      </div>
-
-      {# Instalación #}
-      <div class="col-lg-6 pref-section">
-        <div class="pref-title">Instalación</div>
-
-        {% if agent_available or agent_mac_arm or agent_mac_intel %}
-        <div class="d-flex flex-wrap gap-2 mb-2">
-          {% if agent_available %}
-          <a href="/api/download-agent" class="btn btn-primary btn-sm"><i class="bi bi-windows"></i> Windows</a>
-          {% endif %}
-          {% if agent_mac_arm or agent_mac_intel %}
-          <a href="/agente/mac" class="btn btn-primary btn-sm"><i class="bi bi-apple"></i> Mac</a>
-          {% endif %}
-        </div>
-        {% else %}
-        <p class="text-muted mb-3" style="font-size:0.78rem;">
-          El agente aún no está disponible para descarga.<br>
-          El administrador debe publicarlo o configurar <code>AGENT_DOWNLOAD_URL</code>.
-        </p>
-        {% endif %}
-
-        <a href="/primeros-pasos" class="btn btn-link btn-sm p-0 text-muted d-block" style="font-size:0.78rem;">Ver los primeros pasos de nuevo</a>
-      </div>{# /col-lg-6 instalación #}
-
-      </div>{# /row g-0 #}
-    </div>{# /cfg-card agente #}
-
-  </div>{# /col-lg-6 right #}
-</div>{# /row #}
 </form>
 
 {# ── Tu cuenta: formularios propios, fuera de settings-form ─────────── #}
-{% set cuenta = request.query_params.get('cuenta') %}
+{% set cuenta = request.query_params.get('cuenta') or '' %}
 {% set cuenta_msgs = {
   'email_ok':    ('success', 'Email guardado.'),
   'email_dup':   ('danger',  'Ese email ya lo usa otra cuenta.'),
@@ -329,34 +290,38 @@
   'pw_mismatch': ('danger',  'Las contraseñas nuevas no coinciden.'),
   'pw_short':    ('danger',  'La contraseña nueva debe tener al menos 8 caracteres.'),
 } %}
-<div class="cfg-card mt-4" id="tu-cuenta">
-  <div class="cfg-card-head"><i class="bi bi-shield-lock"></i> Tu cuenta</div>
-  {% if cuenta in cuenta_msgs %}
-    <div class="alert alert-{{ cuenta_msgs[cuenta][0] }} py-2 mx-3 mt-3 mb-0" role="status">{{ cuenta_msgs[cuenta][1] }}</div>
-  {% endif %}
-  <div class="row g-0">
-    <form class="col-lg-6 pref-section" method="POST" action="/settings/email" style="border-right:1px solid var(--tm-border);">
-      <div class="pref-title">Email</div>
-      <label class="form-label" for="acc-email">Tu email</label>
-      <input type="email" name="email" id="acc-email" class="form-control form-control-sm mb-2"
-             value="{{ account_email }}" autocomplete="email" placeholder="vos@ejemplo.com">
-      <p class="text-muted small mb-3">Lo usamos solo para mandarte un link si te olvidás la contraseña.
+<section class="cfg-section mb-4" id="tu-cuenta">
+  <h2 class="cfg-section-title">Tu cuenta</h2>
+  <div class="cfg-card">
+    {% if cuenta in cuenta_msgs %}
+      <div class="alert alert-{{ cuenta_msgs[cuenta][0] }} py-2 mx-3 mt-3 mb-0" role="status">{{ cuenta_msgs[cuenta][1] }}</div>
+    {% endif %}
+    <form class="cfg-form" method="POST" action="/settings/email">
+      <label class="cfg-row-title d-block" for="acc-email">Email</label>
+      <p class="cfg-row-desc mb-2">Lo usamos solo para mandarte un link si te olvidás la contraseña.
         {% if not account_email %}<strong>Sin email no vas a poder recuperarla.</strong>{% endif %}</p>
-      <button type="submit" class="btn btn-outline-primary btn-sm">Guardar email</button>
+      <div class="d-flex gap-2 flex-wrap">
+        <input type="email" name="email" id="acc-email" class="form-control form-control-sm" style="max-width:320px;"
+               value="{{ account_email }}" autocomplete="email" placeholder="vos@ejemplo.com">
+        <button type="submit" class="btn btn-outline-primary btn-sm">Guardar email</button>
+      </div>
     </form>
-    <form class="col-lg-6 pref-section" method="POST" action="/settings/password">
-      <div class="pref-title">Cambiar contraseña</div>
-      <input type="text" name="username" value="{{ request.state.user.username if request.state.user is defined and request.state.user else '' }}" autocomplete="username" hidden>
-      <label class="form-label" for="acc-pw-current">Contraseña actual</label>
-      <input type="password" name="current" id="acc-pw-current" class="form-control form-control-sm mb-2" autocomplete="current-password" required>
-      <label class="form-label" for="acc-pw-new">Contraseña nueva</label>
-      <input type="password" name="password" id="acc-pw-new" class="form-control form-control-sm mb-2" autocomplete="new-password" minlength="8" required>
-      <label class="form-label" for="acc-pw-new2">Repetí la contraseña nueva</label>
-      <input type="password" name="password2" id="acc-pw-new2" class="form-control form-control-sm mb-3" autocomplete="new-password" minlength="8" required>
-      <button type="submit" class="btn btn-outline-primary btn-sm">Cambiar contraseña</button>
-    </form>
+    <details class="cfg-adv" style="border-top:1px solid var(--tm-border);"{% if cuenta.startswith('pw_') and cuenta != 'pw_ok' %} open{% endif %}>
+      <summary><i class="bi bi-chevron-right"></i> Cambiar contraseña</summary>
+      <form class="cfg-form" method="POST" action="/settings/password" style="max-width:360px;">
+        <input type="text" name="username" value="{{ request.state.user.username if request.state.user is defined and request.state.user else '' }}" autocomplete="username" hidden>
+        <label class="form-label" for="acc-pw-current">Contraseña actual</label>
+        <input type="password" name="current" id="acc-pw-current" class="form-control form-control-sm mb-2" autocomplete="current-password" required>
+        <label class="form-label" for="acc-pw-new">Contraseña nueva</label>
+        <input type="password" name="password" id="acc-pw-new" class="form-control form-control-sm mb-2" autocomplete="new-password" minlength="8" required>
+        <label class="form-label" for="acc-pw-new2">Repetí la contraseña nueva</label>
+        <input type="password" name="password2" id="acc-pw-new2" class="form-control form-control-sm mb-3" autocomplete="new-password" minlength="8" required>
+        <button type="submit" class="btn btn-outline-primary btn-sm">Cambiar contraseña</button>
+      </form>
+    </details>
   </div>
-</div>
+</section>
+</div>{# /cfg-wrap #}
 
 <script>
 async function verifyCredential(service) {
