@@ -11,7 +11,7 @@ class ReportStatus(str, enum.Enum):
 
 
 REPORT_CATEGORIES = [
-    ("metadata_incorrect",    "Metadata incorrecta"),
+    ("metadata_incorrect",    "Datos del track incorrectos"),
     ("wrong_file_downloaded", "Archivo incorrecto descargado"),
     ("wrong_folder",          "Carpeta incorrecta"),
     ("track_not_found",       "Track no encontrado"),

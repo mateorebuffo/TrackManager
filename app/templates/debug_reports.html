@@ -81,7 +81,7 @@
         </tr>
       </thead>
       <tbody>
-        {% set cat_labels = {"metadata_incorrect": "Metadata incorrecta", "wrong_file_downloaded": "Archivo incorrecto", "wrong_folder": "Carpeta incorrecta", "track_not_found": "Track no encontrado", "duplicate_problem": "Duplicado", "other": "Otro"} %}
+        {% set cat_labels = dict(categories) %}
         {% set st_labels  = {"open": "Abierto", "reviewed": "Revisado", "resolved": "Resuelto"} %}
         {% for r in reports %}
         {% set st_badge = {"open": "badge bg-danger", "reviewed": "badge bg-warning text-dark", "resolved": "badge bg-success"}.get(r.status.value, "badge bg-secondary") %}
