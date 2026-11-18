@@ -26,7 +26,7 @@ from app.auth_middleware import get_current_user
 from app.db import get_db
 from app.models.app_event import AppEvent
 from app.models.normalized_track import NormalizedTrack
-from app.models.review_item import ReviewItem
+from app.models.review_item import ReviewItem, TrackStatus
 from app.models.source_track import SourceTrack
 from app.models.track_history import TrackHistory
 from app.models.user import User
@@ -185,6 +185,23 @@ def debug_reports(
         q = q.filter(UserReport.status == status)
     reports = q.order_by(UserReport.created_at.desc()).limit(200).all()
 
+    # Descargados del usuario, para el buscador del formulario (el nº de review no lo conoce nadie)
+    # ponytail: tope de 1000 en un <datalist>; pasar a búsqueda por fetch si alguien tiene más
+    downloaded = (
+        db.query(ReviewItem.id, NormalizedTrack.normalized_artist, NormalizedTrack.normalized_title,
+                 NormalizedTrack.version_info)
+        .join(ReviewItem.normalized_track)
+        .join(NormalizedTrack.source_track)
+        .filter(SourceTrack.user_id == current_user.id, ReviewItem.status == TrackStatus.downloaded)
+        .order_by(ReviewItem.reviewed_at.desc())
+        .limit(1000)
+        .all()
+    )
+    track_options = []
+    for rid, artist, title, version in downloaded:
+        full = f"{title} ({version})" if version else (title or "")
+        track_options.append((rid, f"{artist} - {full}" if artist else full))
+
     return templates.TemplateResponse(
         "debug_reports.html",
         {
@@ -194,6 +211,7 @@ def debug_reports(
             "active_status": status or "",
             "is_admin": current_user.is_admin,
             "submitted": submitted == "1",
+            "track_options": track_options,
         },
     )
 

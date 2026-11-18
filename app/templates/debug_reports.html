@@ -16,10 +16,13 @@
   <div class="card-header">Nuevo reporte</div>
   <div class="card-body">
     <form method="POST" action="/debug/reports" class="row g-3">
-      <div class="col-md-2">
+      <div class="col-md-3">
         <label class="form-label" for="rep-track">Track (opcional)</label>
-        <input type="number" name="track_id" id="rep-track" class="form-control form-control-sm"
-               placeholder="Nº del track" data-bs-toggle="tooltip" data-bs-title="Lo ves en el historial del track (la banderita en su fila)">
+        <input type="search" id="rep-track" list="rep-tracks" class="form-control form-control-sm"
+               placeholder="Buscar entre tus descargados…" autocomplete="off"
+               oninput="const o=[...document.getElementById('rep-tracks').options].find(o=>o.value===this.value);document.getElementById('rep-track-id').value=o?o.dataset.id:''">
+        <input type="hidden" name="track_id" id="rep-track-id">
+        <datalist id="rep-tracks">{% for rid, label in track_options %}<option value="{{ label }}" data-id="{{ rid }}">{% endfor %}</datalist>
       </div>
       <div class="col-md-3">
         <label class="form-label" for="rep-cat">Categoría</label>
@@ -29,7 +32,7 @@
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-5">
+      <div class="col-md-4">
         <label class="form-label" for="rep-desc">Descripción</label>
         <textarea name="description" id="rep-desc" class="form-control form-control-sm" rows="2"
                   placeholder="Qué tocaste, qué esperabas y qué pasó…" required></textarea>
