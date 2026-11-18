@@ -16,13 +16,20 @@
   <div class="card-header">Nuevo reporte</div>
   <div class="card-body">
     <form method="POST" action="/debug/reports" class="row g-3">
-      <div class="col-md-3">
+      <div class="col-md-3 position-relative">
         <label class="form-label" for="rep-track">Track (opcional)</label>
-        <input type="search" id="rep-track" list="rep-tracks" class="form-control form-control-sm"
+        <input type="search" id="rep-track" class="form-control form-control-sm"
                placeholder="Buscar entre tus descargados…" autocomplete="off"
-               oninput="const o=[...document.getElementById('rep-tracks').options].find(o=>o.value===this.value);document.getElementById('rep-track-id').value=o?o.dataset.id:''">
+               role="combobox" aria-expanded="false" aria-controls="rep-tracks" aria-autocomplete="list">
         <input type="hidden" name="track_id" id="rep-track-id">
-        <datalist id="rep-tracks">{% for rid, label in track_options %}<option value="{{ label }}" data-id="{{ rid }}">{% endfor %}</datalist>
+        <ul class="dropdown-menu rep-tracks" id="rep-tracks" role="listbox">
+          {% for t in track_options %}
+          <li role="option" id="rep-opt-{{ t.id }}" class="dropdown-item" data-id="{{ t.id }}" data-label="{{ t.label }}">
+            <span class="rep-label">{{ t.label }}</span><span class="rep-date">{{ t.date }}</span>
+          </li>
+          {% endfor %}
+          <li class="rep-empty">{{ 'Ningún descargado coincide' if track_options else 'Todavía no descargaste tracks' }}</li>
+        </ul>
       </div>
       <div class="col-md-3">
         <label class="form-label" for="rep-cat">Categoría</label>
@@ -127,4 +134,77 @@
 {% else %}
 <div class="tm-empty"><i class="bi bi-chat-square-text"></i><h2>No hay reportes</h2><p>Cuando mandes uno, acá vas a ver en qué estado está.</p></div>
 {% endif %}
+
+<style>
+  .rep-tracks { width: max(calc(100% - var(--bs-gutter-x)), 30rem); max-width: calc(100vw - 2rem); max-height: 280px; overflow-y: auto; font-size: 0.84rem;
+                border: 1px solid var(--tm-border); border-radius: var(--tm-radius); box-shadow: var(--tm-shadow-md); }
+  .rep-tracks .dropdown-item { display: flex; gap: .75rem; align-items: baseline; cursor: pointer; }
+  .rep-tracks .dropdown-item.active, .rep-tracks .dropdown-item:hover { background: var(--tm-primary-soft); color: var(--tm-primary-h); }
+  .rep-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rep-date { color: var(--tm-muted); font-size: 0.75rem; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+  .rep-empty { padding: .4rem 1rem; color: var(--tm-muted); display: none; }
+</style>
+<script>
+(function () {
+  const input = document.getElementById('rep-track');
+  const hidden = document.getElementById('rep-track-id');
+  const menu = document.getElementById('rep-tracks');
+  const items = [...menu.querySelectorAll('[data-id]')];
+  const empty = menu.querySelector('.rep-empty');
+  let active = -1;
+
+  const visible = () => items.filter(li => !li.hidden);
+  function setActive(i) {
+    const v = visible();
+    items.forEach(li => li.classList.remove('active'));
+    active = v.length && i >= 0 ? i % v.length : -1;
+    if (active < 0) return input.removeAttribute('aria-activedescendant');
+    v[active].classList.add('active');
+    v[active].scrollIntoView({ block: 'nearest' });
+    input.setAttribute('aria-activedescendant', v[active].id);
+  }
+  function open() {
+    const q = input.value.trim().toLowerCase();
+    let shown = 0;
+    items.forEach(li => { li.hidden = !li.dataset.label.toLowerCase().includes(q); if (!li.hidden) shown++; });
+    empty.style.display = shown ? 'none' : 'block';
+    menu.classList.add('show');
+    input.setAttribute('aria-expanded', 'true');
+    setActive(-1);
+  }
+  function close() {
+    menu.classList.remove('show');
+    input.setAttribute('aria-expanded', 'false');
+  }
+  function pick(li) {
+    input.value = li.dataset.label;
+    hidden.value = li.dataset.id;
+    close();
+  }
+
+  input.addEventListener('focus', open);
+  input.addEventListener('input', () => { hidden.value = ''; open(); });
+  input.addEventListener('blur', close);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!menu.classList.contains('show')) open();
+      const n = visible().length;
+      if (e.key === 'ArrowDown') setActive(active + 1);
+      else setActive(active <= 0 ? n - 1 : active - 1);
+    } else if (e.key === 'Enter' && menu.classList.contains('show') && active >= 0) {
+      e.preventDefault();
+      pick(visible()[active]);
+    } else if (e.key === 'Escape') {
+      close();
+    }
+  });
+  // mousedown antes del blur del input, así el clic llega a elegir
+  menu.addEventListener('mousedown', e => {
+    e.preventDefault();
+    const li = e.target.closest('[data-id]');
+    if (li) pick(li);
+  });
+})();
+</script>
 {% endblock %}

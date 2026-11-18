@@ -20,12 +20,14 @@ logger = logging.getLogger(__name__)
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.auth_middleware import get_current_user
 from app.db import get_db
 from app.models.app_event import AppEvent
 from app.models.normalized_track import NormalizedTrack
+from app.models.download_job import DownloadJob, JobStatus
 from app.models.review_item import ReviewItem, TrackStatus
 from app.models.source_track import SourceTrack
 from app.models.track_history import TrackHistory
@@ -186,21 +188,34 @@ def debug_reports(
     reports = q.order_by(UserReport.created_at.desc()).limit(200).all()
 
     # Descargados del usuario, para el buscador del formulario (el nº de review no lo conoce nadie)
-    # ponytail: tope de 1000 en un <datalist>; pasar a búsqueda por fetch si alguien tiene más
+    # ponytail: tope de 1000 renderizados en la página; pasar a búsqueda por fetch si alguien tiene más
+    # Fecha de descarga: la del agente (download_jobs.downloaded_at) o, si se marcó a mano, reviewed_at.
+    last_dl = (
+        db.query(DownloadJob.review_id, func.max(DownloadJob.downloaded_at).label("at"))
+        .filter(DownloadJob.user_id == current_user.id, DownloadJob.status == JobStatus.completed)
+        .group_by(DownloadJob.review_id)
+        .subquery()
+    )
+    downloaded_at = func.coalesce(last_dl.c.at, ReviewItem.reviewed_at)
     downloaded = (
         db.query(ReviewItem.id, NormalizedTrack.normalized_artist, NormalizedTrack.normalized_title,
-                 NormalizedTrack.version_info)
+                 NormalizedTrack.version_info, downloaded_at)
         .join(ReviewItem.normalized_track)
         .join(NormalizedTrack.source_track)
+        .outerjoin(last_dl, last_dl.c.review_id == ReviewItem.id)
         .filter(SourceTrack.user_id == current_user.id, ReviewItem.status == TrackStatus.downloaded)
-        .order_by(ReviewItem.reviewed_at.desc())
+        .order_by(downloaded_at.desc().nulls_last(), ReviewItem.id.desc())
         .limit(1000)
         .all()
     )
     track_options = []
-    for rid, artist, title, version in downloaded:
+    for rid, artist, title, version, at in downloaded:
         full = f"{title} ({version})" if version else (title or "")
-        track_options.append((rid, f"{artist} - {full}" if artist else full))
+        track_options.append({
+            "id": rid,
+            "label": f"{artist} - {full}" if artist else full,
+            "date": at.strftime("%d/%m/%Y") if at else "",
+        })
 
     return templates.TemplateResponse(
         "debug_reports.html",
