@@ -45,8 +45,11 @@
       <div class="row g-3 text-center" id="summary-row">
 
         <div class="col" id="col-completed" {% if not completed_count %}style="display:none"{% endif %}>
-          <div class="fs-4 fw-bold" style="color:var(--tm-success-text);" id="n-completed">{{ completed_count }}</div>
-          <div class="small text-muted">Descargados</div>
+          <a href="?batch_id={{ batch_id }}&status_filter=completed" class="text-decoration-none d-block
+            {% if active_filter == 'completed' %}rounded p-2 border border-secondary bg-light{% endif %}">
+            <div class="fs-4 fw-bold" style="color:var(--tm-success-text);" id="n-completed">{{ completed_count }}</div>
+            <div class="small text-muted">Descargados</div>
+          </a>
         </div>
 
         <div class="col" id="col-not_found" {% if not not_found_count %}style="display:none"{% endif %}>
